@@ -1,0 +1,94 @@
+# Eastron Device Types
+#
+# This file contains device type definitions for Eastron devices.
+# Part of the Enerooo Spark Device Library.
+#
+# Format compatible with Spark's import/export at /edge/data/import/
+
+device_types:
+- vendor_name: Eastron
+  model_number: SEM3-WL
+  device_type: modbus
+  description: Three-phase energy meter with CT input and WiFi. Uses IEEE 754 float format, compatible
+    with SDM630 protocol.
+  register_definitions:
+    pf_l1:
+      type: float32
+      unit: ''
+      scale: 1.0
+      address: 30
+    pf_l2:
+      type: float32
+      unit: ''
+      scale: 1.0
+      address: 32
+    pf_l3:
+      type: float32
+      unit: ''
+      scale: 1.0
+      address: 34
+    power_w:
+      type: float32
+      unit: W
+      scale: 1.0
+      address: 52
+    power_l1:
+      type: float32
+      unit: W
+      scale: 1.0
+      address: 12
+    power_l2:
+      type: float32
+      unit: W
+      scale: 1.0
+      address: 14
+    power_l3:
+      type: float32
+      unit: W
+      scale: 1.0
+      address: 16
+    current_l1:
+      type: float32
+      unit: A
+      scale: 1.0
+      address: 6
+    current_l2:
+      type: float32
+      unit: A
+      scale: 1.0
+      address: 8
+    current_l3:
+      type: float32
+      unit: A
+      scale: 1.0
+      address: 10
+    voltage_l1:
+      type: float32
+      unit: V
+      scale: 1.0
+      address: 0
+    voltage_l2:
+      type: float32
+      unit: V
+      scale: 1.0
+      address: 2
+    voltage_l3:
+      type: float32
+      unit: V
+      scale: 1.0
+      address: 4
+    frequency_hz:
+      type: float32
+      unit: Hz
+      scale: 1.0
+      address: 70
+    energy_export_kwh:
+      type: float32
+      unit: kWh
+      scale: 1.0
+      address: 74
+    energy_import_kwh:
+      type: float32
+      unit: kWh
+      scale: 1.0
+      address: 72

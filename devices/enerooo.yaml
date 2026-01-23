@@ -1,0 +1,117 @@
+# ENEROOO Device Types
+#
+# This file contains device type definitions for ENEROOO devices.
+# Part of the Enerooo Spark Device Library.
+#
+# Format compatible with Spark's import/export at /edge/data/import/
+
+device_types:
+- vendor_name: ENEROOO
+  model_number: ER10M
+  device_type: modbus
+  description: Enerooo ER10M Single-Phase Meter
+  register_definitions:
+    driver:
+      defaults:
+        function: input
+        byte_order: big_endian
+        word_order: high_first
+      registers:
+      - name: voltage
+        unit: V
+        scale: 0.1
+        address: 300259
+        data_type: u16
+      - name: frequency
+        unit: Hz
+        scale: 0.01
+        address: 300273
+        data_type: u16
+      - name: power_factor
+        unit: ''
+        scale: 0.001
+        address: 300269
+        data_type: i16
+      - name: instant_power
+        unit: W
+        address: 300263
+        data_type: i32
+      - name: energy_import_int
+        unit: kWh
+        address: 301025
+        data_type: u32
+      - name: energy_import_dec
+        unit: kWh
+        scale: 0.01
+        address: 301027
+        data_type: u16
+      - name: energy_export_int
+        unit: kWh
+        address: 301033
+        data_type: u32
+      - name: energy_export_dec
+        unit: kWh
+        scale: 0.01
+        address: 301035
+        data_type: u16
+- vendor_name: ENEROOO
+  model_number: ER12M
+  device_type: modbus
+  description: Enerooo ER12M Three-Phase Meter
+  register_definitions:
+    driver:
+      defaults:
+        function: input
+        byte_order: big_endian
+        word_order: high_first
+      registers:
+      - name: voltage_l1
+        unit: V
+        scale: 0.1
+        address: 300289
+        data_type: u16
+      - name: voltage_l2
+        unit: V
+        scale: 0.1
+        address: 300303
+        data_type: u16
+      - name: voltage_l3
+        unit: V
+        scale: 0.1
+        address: 300317
+        data_type: u16
+      - name: power_factor_l1
+        unit: ''
+        scale: 0.001
+        address: 300299
+        data_type: i16
+      - name: power_factor_l2
+        unit: ''
+        scale: 0.001
+        address: 300313
+        data_type: i16
+      - name: power_factor_l3
+        unit: ''
+        scale: 0.001
+        address: 300327
+        data_type: i16
+      - name: instant_power_l1
+        unit: W
+        address: 300293
+        data_type: i32
+      - name: instant_power_l2
+        unit: W
+        address: 300307
+        data_type: i32
+      - name: instant_power_l3
+        unit: W
+        address: 300321
+        data_type: i32
+      - name: energy_import
+        unit: kWh
+        address: 301281
+        data_type: u32
+      - name: energy_export
+        unit: kWh
+        address: 301309
+        data_type: u32

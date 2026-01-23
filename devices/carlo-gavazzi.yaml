@@ -1,0 +1,231 @@
+# Carlo Gavazzi Device Types
+#
+# This file contains device type definitions for Carlo Gavazzi devices.
+# Part of the Enerooo Spark Device Library.
+#
+# Format compatible with Spark's import/export at /edge/data/import/
+
+device_types:
+- vendor_name: Carlo Gavazzi
+  model_number: EM111
+  device_type: modbus
+  description: Single-phase energy meter, 32A direct connection. Measures voltage, current, power, energy,
+    power factor, and frequency.
+  register_definitions:
+    power_w:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 4
+    current_a:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 2
+    voltage_v:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 0
+    frequency_hz:
+      type: uint16
+      unit: Hz
+      scale: 0.1
+      address: 11
+    power_factor:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 10
+    apparent_power_va:
+      type: int32
+      unit: VA
+      scale: 0.1
+      address: 6
+    energy_export_kwh:
+      type: int32
+      unit: kWh
+      scale: 0.1
+      address: 14
+    energy_import_kwh:
+      type: int32
+      unit: kWh
+      scale: 0.1
+      address: 12
+    reactive_power_var:
+      type: int32
+      unit: VAr
+      scale: 0.1
+      address: 8
+- vendor_name: Carlo Gavazzi
+  model_number: EM530
+  device_type: modbus
+  description: Three-phase energy meter with CT (current transformer) input. Same protocol as EM540, requires
+    CT ratio configuration.
+  register_definitions:
+    pf_l1:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 20
+    pf_l2:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 21
+    pf_l3:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 22
+    power_w:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 18
+    power_l1:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 12
+    power_l2:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 14
+    power_l3:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 16
+    current_l1:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 6
+    current_l2:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 8
+    current_l3:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 10
+    voltage_l1:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 0
+    voltage_l2:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 2
+    voltage_l3:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 4
+    frequency_hz:
+      type: uint16
+      unit: Hz
+      scale: 0.1
+      address: 23
+    energy_export_kwh:
+      type: int32
+      unit: kWh
+      scale: 0.1
+      address: 26
+    energy_import_kwh:
+      type: int32
+      unit: kWh
+      scale: 0.1
+      address: 24
+- vendor_name: Carlo Gavazzi
+  model_number: EM540
+  device_type: modbus
+  description: Three-phase energy meter, 65A direct connection. Measures per-phase and total voltage,
+    current, power, and energy.
+  register_definitions:
+    pf_l1:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 20
+    pf_l2:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 21
+    pf_l3:
+      type: int16
+      unit: ''
+      scale: 0.001
+      address: 22
+    power_w:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 18
+    power_l1:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 12
+    power_l2:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 14
+    power_l3:
+      type: int32
+      unit: W
+      scale: 0.1
+      address: 16
+    current_l1:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 6
+    current_l2:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 8
+    current_l3:
+      type: int32
+      unit: A
+      scale: 0.001
+      address: 10
+    voltage_l1:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 0
+    voltage_l2:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 2
+    voltage_l3:
+      type: int32
+      unit: V
+      scale: 0.1
+      address: 4
+    frequency_hz:
+      type: uint16
+      unit: Hz
+      scale: 0.1
+      address: 23
+    energy_export_kwh:
+      type: int32
+      unit: kWh
+      scale: 0.1
+      address: 26
+    energy_import_kwh:
+      type: int32
+      unit: kWh
+      scale: 0.1
+      address: 24
