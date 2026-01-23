@@ -1,0 +1,18 @@
+# Enerooo Spark Device Library Manifest
+#
+# This file contains metadata about the device library.
+# Servers sync this file first to check for updates.
+
+version: "0.0.1"
+released: "2026-01-23"
+
+# List of vendor files in devices/ directory
+vendors:
+  - name: "Carlo Gavazzi"
+    file: "carlo-gavazzi.yaml"
+  - name: "Eastron"
+    file: "eastron.yaml"
+  - name: "Enerooo"
+    file: "enerooo.yaml"
+  - name: "Orno"
+    file: "orno.yaml"
