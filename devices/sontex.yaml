@@ -1,0 +1,35 @@
+# Sontex Device Types
+#
+# This file contains unified device type definitions for Sontex devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Sontex
+  model_number: SON Warm water meter (0x06)
+  name: Sontex SON Warm water meter (0x06)
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: SON
+    wmbus_device_type: 6
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Sontex
+  model_number: SON Water meter (0x07)
+  name: Sontex SON Water meter (0x07)
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: SON
+    wmbus_device_type: 7
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
