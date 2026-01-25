@@ -41,3 +41,12 @@ device_types:
       data_type: uint16
   control_config: {}
   processor_config: {}
+- vendor_name: ENEROOO
+  model_number: Enerooo Edge Gateway
+  name: Edge Gateway
+  device_type: gateway
+  description: ''
+  technology_config:
+    technology: modbus
+  control_config: {}
+  processor_config: {}
