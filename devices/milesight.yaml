@@ -28,3 +28,12 @@ device_types:
     controllable: true
   processor_config:
     decoder_type: milesight_ws523
+- vendor_name: Milesight
+  model_number: WT101
+  name: Milesight WT101
+  device_type: environment_sensor
+  description: ''
+  technology_config:
+    technology: lorawan
+  control_config: {}
+  processor_config: {}
