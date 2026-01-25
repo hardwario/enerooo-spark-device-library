@@ -1,0 +1,78 @@
+# BMeters Device Types
+#
+# This file contains unified device type definitions for BMeters devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: BMeters
+  model_number: HYDROCAL M4
+  name: BMeters HYDROCAL M4
+  device_type: heat_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: BMT
+    wmbus_device_type: 13
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: '00000000000000000000000000000000'
+  control_config: {}
+  processor_config: {}
+- vendor_name: BMeters
+  model_number: HYDROCLIMA
+  name: BMeters HYDROCLIMA
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: BMP
+    wmbus_device_type: 8
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: '06006500000000000000000000000000'
+  control_config: {}
+  processor_config: {}
+- vendor_name: BMeters
+  model_number: HYDROCLIMA 2
+  name: BMeters HYDROCLIMA 2
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: BMP
+    wmbus_device_type: 8
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: '06006500000000000000000000000000'
+  control_config: {}
+  processor_config: {}
+- vendor_name: BMeters
+  model_number: IWM-TX5
+  name: BMeters IWM-TX5
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: BMT
+    wmbus_device_type: 7
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: '00000000000000000000000000000000'
+  control_config: {}
+  processor_config: {}
+- vendor_name: BMeters
+  model_number: RFM-AMB
+  name: BMeters RFM-AMB
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: BMT
+    wmbus_device_type: 27
+    data_record_mapping: []
+    encryption_required: false
+  control_config: {}
+  processor_config: {}
