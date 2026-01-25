@@ -2,17 +2,54 @@
 #
 # This file contains metadata about the device library.
 # Servers sync this file first to check for updates.
+#
+# Schema version 2: Unified support for wM-Bus, LoRaWAN, and Modbus
 
-version: "0.0.1"
-released: "2026-01-23"
+version: "0.0.2"
+released: "2026-01-25"
+schema_version: 2
 
 # List of vendor files in devices/ directory
 vendors:
+  - name: "Apator"
+    file: "apator.yaml"
+    technologies: ["wmbus"]
+  - name: "Axioma"
+    file: "axioma.yaml"
+    technologies: ["wmbus"]
+  - name: "Bmeters"
+    file: "bmeters.yaml"
+    technologies: ["wmbus"]
   - name: "Carlo Gavazzi"
     file: "carlo-gavazzi.yaml"
+    technologies: ["modbus"]
+  - name: "Dme"
+    file: "dme.yaml"
+    technologies: ["wmbus"]
   - name: "Eastron"
     file: "eastron.yaml"
+    technologies: ["modbus"]
+  - name: "Ecm"
+    file: "ecm.yaml"
+    technologies: ["wmbus"]
   - name: "Enerooo"
     file: "enerooo.yaml"
+    technologies: ["modbus"]
+  - name: "Kaden"
+    file: "kaden.yaml"
+    technologies: ["wmbus"]
+  - name: "Kamstrup"
+    file: "kamstrup.yaml"
+    technologies: ["wmbus"]
   - name: "Orno"
     file: "orno.yaml"
+    technologies: ["modbus"]
+  - name: "Sontex"
+    file: "sontex.yaml"
+    technologies: ["wmbus"]
+  - name: "Technilog"
+    file: "technilog.yaml"
+    technologies: ["wmbus"]
+  - name: "Zenner"
+    file: "zenner.yaml"
+    technologies: ["wmbus"]
