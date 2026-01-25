@@ -1,0 +1,48 @@
+# Kamstrup Device Types
+#
+# This file contains unified device type definitions for Kamstrup devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Kamstrup
+  model_number: Heat Meter (0x04)
+  name: Kamstrup Heat Meter (0x04)
+  device_type: heat_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: KAM
+    wmbus_device_type: 4
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Kamstrup
+  model_number: MC303
+  name: Kamstrup MC303
+  device_type: heat_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: KAM
+    wmbus_device_type: 4
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Kamstrup
+  model_number: Water Meter (0x07)
+  name: Kamstrup Water Meter (0x07)
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: KAM
+    wmbus_device_type: 7
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
