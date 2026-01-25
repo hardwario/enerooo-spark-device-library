@@ -195,3 +195,157 @@ func NewRegisterDefinition() map[string]interface{} {
 		"offset":    0.0,
 	}
 }
+
+// wM-Bus helper methods
+
+// GetManufacturerCode returns the wM-Bus manufacturer code
+func (d *DeviceType) GetManufacturerCode() string {
+	if d.TechnologyConfig == nil {
+		return ""
+	}
+	if code, ok := d.TechnologyConfig["manufacturer_code"].(string); ok {
+		return code
+	}
+	return ""
+}
+
+// SetManufacturerCode sets the wM-Bus manufacturer code
+func (d *DeviceType) SetManufacturerCode(code string) {
+	if d.TechnologyConfig == nil {
+		d.TechnologyConfig = make(map[string]interface{})
+	}
+	d.TechnologyConfig["manufacturer_code"] = code
+}
+
+// GetWMBusDeviceType returns the wM-Bus device type code
+func (d *DeviceType) GetWMBusDeviceType() int {
+	if d.TechnologyConfig == nil {
+		return 0
+	}
+	if dt, ok := d.TechnologyConfig["wmbus_device_type"].(int); ok {
+		return dt
+	}
+	return 0
+}
+
+// SetWMBusDeviceType sets the wM-Bus device type code
+func (d *DeviceType) SetWMBusDeviceType(deviceType int) {
+	if d.TechnologyConfig == nil {
+		d.TechnologyConfig = make(map[string]interface{})
+	}
+	d.TechnologyConfig["wmbus_device_type"] = deviceType
+}
+
+// GetEncryptionRequired returns whether encryption is required for wM-Bus
+func (d *DeviceType) GetEncryptionRequired() bool {
+	if d.TechnologyConfig == nil {
+		return false
+	}
+	if enc, ok := d.TechnologyConfig["encryption_required"].(bool); ok {
+		return enc
+	}
+	return false
+}
+
+// SetEncryptionRequired sets the encryption required flag for wM-Bus
+func (d *DeviceType) SetEncryptionRequired(required bool) {
+	if d.TechnologyConfig == nil {
+		d.TechnologyConfig = make(map[string]interface{})
+	}
+	d.TechnologyConfig["encryption_required"] = required
+}
+
+// GetSharedEncryptionKey returns the shared encryption key for wM-Bus
+func (d *DeviceType) GetSharedEncryptionKey() string {
+	if d.TechnologyConfig == nil {
+		return ""
+	}
+	if key, ok := d.TechnologyConfig["shared_encryption_key"].(string); ok {
+		return key
+	}
+	return ""
+}
+
+// SetSharedEncryptionKey sets the shared encryption key for wM-Bus
+func (d *DeviceType) SetSharedEncryptionKey(key string) {
+	if d.TechnologyConfig == nil {
+		d.TechnologyConfig = make(map[string]interface{})
+	}
+	if key == "" {
+		delete(d.TechnologyConfig, "shared_encryption_key")
+	} else {
+		d.TechnologyConfig["shared_encryption_key"] = key
+	}
+}
+
+// GetDataRecordMapping returns the wM-Bus data record mappings
+func (d *DeviceType) GetDataRecordMapping() []map[string]interface{} {
+	if d.TechnologyConfig == nil {
+		return nil
+	}
+	if mappings, ok := d.TechnologyConfig["data_record_mapping"].([]interface{}); ok {
+		result := make([]map[string]interface{}, 0, len(mappings))
+		for _, m := range mappings {
+			if mMap, ok := m.(map[string]interface{}); ok {
+				result = append(result, mMap)
+			}
+		}
+		return result
+	}
+	return nil
+}
+
+// SetDataRecordMapping sets the wM-Bus data record mappings
+func (d *DeviceType) SetDataRecordMapping(mappings []map[string]interface{}) {
+	if d.TechnologyConfig == nil {
+		d.TechnologyConfig = make(map[string]interface{})
+	}
+	iface := make([]interface{}, len(mappings))
+	for i, m := range mappings {
+		iface[i] = m
+	}
+	d.TechnologyConfig["data_record_mapping"] = iface
+}
+
+// LoRaWAN helper methods
+
+// GetDeviceClass returns the LoRaWAN device class
+func (d *DeviceType) GetDeviceClass() string {
+	if d.TechnologyConfig == nil {
+		return ""
+	}
+	if class, ok := d.TechnologyConfig["device_class"].(string); ok {
+		return class
+	}
+	return ""
+}
+
+// SetDeviceClass sets the LoRaWAN device class
+func (d *DeviceType) SetDeviceClass(class string) {
+	if d.TechnologyConfig == nil {
+		d.TechnologyConfig = make(map[string]interface{})
+	}
+	if class == "" {
+		delete(d.TechnologyConfig, "device_class")
+	} else {
+		d.TechnologyConfig["device_class"] = class
+	}
+}
+
+// LoRaWAN device class values
+var LoRaWANClassValues = []string{
+	"A",
+	"B",
+	"C",
+}
+
+// WMBusDeviceTypeValues for common wM-Bus device types
+var WMBusDeviceTypeValues = []string{
+	"0",  // Other
+	"2",  // Electricity
+	"3",  // Gas
+	"4",  // Heat
+	"6",  // Hot Water
+	"7",  // Water
+	"8",  // Heat Cost Allocator
+}

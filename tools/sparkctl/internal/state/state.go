@@ -39,7 +39,8 @@ type State struct {
 	Error error
 
 	// Manifest data
-	Manifest *models.Manifest
+	Manifest        *models.Manifest
+	ManifestChanged bool
 
 	// Current navigation
 	SelectedVendorIdx   int
@@ -113,6 +114,9 @@ func (s *State) MarkFileChanged() {
 
 // HasPendingChanges returns true if any files have unsaved changes
 func (s *State) HasPendingChanges() bool {
+	if s.ManifestChanged {
+		return true
+	}
 	for _, f := range s.Files {
 		if f.HasChanges {
 			return true

@@ -266,6 +266,32 @@ func (m *Model) handleVendorListKeys(key string) tea.Cmd {
 			m.state.CurrentView = state.ViewLoading
 			return m.loadDeviceFile("devices/" + vendor.File)
 		}
+	case "n":
+		// Add new vendor
+		m.state.IsEditing = true
+		m.state.EditingField = "new_vendor"
+		m.input.SetValue("")
+		m.input.Placeholder = "vendor-name"
+		m.input.Focus()
+	case "d":
+		// Delete vendor (only if no changes and file exists)
+		if m.state.Manifest != nil && len(m.state.Manifest.Vendors) > 0 {
+			vendor := m.state.CurrentVendor()
+			if vendor != nil {
+				// Remove from manifest
+				idx := m.state.SelectedVendorIdx
+				m.state.Manifest.Vendors = append(
+					m.state.Manifest.Vendors[:idx],
+					m.state.Manifest.Vendors[idx+1:]...,
+				)
+				// Mark manifest as changed
+				m.state.ManifestChanged = true
+				if m.state.SelectedVendorIdx >= len(m.state.Manifest.Vendors) && len(m.state.Manifest.Vendors) > 0 {
+					m.state.SelectedVendorIdx = len(m.state.Manifest.Vendors) - 1
+				}
+				m.status = fmt.Sprintf("Deleted vendor: %s", vendor.Name)
+			}
+		}
 	case "p", "s":
 		if m.state.HasPendingChanges() {
 			m.state.CurrentView = state.ViewConfirmPR
@@ -308,6 +334,22 @@ func (m *Model) handleDeviceListKeys(key string) tea.Cmd {
 		m.state.SelectedDeviceIdx = len(file.Modified.DeviceTypes) - 1
 		m.state.MarkFileChanged()
 		m.state.CurrentView = state.ViewDeviceEdit
+	case "d":
+		// Delete device
+		if len(file.Modified.DeviceTypes) > 0 {
+			idx := m.state.SelectedDeviceIdx
+			file.Modified.DeviceTypes = append(
+				file.Modified.DeviceTypes[:idx],
+				file.Modified.DeviceTypes[idx+1:]...,
+			)
+			if m.state.SelectedDeviceIdx >= len(file.Modified.DeviceTypes) && len(file.Modified.DeviceTypes) > 0 {
+				m.state.SelectedDeviceIdx = len(file.Modified.DeviceTypes) - 1
+			}
+			if m.state.SelectedDeviceIdx < 0 {
+				m.state.SelectedDeviceIdx = 0
+			}
+			m.state.MarkFileChanged()
+		}
 	}
 	return nil
 }
@@ -364,6 +406,10 @@ func (m *Model) handleDeviceEditKeys(key string) tea.Cmd {
 			case "registers":
 				m.state.SelectedRegisterIdx = 0
 				m.state.CurrentView = state.ViewRegisterList
+				return nil
+			case "data_record_mapping":
+				// For wM-Bus data record mapping, use the YAML editor on technology_config
+				m.openConfigEditor("technology_config")
 				return nil
 			default:
 				m.state.IsEditing = true
@@ -636,15 +682,42 @@ func (m *Model) getEditableFields() []editableField {
 		{"decoder_type", device.GetDecoderType(), nil},
 	}
 
-	// Add register definitions editor for Modbus devices
-	if device.GetTechnology() == "modbus" {
+	// Add technology-specific fields
+	tech := device.GetTechnology()
+	switch tech {
+	case "modbus":
 		regs := device.GetRegisterDefinitions()
-		regCount := len(regs)
 		fields = append(fields, editableField{
 			"registers",
-			fmt.Sprintf("[%d registers - Edit...]", regCount),
+			fmt.Sprintf("[%d registers - Edit...]", len(regs)),
 			nil,
 		})
+
+	case "wmbus":
+		// wM-Bus specific fields
+		encryptionStr := "false"
+		if device.GetEncryptionRequired() {
+			encryptionStr = "true"
+		}
+		fields = append(fields,
+			editableField{"manufacturer_code", device.GetManufacturerCode(), nil},
+			editableField{"wmbus_device_type", fmt.Sprintf("%d", device.GetWMBusDeviceType()), models.WMBusDeviceTypeValues},
+			editableField{"encryption_required", encryptionStr, models.BooleanValues},
+			editableField{"shared_encryption_key", device.GetSharedEncryptionKey(), nil},
+		)
+		// Data record mapping editor
+		mappings := device.GetDataRecordMapping()
+		fields = append(fields, editableField{
+			"data_record_mapping",
+			fmt.Sprintf("[%d mappings - Edit...]", len(mappings)),
+			nil,
+		})
+
+	case "lorawan":
+		// LoRaWAN specific fields
+		fields = append(fields,
+			editableField{"device_class", device.GetDeviceClass(), models.LoRaWANClassValues},
+		)
 	}
 
 	// Add config editors
@@ -679,12 +752,44 @@ func (m *Model) cycleFieldOption(field editableField) {
 
 func (m *Model) applyEdit() {
 	newValue := m.input.Value()
+
+	// Handle new vendor creation
+	if m.state.EditingField == "new_vendor" && newValue != "" {
+		m.createNewVendor(newValue)
+		return
+	}
+
 	if m.state.CurrentView == state.ViewRegisterEdit {
 		m.applyRegisterFieldValue(m.state.EditingField, newValue)
 	} else {
 		m.applyFieldValue(m.state.EditingField, newValue)
 	}
 	m.state.MarkFileChanged()
+}
+
+func (m *Model) createNewVendor(name string) {
+	// Create filename from vendor name (lowercase, replace spaces with hyphens)
+	filename := strings.ToLower(strings.ReplaceAll(name, " ", "-")) + ".yaml"
+
+	// Add to manifest
+	newVendor := models.VendorEntry{
+		Name: name,
+		File: filename,
+	}
+	m.state.Manifest.Vendors = append(m.state.Manifest.Vendors, newVendor)
+	m.state.ManifestChanged = true
+
+	// Create empty device file in state
+	m.state.Files["devices/"+filename] = &state.FileState{
+		Path:     "devices/" + filename,
+		Original: &models.DeviceFile{DeviceTypes: []models.DeviceType{}},
+		Modified: &models.DeviceFile{DeviceTypes: []models.DeviceType{}},
+		HasChanges: true,
+	}
+
+	// Select the new vendor
+	m.state.SelectedVendorIdx = len(m.state.Manifest.Vendors) - 1
+	m.status = fmt.Sprintf("Created vendor: %s", name)
 }
 
 func (m *Model) applyFieldValue(fieldName, value string) {
@@ -710,6 +815,20 @@ func (m *Model) applyFieldValue(fieldName, value string) {
 		device.SetControllable(value == "true")
 	case "decoder_type":
 		device.SetDecoderType(value)
+	// wM-Bus fields
+	case "manufacturer_code":
+		device.SetManufacturerCode(value)
+	case "wmbus_device_type":
+		if dt, err := strconv.Atoi(value); err == nil {
+			device.SetWMBusDeviceType(dt)
+		}
+	case "encryption_required":
+		device.SetEncryptionRequired(value == "true")
+	case "shared_encryption_key":
+		device.SetSharedEncryptionKey(value)
+	// LoRaWAN fields
+	case "device_class":
+		device.SetDeviceClass(value)
 	}
 }
 
@@ -992,17 +1111,21 @@ func (m Model) getHelpText() string {
 
 	switch m.state.CurrentView {
 	case state.ViewVendorList:
-		keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "select"))
-		if m.state.HasPendingChanges() {
-			if m.localMode {
-				keys = append(keys, m.helpKey("s", "save"))
-			} else {
-				keys = append(keys, m.helpKey("p", "create PR"))
+		if m.state.IsEditing {
+			keys = append(keys, m.helpKey("⏎", "create"), m.helpKey("esc", "cancel"))
+		} else {
+			keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "select"), m.helpKey("n", "new"), m.helpKey("d", "delete"))
+			if m.state.HasPendingChanges() {
+				if m.localMode {
+					keys = append(keys, m.helpKey("s", "save"))
+				} else {
+					keys = append(keys, m.helpKey("p", "create PR"))
+				}
 			}
+			keys = append(keys, m.helpKey("q", "quit"))
 		}
-		keys = append(keys, m.helpKey("q", "quit"))
 	case state.ViewDeviceList:
-		keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "view"), m.helpKey("n", "new"), m.helpKey("esc", "back"))
+		keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "view"), m.helpKey("n", "new"), m.helpKey("d", "delete"), m.helpKey("esc", "back"))
 	case state.ViewDeviceDetail:
 		keys = append(keys, m.helpKey("e", "edit"), m.helpKey("d", "delete"), m.helpKey("esc", "back"))
 	case state.ViewDeviceEdit:
@@ -1050,6 +1173,13 @@ func (m Model) renderVendorList() string {
 	b.WriteString(panelTitleStyle.Render("Select a vendor to browse devices"))
 	b.WriteString("\n\n")
 
+	// Show input if adding new vendor
+	if m.state.IsEditing && m.state.EditingField == "new_vendor" {
+		b.WriteString(labelStyle.Render("New vendor name: "))
+		b.WriteString(m.input.View())
+		b.WriteString("\n\n")
+	}
+
 	if m.state.Manifest != nil {
 		for i, vendor := range m.state.Manifest.Vendors {
 			var line string
@@ -1074,6 +1204,14 @@ func (m Model) renderVendorList() string {
 			// Show changed indicator
 			if f, ok := m.state.Files["devices/"+vendor.File]; ok && f.HasChanges {
 				line += " " + badgeModifiedStyle.Render("MODIFIED")
+			}
+
+			// Show new badge for newly created vendors
+			if m.state.ManifestChanged {
+				// Check if this is a new file (no SHA)
+				if f, ok := m.state.Files["devices/"+vendor.File]; ok && f.SHA == "" {
+					line += " " + successStyle.Render("NEW")
+				}
 			}
 
 			if isSelected {
