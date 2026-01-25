@@ -1,0 +1,27 @@
+# Emylo Device Types
+#
+# This file contains unified device type definitions for Emylo devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Emylo
+  model_number: ER10T
+  name: Emylo ER10T
+  device_type: environment_sensor
+  description: ''
+  technology_config:
+    technology: lorawan
+  control_config: {}
+  processor_config: {}
+- vendor_name: Emylo
+  model_number: ER11W
+  name: Emylo ER11W
+  device_type: power_meter
+  description: ''
+  technology_config:
+    technology: lorawan
+  control_config: {}
+  processor_config: {}
