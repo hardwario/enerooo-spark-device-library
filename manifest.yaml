@@ -5,7 +5,7 @@
 #
 # Schema version 2: Unified support for wM-Bus, LoRaWAN, and Modbus
 
-version: "0.0.3"
+version: "0.0.4"
 released: "2026-01-25"
 schema_version: 2
 
@@ -25,8 +25,12 @@ vendors:
     file: "eastron.yaml"
   - name: "Ecm"
     file: "ecm.yaml"
+  - name: "Emylo"
+    file: "emylo.yaml"
+    technologies: ["lorawan"]
   - name: "Enerooo"
     file: "enerooo.yaml"
+    technologies: ["modbus"]
   - name: "Kaden"
     file: "kaden.yaml"
   - name: "Kamstrup"
