@@ -1,0 +1,22 @@
+# Apator Device Types
+#
+# This file contains unified device type definitions for Apator devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Apator
+  model_number: APA Water meter (0x07)
+  name: Apator APA Water meter (0x07)
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: APA
+    wmbus_device_type: 7
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
