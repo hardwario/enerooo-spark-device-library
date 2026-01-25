@@ -1,0 +1,30 @@
+# Milesight Device Types
+#
+# This file contains unified device type definitions for Milesight devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Milesight
+  model_number: WS523
+  name: Milesight WS523
+  device_type: power_meter
+  description: ''
+  technology_config:
+    technology: lorawan
+    device_class: C
+    downlink_f_port: 85
+  control_config:
+    capabilities:
+      relay:
+        type: relay
+        f_port: 85
+        commands:
+        - 'on'
+        - 'off'
+        - toggle
+    controllable: true
+  processor_config:
+    decoder_type: milesight_ws523
