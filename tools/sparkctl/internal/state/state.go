@@ -14,7 +14,9 @@ const (
 	ViewDeviceList
 	ViewDeviceDetail
 	ViewDeviceEdit
-	ViewEditConfig // For editing control_config, technology_config, processor_config as YAML
+	ViewEditConfig    // For editing control_config, technology_config, processor_config as YAML
+	ViewRegisterList  // For viewing/managing Modbus register definitions
+	ViewRegisterEdit  // For editing a single register
 	ViewConfirmPR
 	ViewError
 )
@@ -40,9 +42,10 @@ type State struct {
 	Manifest *models.Manifest
 
 	// Current navigation
-	SelectedVendorIdx int
-	SelectedDeviceIdx int
-	SelectedFieldIdx  int
+	SelectedVendorIdx   int
+	SelectedDeviceIdx   int
+	SelectedFieldIdx    int
+	SelectedRegisterIdx int
 
 	// File states (keyed by file path)
 	Files map[string]*FileState

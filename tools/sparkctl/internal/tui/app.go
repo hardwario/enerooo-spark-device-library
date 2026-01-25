@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -234,6 +235,10 @@ func (m *Model) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 		return m.handleDeviceEditKeys(key)
 	case state.ViewEditConfig:
 		return m.handleEditConfigKeys(key)
+	case state.ViewRegisterList:
+		return m.handleRegisterListKeys(key)
+	case state.ViewRegisterEdit:
+		return m.handleRegisterEditKeys(key)
 	case state.ViewConfirmPR:
 		return m.handleConfirmSaveKeys(key)
 	case state.ViewError:
@@ -356,6 +361,10 @@ func (m *Model) handleDeviceEditKeys(key string) tea.Cmd {
 			case "technology_config", "control_config", "processor_config":
 				m.openConfigEditor(field.name)
 				return nil
+			case "registers":
+				m.state.SelectedRegisterIdx = 0
+				m.state.CurrentView = state.ViewRegisterList
+				return nil
 			default:
 				m.state.IsEditing = true
 				m.state.EditingField = field.name
@@ -389,6 +398,215 @@ func (m *Model) handleConfirmSaveKeys(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) handleRegisterListKeys(key string) tea.Cmd {
+	device := m.state.CurrentDevice()
+	if device == nil {
+		return nil
+	}
+
+	regs := device.GetRegisterDefinitions()
+	regCount := len(regs)
+
+	switch key {
+	case "up", "k":
+		if m.state.SelectedRegisterIdx > 0 {
+			m.state.SelectedRegisterIdx--
+		}
+	case "down", "j":
+		if m.state.SelectedRegisterIdx < regCount-1 {
+			m.state.SelectedRegisterIdx++
+		}
+	case "enter", "e":
+		if regCount > 0 {
+			m.openRegisterEditor()
+		}
+	case "n":
+		// Add new register
+		newReg := models.NewRegisterDefinition()
+		regs = append(regs, newReg)
+		device.SetRegisterDefinitions(regs)
+		m.state.SelectedRegisterIdx = len(regs) - 1
+		m.state.MarkFileChanged()
+		m.openRegisterEditor()
+	case "d":
+		// Delete selected register
+		if regCount > 0 {
+			idx := m.state.SelectedRegisterIdx
+			regs = append(regs[:idx], regs[idx+1:]...)
+			device.SetRegisterDefinitions(regs)
+			if m.state.SelectedRegisterIdx >= len(regs) && len(regs) > 0 {
+				m.state.SelectedRegisterIdx = len(regs) - 1
+			}
+			m.state.MarkFileChanged()
+		}
+	case "esc", "backspace":
+		m.state.CurrentView = state.ViewDeviceEdit
+	}
+	return nil
+}
+
+func (m *Model) handleRegisterEditKeys(key string) tea.Cmd {
+	fields := m.getRegisterEditFields()
+
+	switch key {
+	case "up", "k":
+		if m.state.SelectedFieldIdx > 0 {
+			m.state.SelectedFieldIdx--
+		}
+	case "down", "j":
+		if m.state.SelectedFieldIdx < len(fields)-1 {
+			m.state.SelectedFieldIdx++
+		}
+	case "enter":
+		if m.state.SelectedFieldIdx < len(fields) {
+			field := fields[m.state.SelectedFieldIdx]
+			m.state.IsEditing = true
+			m.state.EditingField = field.name
+			m.input.SetValue(field.value)
+			m.input.Focus()
+		}
+	case "tab":
+		if m.state.SelectedFieldIdx < len(fields) {
+			field := fields[m.state.SelectedFieldIdx]
+			if field.options != nil {
+				m.cycleRegisterFieldOption(field)
+			}
+		}
+	case "esc", "backspace":
+		m.state.CurrentView = state.ViewRegisterList
+		m.state.SelectedFieldIdx = 0
+	}
+	return nil
+}
+
+func (m *Model) openRegisterEditor() {
+	m.state.SelectedFieldIdx = 0
+	m.state.CurrentView = state.ViewRegisterEdit
+}
+
+func (m *Model) getRegisterEditFields() []editableField {
+	device := m.state.CurrentDevice()
+	if device == nil {
+		return nil
+	}
+
+	regs := device.GetRegisterDefinitions()
+	if m.state.SelectedRegisterIdx >= len(regs) {
+		return nil
+	}
+
+	reg := regs[m.state.SelectedRegisterIdx]
+
+	// Extract field values with type assertions
+	fieldName := ""
+	fieldUnit := ""
+	if field, ok := reg["field"].(map[string]interface{}); ok {
+		if name, ok := field["name"].(string); ok {
+			fieldName = name
+		}
+		if unit, ok := field["unit"].(string); ok {
+			fieldUnit = unit
+		}
+	}
+
+	address := 0
+	if addr, ok := reg["address"].(int); ok {
+		address = addr
+	}
+
+	dataType := "uint16"
+	if dt, ok := reg["data_type"].(string); ok {
+		dataType = dt
+	}
+
+	scale := 1.0
+	if s, ok := reg["scale"].(float64); ok {
+		scale = s
+	} else if s, ok := reg["scale"].(int); ok {
+		scale = float64(s)
+	}
+
+	offset := 0.0
+	if o, ok := reg["offset"].(float64); ok {
+		offset = o
+	} else if o, ok := reg["offset"].(int); ok {
+		offset = float64(o)
+	}
+
+	return []editableField{
+		{"field_name", fieldName, nil},
+		{"field_unit", fieldUnit, nil},
+		{"address", fmt.Sprintf("%d", address), nil},
+		{"data_type", dataType, models.DataTypeValues},
+		{"scale", fmt.Sprintf("%.6g", scale), nil},
+		{"offset", fmt.Sprintf("%.6g", offset), nil},
+	}
+}
+
+func (m *Model) cycleRegisterFieldOption(field editableField) {
+	if field.options == nil {
+		return
+	}
+
+	currentIdx := 0
+	for i, opt := range field.options {
+		if opt == field.value {
+			currentIdx = i
+			break
+		}
+	}
+	nextIdx := (currentIdx + 1) % len(field.options)
+	newValue := field.options[nextIdx]
+
+	m.applyRegisterFieldValue(field.name, newValue)
+	m.state.MarkFileChanged()
+}
+
+func (m *Model) applyRegisterFieldValue(fieldName, value string) {
+	device := m.state.CurrentDevice()
+	if device == nil {
+		return
+	}
+
+	regs := device.GetRegisterDefinitions()
+	if m.state.SelectedRegisterIdx >= len(regs) {
+		return
+	}
+
+	reg := regs[m.state.SelectedRegisterIdx]
+
+	switch fieldName {
+	case "field_name":
+		if field, ok := reg["field"].(map[string]interface{}); ok {
+			field["name"] = value
+		} else {
+			reg["field"] = map[string]interface{}{"name": value, "unit": ""}
+		}
+	case "field_unit":
+		if field, ok := reg["field"].(map[string]interface{}); ok {
+			field["unit"] = value
+		} else {
+			reg["field"] = map[string]interface{}{"name": "", "unit": value}
+		}
+	case "address":
+		if addr, err := strconv.Atoi(value); err == nil {
+			reg["address"] = addr
+		}
+	case "data_type":
+		reg["data_type"] = value
+	case "scale":
+		if s, err := strconv.ParseFloat(value, 64); err == nil {
+			reg["scale"] = s
+		}
+	case "offset":
+		if o, err := strconv.ParseFloat(value, 64); err == nil {
+			reg["offset"] = o
+		}
+	}
+
+	device.SetRegisterDefinitions(regs)
+}
+
 type editableField struct {
 	name    string
 	value   string
@@ -416,10 +634,25 @@ func (m *Model) getEditableFields() []editableField {
 		{"technology", device.GetTechnology(), models.TechnologyValues},
 		{"controllable", controllableStr, models.BooleanValues},
 		{"decoder_type", device.GetDecoderType(), nil},
-		{"technology_config", "[Edit YAML...]", nil},
-		{"control_config", "[Edit YAML...]", nil},
-		{"processor_config", "[Edit YAML...]", nil},
 	}
+
+	// Add register definitions editor for Modbus devices
+	if device.GetTechnology() == "modbus" {
+		regs := device.GetRegisterDefinitions()
+		regCount := len(regs)
+		fields = append(fields, editableField{
+			"registers",
+			fmt.Sprintf("[%d registers - Edit...]", regCount),
+			nil,
+		})
+	}
+
+	// Add config editors
+	fields = append(fields,
+		editableField{"technology_config", "[Edit YAML...]", nil},
+		editableField{"control_config", "[Edit YAML...]", nil},
+		editableField{"processor_config", "[Edit YAML...]", nil},
+	)
 
 	return fields
 }
@@ -446,7 +679,11 @@ func (m *Model) cycleFieldOption(field editableField) {
 
 func (m *Model) applyEdit() {
 	newValue := m.input.Value()
-	m.applyFieldValue(m.state.EditingField, newValue)
+	if m.state.CurrentView == state.ViewRegisterEdit {
+		m.applyRegisterFieldValue(m.state.EditingField, newValue)
+	} else {
+		m.applyFieldValue(m.state.EditingField, newValue)
+	}
 	m.state.MarkFileChanged()
 }
 
@@ -599,6 +836,90 @@ func (m *Model) saveChanges() tea.Cmd {
 
 // View renders the TUI
 func (m Model) View() string {
+	width := m.width
+	if width < minWidth {
+		width = minWidth
+	}
+
+	// Build the layout
+	header := m.renderHeader(width)
+	content := m.renderContent(width)
+	footer := m.renderFooter(width)
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
+}
+
+func (m Model) renderHeader(width int) string {
+	// Logo
+	logo := logoStyle.Render("⚡ SPARKCTL")
+
+	// Breadcrumb
+	breadcrumb := m.getBreadcrumb()
+
+	// Mode indicator
+	var mode string
+	if m.localMode {
+		mode = modeLocalStyle.Render("LOCAL")
+	} else {
+		mode = modeGitHubStyle.Render("GITHUB")
+	}
+
+	// Calculate spacing
+	leftPart := logo + "  " + breadcrumb
+	rightPart := mode
+
+	// Create the header with proper spacing
+	spacing := width - lipgloss.Width(leftPart) - lipgloss.Width(rightPart) - 6
+	if spacing < 1 {
+		spacing = 1
+	}
+	spacer := strings.Repeat(" ", spacing)
+
+	headerContent := leftPart + spacer + rightPart
+	return headerStyle.Width(width - 2).Render(headerContent)
+}
+
+func (m Model) getBreadcrumb() string {
+	parts := []string{}
+
+	switch m.state.CurrentView {
+	case state.ViewVendorList:
+		parts = append(parts, breadcrumbActiveStyle.Render("Vendors"))
+	case state.ViewDeviceList:
+		parts = append(parts, breadcrumbStyle.Render("Vendors"))
+		if v := m.state.CurrentVendor(); v != nil {
+			parts = append(parts, breadcrumbActiveStyle.Render(v.Name))
+		}
+	case state.ViewDeviceDetail, state.ViewDeviceEdit, state.ViewEditConfig:
+		parts = append(parts, breadcrumbStyle.Render("Vendors"))
+		if v := m.state.CurrentVendor(); v != nil {
+			parts = append(parts, breadcrumbStyle.Render(v.Name))
+		}
+		if d := m.state.CurrentDevice(); d != nil {
+			parts = append(parts, breadcrumbActiveStyle.Render(d.Name))
+		}
+	case state.ViewRegisterList, state.ViewRegisterEdit:
+		parts = append(parts, breadcrumbStyle.Render("Vendors"))
+		if v := m.state.CurrentVendor(); v != nil {
+			parts = append(parts, breadcrumbStyle.Render(v.Name))
+		}
+		if d := m.state.CurrentDevice(); d != nil {
+			parts = append(parts, breadcrumbStyle.Render(d.Name))
+		}
+		parts = append(parts, breadcrumbActiveStyle.Render("Registers"))
+	case state.ViewConfirmPR:
+		parts = append(parts, breadcrumbActiveStyle.Render("Save Changes"))
+	case state.ViewError:
+		parts = append(parts, breadcrumbActiveStyle.Render("Error"))
+	default:
+		parts = append(parts, breadcrumbActiveStyle.Render("Loading"))
+	}
+
+	sep := breadcrumbStyle.Render(" " + IconArrowRight + " ")
+	return strings.Join(parts, sep)
+}
+
+func (m Model) renderContent(width int) string {
 	var content string
 
 	switch m.state.CurrentView {
@@ -614,66 +935,155 @@ func (m Model) View() string {
 		content = m.renderDeviceEdit()
 	case state.ViewEditConfig:
 		content = m.renderEditConfig()
+	case state.ViewRegisterList:
+		content = m.renderRegisterList()
+	case state.ViewRegisterEdit:
+		content = m.renderRegisterEdit()
 	case state.ViewConfirmPR:
 		content = m.renderConfirmSave()
 	case state.ViewError:
 		content = m.renderError()
 	}
 
-	// Add status bar
-	status := m.renderStatusBar()
+	return panelStyle.Width(width - 2).Render(content)
+}
 
-	return lipgloss.JoinVertical(lipgloss.Left, content, status)
+func (m Model) renderFooter(width int) string {
+	// Help keys for current view
+	help := m.getHelpText()
+
+	// Status/changes info
+	var status string
+	if m.status != "" {
+		status = statusStyle.Render(m.status)
+	}
+
+	changesCount := len(m.state.GetChangedFiles())
+	var changesText string
+	if changesCount > 0 {
+		changesText = changesCountStyle.Render(fmt.Sprintf("%s %d changed", IconModified, changesCount))
+	}
+
+	// Build footer
+	rightPart := ""
+	if changesText != "" {
+		rightPart = changesText
+	}
+	if status != "" {
+		if rightPart != "" {
+			rightPart = status + "  " + rightPart
+		} else {
+			rightPart = status
+		}
+	}
+
+	spacing := width - lipgloss.Width(help) - lipgloss.Width(rightPart) - 6
+	if spacing < 1 {
+		spacing = 1
+	}
+	spacer := strings.Repeat(" ", spacing)
+
+	footerContent := help + spacer + rightPart
+	return footerStyle.Width(width - 2).Render(footerContent)
+}
+
+func (m Model) getHelpText() string {
+	var keys []string
+
+	switch m.state.CurrentView {
+	case state.ViewVendorList:
+		keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "select"))
+		if m.state.HasPendingChanges() {
+			if m.localMode {
+				keys = append(keys, m.helpKey("s", "save"))
+			} else {
+				keys = append(keys, m.helpKey("p", "create PR"))
+			}
+		}
+		keys = append(keys, m.helpKey("q", "quit"))
+	case state.ViewDeviceList:
+		keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "view"), m.helpKey("n", "new"), m.helpKey("esc", "back"))
+	case state.ViewDeviceDetail:
+		keys = append(keys, m.helpKey("e", "edit"), m.helpKey("d", "delete"), m.helpKey("esc", "back"))
+	case state.ViewDeviceEdit:
+		if m.state.IsEditing {
+			keys = append(keys, m.helpKey("⏎", "save"), m.helpKey("esc", "cancel"))
+		} else {
+			keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "edit"), m.helpKey("tab", "cycle"), m.helpKey("esc", "back"))
+		}
+	case state.ViewEditConfig:
+		keys = append(keys, m.helpKey("ctrl+s", "save"), m.helpKey("esc", "cancel"))
+	case state.ViewRegisterList:
+		keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "edit"), m.helpKey("n", "new"), m.helpKey("d", "delete"), m.helpKey("esc", "back"))
+	case state.ViewRegisterEdit:
+		if m.state.IsEditing {
+			keys = append(keys, m.helpKey("⏎", "save"), m.helpKey("esc", "cancel"))
+		} else {
+			keys = append(keys, m.helpKey("↑↓", "navigate"), m.helpKey("⏎", "edit"), m.helpKey("tab", "cycle"), m.helpKey("esc", "back"))
+		}
+	case state.ViewConfirmPR:
+		keys = append(keys, m.helpKey("y", "confirm"), m.helpKey("n", "cancel"))
+	case state.ViewError:
+		keys = append(keys, m.helpKey("⏎", "continue"))
+	}
+
+	return strings.Join(keys, "  ")
+}
+
+func (m Model) helpKey(key, desc string) string {
+	return helpKeyStyle.Render(key) + " " + helpDescStyle.Render(desc)
 }
 
 func (m Model) renderLoading() string {
-	return fmt.Sprintf("\n  %s Loading...\n", m.spinner.View())
+	return fmt.Sprintf("\n\n  %s Loading from %s...\n\n", m.spinner.View(),
+		func() string {
+			if m.localMode {
+				return "local filesystem"
+			}
+			return "GitHub"
+		}())
 }
 
 func (m Model) renderVendorList() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("ENEROOO Spark Device Library"))
-	b.WriteString("\n")
-	b.WriteString(subtitleStyle.Render("Select a vendor to browse devices"))
+	b.WriteString(panelTitleStyle.Render("Select a vendor to browse devices"))
 	b.WriteString("\n\n")
 
 	if m.state.Manifest != nil {
 		for i, vendor := range m.state.Manifest.Vendors {
-			cursor := "  "
-			style := listItemStyle
-			if i == m.state.SelectedVendorIdx {
-				cursor = "> "
-				style = selectedItemStyle
+			var line string
+			isSelected := i == m.state.SelectedVendorIdx
+
+			if isSelected {
+				line = IconSelected + " "
+			} else {
+				line = IconUnselected + " "
 			}
 
-			line := fmt.Sprintf("%s%s", cursor, vendor.Name)
+			line += IconFolder + " " + vendor.Name
 
-			// Show technologies
-			techs := strings.Join(vendor.Technologies, ", ")
-			line += "  " + lipgloss.NewStyle().Foreground(mutedColor).Render(fmt.Sprintf("(%s)", techs))
+			// Show technologies as badges
+			if len(vendor.Technologies) > 0 {
+				line += "  "
+				for _, tech := range vendor.Technologies {
+					line += techBadgeStyle(tech).Render(tech) + " "
+				}
+			}
 
 			// Show changed indicator
 			if f, ok := m.state.Files["devices/"+vendor.File]; ok && f.HasChanges {
-				line += "  " + changedBadge.Render("MODIFIED")
+				line += " " + badgeModifiedStyle.Render("MODIFIED")
 			}
 
-			b.WriteString(style.Render(line))
+			if isSelected {
+				b.WriteString(listItemSelectedStyle.Render(line))
+			} else {
+				b.WriteString(listItemStyle.Render(line))
+			}
 			b.WriteString("\n")
 		}
 	}
-
-	b.WriteString("\n")
-	help := "↑/↓ navigate • enter select"
-	if m.state.HasPendingChanges() {
-		if m.localMode {
-			help += " • s save"
-		} else {
-			help += " • p create PR"
-		}
-	}
-	help += " • q quit"
-	b.WriteString(helpStyle.Render(help))
 
 	return b.String()
 }
@@ -688,28 +1098,42 @@ func (m Model) renderDeviceList() string {
 		return "Loading..."
 	}
 
-	b.WriteString(titleStyle.Render(vendor.Name + " Devices"))
-	b.WriteString("\n")
-	b.WriteString(subtitleStyle.Render(fmt.Sprintf("%d devices", len(file.Modified.DeviceTypes))))
+	b.WriteString(panelTitleStyle.Render(fmt.Sprintf("%d devices", len(file.Modified.DeviceTypes))))
 	b.WriteString("\n\n")
 
 	for i, device := range file.Modified.DeviceTypes {
-		cursor := "  "
-		style := listItemStyle
-		if i == m.state.SelectedDeviceIdx {
-			cursor = "> "
-			style = selectedItemStyle
+		var line string
+		isSelected := i == m.state.SelectedDeviceIdx
+
+		if isSelected {
+			line = IconSelected + " "
+		} else {
+			line = IconUnselected + " "
 		}
 
-		line := fmt.Sprintf("%s%s (%s)", cursor, device.Name, device.ModelNumber)
-		line += "  " + technologyBadge.Render(device.GetTechnology())
+		// Device icon and name
+		line += deviceTypeIcon(device.DeviceType) + " "
+		line += device.Name
+		line += "  " + badgeDeviceTypeStyle.Render(device.ModelNumber)
 
-		b.WriteString(style.Render(line))
+		// Technology badge
+		tech := device.GetTechnology()
+		if tech != "" {
+			line += "  " + techBadgeStyle(tech).Render(tech)
+		}
+
+		// Controllable indicator
+		if device.IsControllable() {
+			line += "  " + badgeControllableStyle.Render(IconControllable + " controllable")
+		}
+
+		if isSelected {
+			b.WriteString(listItemSelectedStyle.Render(line))
+		} else {
+			b.WriteString(listItemStyle.Render(line))
+		}
 		b.WriteString("\n")
 	}
-
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("↑/↓ navigate • enter view • n new • esc back"))
 
 	return b.String()
 }
@@ -722,32 +1146,33 @@ func (m Model) renderDeviceDetail() string {
 		return "No device selected"
 	}
 
-	b.WriteString(titleStyle.Render(device.Name))
+	// Header with icon
+	header := deviceTypeIcon(device.DeviceType) + " " + panelTitleStyle.Render(device.Name)
+	if device.IsControllable() {
+		header += "  " + badgeControllableStyle.Render(IconControllable + " controllable")
+	}
+	b.WriteString(header)
+	b.WriteString("\n")
+	b.WriteString(panelSubtitleStyle.Render(device.ModelNumber + " • " + device.VendorName))
 	b.WriteString("\n\n")
 
-	// Basic info
-	controllableStr := "No"
-	if device.IsControllable() {
-		controllableStr = "Yes"
-	}
-
+	// Info grid
 	fields := []struct {
 		label string
 		value string
 	}{
-		{"Vendor", device.VendorName},
-		{"Model", device.ModelNumber},
 		{"Type", device.DeviceType},
-		{"Description", device.Description},
 		{"Technology", device.GetTechnology()},
-		{"Controllable", controllableStr},
+		{"Description", device.Description},
 		{"Decoder", device.GetDecoderType()},
 	}
 
 	for _, f := range fields {
-		b.WriteString(labelStyle.Render(f.label + ":"))
-		b.WriteString(valueStyle.Render(f.value))
-		b.WriteString("\n")
+		if f.value != "" {
+			b.WriteString(labelStyle.Render(f.label + ":"))
+			b.WriteString(valueStyle.Render(f.value))
+			b.WriteString("\n")
+		}
 	}
 
 	// Technology-specific info
@@ -756,20 +1181,17 @@ func (m Model) renderDeviceDetail() string {
 	switch tech {
 	case "modbus":
 		if regs, ok := device.TechnologyConfig["register_definitions"].([]interface{}); ok {
-			b.WriteString(subtitleStyle.Render(fmt.Sprintf("%d register definitions", len(regs))))
+			b.WriteString(panelSubtitleStyle.Render(fmt.Sprintf("📊 %d register definitions", len(regs))))
 		}
 	case "lorawan":
 		if class, ok := device.TechnologyConfig["device_class"].(string); ok && class != "" {
-			b.WriteString(subtitleStyle.Render("Class " + class))
+			b.WriteString(panelSubtitleStyle.Render("📡 Class " + class))
 		}
 	case "wmbus":
 		if mfr, ok := device.TechnologyConfig["manufacturer_code"].(string); ok && mfr != "" {
-			b.WriteString(subtitleStyle.Render("Manufacturer: " + mfr))
+			b.WriteString(panelSubtitleStyle.Render("📻 Manufacturer: " + mfr))
 		}
 	}
-
-	b.WriteString("\n\n")
-	b.WriteString(helpStyle.Render("e edit • d delete • esc back"))
 
 	return b.String()
 }
@@ -782,41 +1204,44 @@ func (m Model) renderDeviceEdit() string {
 		return "No device selected"
 	}
 
-	b.WriteString(titleStyle.Render("Edit: " + device.Name))
+	b.WriteString(panelTitleStyle.Render("Editing Device"))
 	b.WriteString("\n\n")
 
 	fields := m.getEditableFields()
 
 	for i, field := range fields {
-		cursor := "  "
-		style := listItemStyle
-		if i == m.state.SelectedFieldIdx {
-			cursor = "> "
-			style = selectedItemStyle
+		isSelected := i == m.state.SelectedFieldIdx
+		var line string
+
+		if isSelected {
+			line = IconSelected + " "
+		} else {
+			line = IconUnselected + " "
 		}
 
-		label := labelStyle.Render(field.name + ":")
-		var value string
+		line += labelStyle.Render(field.name + ":")
 
-		if m.state.IsEditing && i == m.state.SelectedFieldIdx {
+		var value string
+		if m.state.IsEditing && isSelected {
 			value = m.input.View()
 		} else {
 			if field.options != nil {
-				value = editableValueStyle.Render(field.value + " [tab to cycle]")
+				value = valueEditableStyle.Render(field.value) + " " + helpKeyStyle.Render("[tab]")
+			} else if strings.HasPrefix(field.value, "[Edit") {
+				value = helpDescStyle.Render(field.value)
 			} else {
-				value = editableValueStyle.Render(field.value)
+				value = valueEditableStyle.Render(field.value)
 			}
 		}
 
-		b.WriteString(style.Render(fmt.Sprintf("%s%s %s", cursor, label, value)))
-		b.WriteString("\n")
-	}
+		line += " " + value
 
-	b.WriteString("\n")
-	if m.state.IsEditing {
-		b.WriteString(helpStyle.Render("enter save • esc cancel"))
-	} else {
-		b.WriteString(helpStyle.Render("↑/↓ navigate • enter edit • tab cycle option • esc back"))
+		if isSelected {
+			b.WriteString(listItemSelectedStyle.Render(line))
+		} else {
+			b.WriteString(listItemStyle.Render(line))
+		}
+		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -826,22 +1251,161 @@ func (m Model) renderEditConfig() string {
 	var b strings.Builder
 
 	configName := ""
+	icon := "📝"
 	switch m.editingCfg {
 	case "technology":
 		configName = "Technology Config"
+		icon = "⚙️"
 	case "control":
 		configName = "Control Config"
+		icon = "🎮"
 	case "processor":
 		configName = "Processor Config"
+		icon = "🔧"
 	}
 
-	b.WriteString(titleStyle.Render("Edit " + configName))
+	b.WriteString(panelTitleStyle.Render(icon + " " + configName))
+	b.WriteString("\n")
+	b.WriteString(panelSubtitleStyle.Render("Edit YAML configuration directly"))
 	b.WriteString("\n\n")
 
 	b.WriteString(m.textarea.View())
 
+	return b.String()
+}
+
+func (m Model) renderRegisterList() string {
+	var b strings.Builder
+
+	device := m.state.CurrentDevice()
+	if device == nil {
+		return "No device selected"
+	}
+
+	regs := device.GetRegisterDefinitions()
+
+	b.WriteString(panelTitleStyle.Render("📊 Register Definitions"))
+	b.WriteString("\n")
+	b.WriteString(panelSubtitleStyle.Render(fmt.Sprintf("%d registers • Modbus device", len(regs))))
 	b.WriteString("\n\n")
-	b.WriteString(helpStyle.Render("ctrl+s save • esc cancel"))
+
+	if len(regs) == 0 {
+		b.WriteString(listItemDimStyle.Render("No registers defined. Press 'n' to add one."))
+		b.WriteString("\n")
+	} else {
+		for i, reg := range regs {
+			isSelected := i == m.state.SelectedRegisterIdx
+			var line string
+
+			if isSelected {
+				line = IconSelected + " "
+			} else {
+				line = IconUnselected + " "
+			}
+
+			// Extract register info
+			fieldName := "unnamed"
+			fieldUnit := ""
+			if field, ok := reg["field"].(map[string]interface{}); ok {
+				if name, ok := field["name"].(string); ok && name != "" {
+					fieldName = name
+				}
+				if unit, ok := field["unit"].(string); ok {
+					fieldUnit = unit
+				}
+			}
+
+			address := 0
+			if addr, ok := reg["address"].(int); ok {
+				address = addr
+			}
+
+			dataType := "uint16"
+			if dt, ok := reg["data_type"].(string); ok {
+				dataType = dt
+			}
+
+			// Format the line
+			line += fmt.Sprintf("@%-5d ", address)
+			line += badgeTechStyle.Render(dataType) + " "
+			line += valueStyle.Render(fieldName)
+			if fieldUnit != "" {
+				line += " " + listItemDimStyle.Render("("+fieldUnit+")")
+			}
+
+			if isSelected {
+				b.WriteString(listItemSelectedStyle.Render(line))
+			} else {
+				b.WriteString(listItemStyle.Render(line))
+			}
+			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
+}
+
+func (m Model) renderRegisterEdit() string {
+	var b strings.Builder
+
+	device := m.state.CurrentDevice()
+	if device == nil {
+		return "No device selected"
+	}
+
+	regs := device.GetRegisterDefinitions()
+	if m.state.SelectedRegisterIdx >= len(regs) {
+		return "No register selected"
+	}
+
+	b.WriteString(panelTitleStyle.Render("✏️  Edit Register"))
+	b.WriteString("\n")
+	b.WriteString(panelSubtitleStyle.Render(fmt.Sprintf("Register %d of %d", m.state.SelectedRegisterIdx+1, len(regs))))
+	b.WriteString("\n\n")
+
+	fields := m.getRegisterEditFields()
+
+	for i, field := range fields {
+		isSelected := i == m.state.SelectedFieldIdx
+		var line string
+
+		if isSelected {
+			line = IconSelected + " "
+		} else {
+			line = IconUnselected + " "
+		}
+
+		// Format field name for display
+		displayName := field.name
+		switch field.name {
+		case "field_name":
+			displayName = "name"
+		case "field_unit":
+			displayName = "unit"
+		}
+
+		line += labelStyle.Render(displayName + ":")
+
+		var value string
+		if m.state.IsEditing && isSelected {
+			value = m.input.View()
+		} else {
+			if field.options != nil {
+				value = valueEditableStyle.Render(field.value) + " " + helpKeyStyle.Render("[tab]")
+			} else {
+				value = valueEditableStyle.Render(field.value)
+			}
+		}
+
+		line += " " + value
+
+		if isSelected {
+			b.WriteString(listItemSelectedStyle.Render(line))
+		} else {
+			b.WriteString(listItemStyle.Render(line))
+		}
+		b.WriteString("\n")
+	}
 
 	return b.String()
 }
@@ -850,26 +1414,26 @@ func (m Model) renderConfirmSave() string {
 	var b strings.Builder
 
 	if m.localMode {
-		b.WriteString(titleStyle.Render("Save Changes"))
+		b.WriteString(panelTitleStyle.Render("💾 Save Changes"))
 	} else {
-		b.WriteString(titleStyle.Render("Create Pull Request"))
+		b.WriteString(panelTitleStyle.Render("🚀 Create Pull Request"))
 	}
 	b.WriteString("\n\n")
 
-	b.WriteString("The following files have been modified:\n\n")
+	b.WriteString(valueStyle.Render("The following files will be updated:"))
+	b.WriteString("\n\n")
 
 	for _, f := range m.state.GetChangedFiles() {
-		b.WriteString(fmt.Sprintf("  • %s\n", f.Path))
+		b.WriteString(listItemStyle.Render(IconModified + " " + f.Path))
+		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
 	if m.localMode {
-		b.WriteString(boxStyle.Render("Save these changes to local files?"))
+		b.WriteString(boxStyle.Render("Save changes to local files?"))
 	} else {
-		b.WriteString(boxStyle.Render("Create a PR with these changes?"))
+		b.WriteString(boxStyle.Render("Create a pull request with these changes?"))
 	}
-	b.WriteString("\n\n")
-	b.WriteString(helpStyle.Render("y/enter confirm • n/esc cancel"))
 
 	return b.String()
 }
@@ -877,24 +1441,14 @@ func (m Model) renderConfirmSave() string {
 func (m Model) renderError() string {
 	var b strings.Builder
 
-	b.WriteString(errorStyle.Render("Error"))
+	b.WriteString(errorStyle.Render("⚠️  Error"))
 	b.WriteString("\n\n")
 
 	if m.state.Error != nil {
-		b.WriteString(m.state.Error.Error())
+		b.WriteString(valueStyle.Render(m.state.Error.Error()))
 	}
-
-	b.WriteString("\n\n")
-	b.WriteString(helpStyle.Render("esc/enter to continue"))
 
 	return b.String()
-}
-
-func (m Model) renderStatusBar() string {
-	if m.status == "" {
-		return ""
-	}
-	return "\n" + statusStyle.Render(m.status)
 }
 
 // Deep copy helper

@@ -2,88 +2,218 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
+// Color palette
 var (
-	// Colors
-	primaryColor   = lipgloss.Color("#7C3AED")
-	secondaryColor = lipgloss.Color("#10B981")
-	errorColor     = lipgloss.Color("#EF4444")
-	mutedColor     = lipgloss.Color("#6B7280")
-	highlightColor = lipgloss.Color("#F59E0B")
+	// Primary colors
+	primaryColor   = lipgloss.Color("#7C3AED") // Purple
+	secondaryColor = lipgloss.Color("#10B981") // Green
+	accentColor    = lipgloss.Color("#F59E0B") // Amber
+	errorColor     = lipgloss.Color("#EF4444") // Red
+	mutedColor     = lipgloss.Color("#6B7280") // Gray
+	dimColor       = lipgloss.Color("#374151") // Dark gray
 
-	// Base styles
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(primaryColor).
-			MarginBottom(1)
+	// Background colors
+	bgColor        = lipgloss.Color("#1F2937") // Dark bg
+	bgLightColor   = lipgloss.Color("#374151") // Slightly lighter
+	bgSelectedColor = lipgloss.Color("#4C1D95") // Purple bg for selection
 
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			MarginBottom(1)
+	// Text colors
+	textColor      = lipgloss.Color("#F9FAFB") // White
+	textMutedColor = lipgloss.Color("#9CA3AF") // Light gray
+)
 
-	// List styles
+// Layout dimensions
+const (
+	minWidth = 70
+)
+
+// Header styles
+var (
+	logoStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(primaryColor)
+
+	headerStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(dimColor).
+		Padding(0, 1)
+
+	breadcrumbStyle = lipgloss.NewStyle().
+		Foreground(textMutedColor)
+
+	breadcrumbActiveStyle = lipgloss.NewStyle().
+		Foreground(textColor).
+		Bold(true)
+
+	modeLocalStyle = lipgloss.NewStyle().
+		Background(secondaryColor).
+		Foreground(lipgloss.Color("#000000")).
+		Padding(0, 1).
+		Bold(true)
+
+	modeGitHubStyle = lipgloss.NewStyle().
+		Background(primaryColor).
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Padding(0, 1).
+		Bold(true)
+)
+
+// Content panel styles
+var (
+	panelStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(dimColor).
+		Padding(1, 2)
+
+	panelTitleStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(textColor).
+		MarginBottom(1)
+
+	panelSubtitleStyle = lipgloss.NewStyle().
+		Foreground(textMutedColor).
+		MarginBottom(1)
+)
+
+// List styles
+var (
 	listItemStyle = lipgloss.NewStyle().
-			PaddingLeft(2)
+		PaddingLeft(2).
+		Foreground(textColor)
 
-	selectedItemStyle = lipgloss.NewStyle().
-				PaddingLeft(1).
-				Foreground(primaryColor).
-				Bold(true)
+	listItemSelectedStyle = lipgloss.NewStyle().
+		Background(bgSelectedColor).
+		Foreground(textColor).
+		Bold(true).
+		PaddingLeft(1).
+		PaddingRight(1)
 
-	// Detail styles
+	listItemDimStyle = lipgloss.NewStyle().
+		PaddingLeft(2).
+		Foreground(textMutedColor)
+)
+
+// Badge styles
+var (
+	badgeModifiedStyle = lipgloss.NewStyle().
+		Background(accentColor).
+		Foreground(lipgloss.Color("#000000")).
+		Padding(0, 1).
+		Bold(true)
+
+	badgeTechStyle = lipgloss.NewStyle().
+		Background(dimColor).
+		Foreground(textColor).
+		Padding(0, 1)
+
+	badgeControllableStyle = lipgloss.NewStyle().
+		Foreground(secondaryColor)
+
+	badgeDeviceTypeStyle = lipgloss.NewStyle().
+		Foreground(textMutedColor).
+		Italic(true)
+)
+
+// Form/Edit styles
+var (
 	labelStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Width(20)
+		Foreground(textMutedColor).
+		Width(18)
 
 	valueStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFFFF"))
+		Foreground(textColor)
 
-	editableValueStyle = lipgloss.NewStyle().
-				Foreground(secondaryColor)
+	valueEditableStyle = lipgloss.NewStyle().
+		Foreground(secondaryColor)
 
-	// Input styles
 	inputStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor).
-			Padding(0, 1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Padding(0, 1)
 
 	inputFocusedStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(highlightColor).
-				Padding(0, 1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accentColor).
+		Padding(0, 1)
+)
 
-	// Status styles
+// Footer/Status bar styles
+var (
+	footerStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(dimColor).
+		Padding(0, 1)
+
+	helpKeyStyle = lipgloss.NewStyle().
+		Foreground(textMutedColor)
+
+	helpDescStyle = lipgloss.NewStyle().
+		Foreground(primaryColor)
+
 	statusStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			MarginTop(1)
+		Foreground(textMutedColor)
 
+	changesCountStyle = lipgloss.NewStyle().
+		Foreground(accentColor).
+		Bold(true)
+)
+
+// Error/Message styles
+var (
 	errorStyle = lipgloss.NewStyle().
-			Foreground(errorColor).
-			Bold(true)
+		Foreground(errorColor).
+		Bold(true)
 
 	successStyle = lipgloss.NewStyle().
-			Foreground(secondaryColor).
-			Bold(true)
+		Foreground(secondaryColor).
+		Bold(true)
 
-	// Box styles
 	boxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(mutedColor).
-			Padding(1, 2)
-
-	// Help styles
-	helpStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			MarginTop(1)
-
-	// Badge styles
-	changedBadge = lipgloss.NewStyle().
-			Background(highlightColor).
-			Foreground(lipgloss.Color("#000000")).
-			Padding(0, 1).
-			Bold(true)
-
-	technologyBadge = lipgloss.NewStyle().
-			Background(primaryColor).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Padding(0, 1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Padding(1, 2)
 )
+
+// Icons
+const (
+	IconSelected     = "▸"
+	IconUnselected   = " "
+	IconControllable = "✓"
+	IconModified     = "●"
+	IconFolder       = "📁"
+	IconDevice       = "⚡"
+	IconArrowRight   = "›"
+	IconSpinner      = "◐"
+)
+
+// Device type icons
+func deviceTypeIcon(deviceType string) string {
+	switch deviceType {
+	case "power_meter":
+		return "⚡"
+	case "gateway":
+		return "🌐"
+	case "environment_sensor":
+		return "🌡"
+	case "water_meter":
+		return "💧"
+	case "heat_meter":
+		return "🔥"
+	default:
+		return "📦"
+	}
+}
+
+// Technology badge color
+func techBadgeStyle(tech string) lipgloss.Style {
+	switch tech {
+	case "lorawan":
+		return badgeTechStyle.Background(lipgloss.Color("#3B82F6")) // Blue
+	case "modbus":
+		return badgeTechStyle.Background(lipgloss.Color("#8B5CF6")) // Purple
+	case "wmbus":
+		return badgeTechStyle.Background(lipgloss.Color("#EC4899")) // Pink
+	default:
+		return badgeTechStyle
+	}
+}
