@@ -1,0 +1,50 @@
+# Kaden Device Types
+#
+# This file contains unified device type definitions for Kaden devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Kaden
+  model_number: C10
+  name: Kaden C10
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: VIP
+    wmbus_device_type: 8
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: 82B0551191F51D66EFCDAB8967452301
+  control_config: {}
+  processor_config: {}
+- vendor_name: Kaden
+  model_number: D10
+  name: Kaden D10
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: VIP
+    wmbus_device_type: 8
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: 82B0551191F51D66EFCDAB8967452301
+  control_config: {}
+  processor_config: {}
+- vendor_name: Kaden
+  model_number: T30
+  name: Kaden T30
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: KDN
+    wmbus_device_type: 7
+    data_record_mapping: []
+    encryption_required: false
+  control_config: {}
+  processor_config: {}
