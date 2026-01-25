@@ -1,145 +1,204 @@
 # Orno Device Types
 #
-# This file contains device type definitions for Orno devices.
-# Part of the Enerooo Spark Device Library.
+# This file contains unified device type definitions for Orno devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
 #
-# Format compatible with Spark's import/export at /edge/data/import/
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
 
 device_types:
 - vendor_name: Orno
   model_number: OR-WE-504
-  device_type: modbus
-  description: Single-phase energy meter, 80A direct connection. Uses Modbus RTU with 9600 baud, 8-E-1
-    (even parity).
-  register_definitions:
-    power_w:
-      type: int16
-      unit: W
+  name: Orno OR-WE-504
+  device_type: power_meter
+  description: ''
+  technology_config:
+    technology: modbus
+    register_definitions:
+    - field:
+        name: power_w
+        unit: W
       scale: 1.0
+      offset: 0.0
       address: 3
-    current_a:
-      type: uint16
-      unit: A
+      data_type: int16
+    - field:
+        name: current_a
+        unit: A
       scale: 0.1
+      offset: 0.0
       address: 1
-    voltage_v:
-      type: uint16
-      unit: V
+      data_type: uint16
+    - field:
+        name: voltage_v
+        unit: V
       scale: 0.1
+      offset: 0.0
       address: 0
-    frequency_hz:
-      type: uint16
-      unit: Hz
+      data_type: uint16
+    - field:
+        name: frequency_hz
+        unit: Hz
       scale: 0.1
+      offset: 0.0
       address: 2
-    power_factor:
-      type: int16
-      unit: ''
+      data_type: uint16
+    - field:
+        name: power_factor
+        unit: ''
       scale: 0.001
+      offset: 0.0
       address: 6
-    apparent_power_va:
-      type: uint16
-      unit: VA
+      data_type: int16
+    - field:
+        name: apparent_power_va
+        unit: VA
       scale: 1.0
+      offset: 0.0
       address: 5
-    energy_export_kwh:
-      type: uint32
-      unit: kWh
+      data_type: uint16
+    - field:
+        name: energy_export_kwh
+        unit: kWh
       scale: 0.01
+      offset: 0.0
       address: 258
-    energy_import_kwh:
-      type: uint32
-      unit: kWh
+      data_type: uint32
+    - field:
+        name: energy_import_kwh
+        unit: kWh
       scale: 0.01
+      offset: 0.0
       address: 256
-    reactive_power_var:
-      type: int16
-      unit: VAr
+      data_type: uint32
+    - field:
+        name: reactive_power_var
+        unit: VAr
       scale: 1.0
+      offset: 0.0
       address: 4
+      data_type: int16
+  control_config: {}
+  processor_config: {}
 - vendor_name: Orno
   model_number: OR-WE-516
-  device_type: modbus
-  description: Three-phase energy meter, 80A direct connection. Uses Modbus RTU with 9600 baud, 8-E-1
-    (even parity).
-  register_definitions:
-    pf_l1:
-      type: int16
-      unit: ''
+  name: Orno OR-WE-516
+  device_type: power_meter
+  description: ''
+  technology_config:
+    technology: modbus
+    register_definitions:
+    - field:
+        name: pf_l1
+        unit: ''
       scale: 0.001
+      offset: 0.0
       address: 10
-    pf_l2:
-      type: int16
-      unit: ''
+      data_type: int16
+    - field:
+        name: pf_l2
+        unit: ''
       scale: 0.001
+      offset: 0.0
       address: 11
-    pf_l3:
-      type: int16
-      unit: ''
+      data_type: int16
+    - field:
+        name: pf_l3
+        unit: ''
       scale: 0.001
+      offset: 0.0
       address: 12
-    power_w:
-      type: int16
-      unit: W
+      data_type: int16
+    - field:
+        name: power_w
+        unit: W
       scale: 1.0
+      offset: 0.0
       address: 9
-    power_l1:
-      type: int16
-      unit: W
+      data_type: int16
+    - field:
+        name: power_l1
+        unit: W
       scale: 1.0
+      offset: 0.0
       address: 6
-    power_l2:
-      type: int16
-      unit: W
+      data_type: int16
+    - field:
+        name: power_l2
+        unit: W
       scale: 1.0
+      offset: 0.0
       address: 7
-    power_l3:
-      type: int16
-      unit: W
+      data_type: int16
+    - field:
+        name: power_l3
+        unit: W
       scale: 1.0
+      offset: 0.0
       address: 8
-    current_l1:
-      type: uint16
-      unit: A
+      data_type: int16
+    - field:
+        name: current_l1
+        unit: A
       scale: 0.1
+      offset: 0.0
       address: 3
-    current_l2:
-      type: uint16
-      unit: A
+      data_type: uint16
+    - field:
+        name: current_l2
+        unit: A
       scale: 0.1
+      offset: 0.0
       address: 4
-    current_l3:
-      type: uint16
-      unit: A
+      data_type: uint16
+    - field:
+        name: current_l3
+        unit: A
       scale: 0.1
+      offset: 0.0
       address: 5
-    voltage_l1:
-      type: uint16
-      unit: V
+      data_type: uint16
+    - field:
+        name: voltage_l1
+        unit: V
       scale: 0.1
+      offset: 0.0
       address: 0
-    voltage_l2:
-      type: uint16
-      unit: V
+      data_type: uint16
+    - field:
+        name: voltage_l2
+        unit: V
       scale: 0.1
+      offset: 0.0
       address: 1
-    voltage_l3:
-      type: uint16
-      unit: V
+      data_type: uint16
+    - field:
+        name: voltage_l3
+        unit: V
       scale: 0.1
+      offset: 0.0
       address: 2
-    frequency_hz:
-      type: uint16
-      unit: Hz
+      data_type: uint16
+    - field:
+        name: frequency_hz
+        unit: Hz
       scale: 0.1
+      offset: 0.0
       address: 13
-    energy_export_kwh:
-      type: uint32
-      unit: kWh
+      data_type: uint16
+    - field:
+        name: energy_export_kwh
+        unit: kWh
       scale: 0.01
+      offset: 0.0
       address: 258
-    energy_import_kwh:
-      type: uint32
-      unit: kWh
+      data_type: uint32
+    - field:
+        name: energy_import_kwh
+        unit: kWh
       scale: 0.01
+      offset: 0.0
       address: 256
+      data_type: uint32
+  control_config: {}
+  processor_config: {}
