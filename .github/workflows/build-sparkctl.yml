@@ -1,0 +1,82 @@
+name: Build sparkctl
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sparkctl/**'
+      - '.github/workflows/build-sparkctl.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/sparkctl/**'
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            ext: ""
+          - os: linux
+            arch: arm64
+            ext: ""
+          - os: darwin
+            arch: amd64
+            ext: ""
+          - os: darwin
+            arch: arm64
+            ext: ""
+          - os: windows
+            arch: amd64
+            ext: ".exe"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: tools/sparkctl/go.sum
+
+      - name: Build binary
+        working-directory: tools/sparkctl
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: "0"
+        run: |
+          go build -ldflags="-s -w" -o ../../dist/sparkctl-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sparkctl-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/sparkctl-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+
+  release:
+    name: Upload Release Assets
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
