@@ -1,0 +1,75 @@
+# Zenner Device Types
+#
+# This file contains unified device type definitions for Zenner devices.
+# Part of the Enerooo Spark Device Library (v2 schema).
+#
+# Supports: wM-Bus, LoRaWAN, and Modbus technologies
+# Schema version: 2
+
+device_types:
+- vendor_name: Zenner
+  model_number: Caltos E
+  name: Zenner Caltos E
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: ZRI
+    wmbus_device_type: 8
+    data_record_mapping: []
+    encryption_required: true
+    shared_encryption_key: EB7CA876CAA641DAC39239326F6DD7EA
+  control_config: {}
+  processor_config: {}
+- vendor_name: Zenner
+  model_number: Water Meter (0x07)
+  name: Zenner Water Meter (0x07)
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: ZRI
+    wmbus_device_type: 7
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Zenner
+  model_number: ZRI Unknown (0x37) (0x37)
+  name: Zenner ZRI Unknown (0x37) (0x37)
+  device_type: water_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: ZRI
+    wmbus_device_type: 55
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Zenner
+  model_number: Zelsius C5
+  name: Zenner Zelsius C5
+  device_type: heat_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: ZRI
+    wmbus_device_type: 4
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Zenner
+  model_number: Zenner (0x04)
+  name: Zenner Zenner (0x04)
+  device_type: heat_meter
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: ZRI
+    wmbus_device_type: 4
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
