@@ -28,7 +28,7 @@ vendors:
   - name: "Emylo"
     file: "emylo.yaml"
     technologies: ["lorawan"]
-  - name: "Enerooo"
+  - name: "ENEROOO"
     file: "enerooo.yaml"
     technologies: ["modbus"]
   - name: "Kaden"
