@@ -10,7 +10,7 @@ device_types:
 - vendor_name: Kaden
   model_number: C10
   name: Kaden C10
-  device_type: water_meter
+  device_type: heat_meter
   description: ''
   technology_config:
     technology: wmbus
@@ -24,7 +24,7 @@ device_types:
 - vendor_name: Kaden
   model_number: D10
   name: Kaden D10
-  device_type: water_meter
+  device_type: environment_sensor
   description: ''
   technology_config:
     technology: wmbus
