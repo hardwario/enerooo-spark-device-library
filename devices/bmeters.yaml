@@ -24,7 +24,7 @@ device_types:
 - vendor_name: BMeters
   model_number: HYDROCLIMA
   name: BMeters HYDROCLIMA
-  device_type: water_meter
+  device_type: heat_meter
   description: ''
   technology_config:
     technology: wmbus
@@ -38,7 +38,7 @@ device_types:
 - vendor_name: BMeters
   model_number: HYDROCLIMA 2
   name: BMeters HYDROCLIMA 2
-  device_type: water_meter
+  device_type: heat_meter
   description: ''
   technology_config:
     technology: wmbus
@@ -66,7 +66,7 @@ device_types:
 - vendor_name: BMeters
   model_number: RFM-AMB
   name: BMeters RFM-AMB
-  device_type: water_meter
+  device_type: environment_sensor
   description: ''
   technology_config:
     technology: wmbus
