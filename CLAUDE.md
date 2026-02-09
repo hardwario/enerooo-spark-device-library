@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **YAML-based device library** for IoT device definitions used by the ENEROOO Spark platform. It contains no executable code—only declarative device configuration files.
+A **YAML-based device library** for IoT device definitions used by the ENEROOO Spark platform, plus a Go-based TUI tool (`sparkctl`) for managing the library.
 
 ## Repository Structure
 
 - `manifest.yaml` - Central registry of all vendors with version, schema version, and file references
 - `devices/*.yaml` - Device definitions organized by vendor (16 vendor files)
+- `tools/sparkctl/` - Go TUI application for browsing/editing device definitions
 
 ## Device Schema (v2)
 
@@ -24,7 +25,7 @@ device_types:
   description: string (optional)
   technology_config:
     technology: modbus | lorawan | wmbus
-    # technology-specific configuration
+    # technology-specific fields below
   control_config: # optional
     capabilities: {}
     controllable: boolean
@@ -32,52 +33,46 @@ device_types:
     decoder_type: string
 ```
 
-## Supported Technologies
+### Technology-Specific Fields
 
-**Modbus** - Register-based communication for power meters
-- Uses `register_definitions` with field mappings, data types (int16, uint16, int32, uint32), scale/offset
+**Modbus** (`technology_config`):
+- `register_definitions[]` - Each with: `field` (name, unit), `scale`, `offset`, `address`, `data_type` (int16, uint16, int32, uint32, float32)
 
-**LoRaWAN** - Long-range wireless for sensors and smart plugs
-- Includes device_class, downlink_fport, decoder_type
-- Control commands via f_port configuration
+**LoRaWAN** (`technology_config`):
+- `device_class` (A/B/C), `downlink_f_port`, plus optional `control_config.capabilities` for relay commands
 
-**wM-Bus** - Wireless M-Bus for utility meters
-- Requires manufacturer_code, wmbus_device_type, data_records mapping
-- May include encryption requirements
-
-## Workflow
-
-When adding or modifying devices:
-1. Edit the appropriate vendor file in `devices/`
-2. Follow the existing schema patterns within that file
-3. Update `manifest.yaml` version when making releases
+**wM-Bus** (`technology_config`):
+- `manufacturer_code`, `wmbus_device_type` (numeric), `data_record_mapping[]`, `encryption_required`, optional `shared_encryption_key`
 
 ## Conventions
 
-- Use conventional commits: `chore(library): update [vendor] device types`
-- Bump manifest version on releases: `chore(manifest): bump to X.X.X`
+- **Conventional commits** with these patterns:
+  - `chore(library): add/update [vendor] device types` - device changes
+  - `chore(manifest): bump to X.X.X` - version bumps (separate commit)
+  - `fix(<vendor>): <description>` - vendor-specific fixes (scope is lowercase vendor name)
+  - `feat(tools): <description>` - sparkctl changes
 - Keep device entries alphabetically ordered within files when practical
+- PR-based workflow: changes go through pull requests, not direct pushes
 
 ## sparkctl Tool
 
-A TUI application for browsing and editing device definitions remotely via GitHub.
-
 **Location:** `tools/sparkctl/`
 
-**Requirements:**
-- Go 1.21+
-- GitHub CLI (`gh`) authenticated
-
-**Build Commands:**
+**Build & Run:**
 ```bash
 cd tools/sparkctl
 make deps          # Install dependencies
-make build         # Build for current platform
-make build-all     # Build for Linux, Windows, macOS (amd64/arm64)
-make run           # Run directly without building
+make build         # Build for current platform (output: build/sparkctl)
+make build-all     # Cross-compile for linux/darwin/windows (amd64/arm64)
+make run           # Run directly via `go run .`
+make clean         # Remove build artifacts
 ```
 
-**Features:**
-- Browse vendors and devices from GitHub
-- Inline field-by-field editing
-- Creates PRs for changes (does not push directly)
+**Runtime flags:** `-local` reads from local filesystem instead of GitHub; `-path <dir>` sets the local repo path.
+
+**Architecture:** Built with Bubble Tea (charmbracelet). Key internal packages:
+- `internal/tui/` - Main TUI controller (`app.go`, ~1600 lines) with 10 view states (loading, vendor list, device list, device detail/edit, config edit, register list/edit, confirm PR, error)
+- `internal/models/` - Data models mapping the YAML device schema to Go structs
+- `internal/source/` - `Source` interface with two implementations: `LocalSource` (filesystem) and `GitHubSource` (via `gh` CLI API calls)
+- `internal/state/` - Application state: tracks current view, navigation indices, file change tracking (original vs modified)
+- `internal/github/` - GitHub client wrapping `gh api` commands for branch creation, file updates, and PR creation
