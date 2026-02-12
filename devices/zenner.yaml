@@ -10,7 +10,7 @@ device_types:
 - vendor_name: Zenner
   model_number: Caltos E
   name: Zenner Caltos E
-  device_type: heat_meter
+  device_type: heat_cost_allocator
   description: ''
   technology_config:
     technology: wmbus
