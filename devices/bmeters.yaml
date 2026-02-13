@@ -24,7 +24,7 @@ device_types:
 - vendor_name: BMeters
   model_number: HYDROCLIMA
   name: BMeters HYDROCLIMA
-  device_type: heat_meter
+  device_type: heat_cost_allocator
   description: ''
   technology_config:
     technology: wmbus
@@ -38,7 +38,7 @@ device_types:
 - vendor_name: BMeters
   model_number: HYDROCLIMA 2
   name: BMeters HYDROCLIMA 2
-  device_type: heat_meter
+  device_type: heat_cost_allocator
   description: ''
   technology_config:
     technology: wmbus

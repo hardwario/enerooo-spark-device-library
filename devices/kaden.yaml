@@ -10,7 +10,7 @@ device_types:
 - vendor_name: Kaden
   model_number: C10
   name: Kaden C10
-  device_type: heat_meter
+  device_type: heat_cost_allocator
   description: ''
   technology_config:
     technology: wmbus
