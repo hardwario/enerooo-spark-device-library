@@ -5,7 +5,7 @@
 #
 # Schema version 2: Unified support for wM-Bus, LoRaWAN, and Modbus
 
-version: "0.0.8"
+version: "0.0.9"
 released: "2026-02-16"
 schema_version: 2
 
