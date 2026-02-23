@@ -42,7 +42,7 @@ device_types:
   control_config: {}
   processor_config: {}
 - vendor_name: ENEROOO
-  model_number: Enerooo Edge Gateway
+  model_number: ENEROOO-EDGE-V1
   name: Edge Gateway
   device_type: gateway
   description: ''
