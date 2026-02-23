@@ -1,4 +1,4 @@
-.PHONY: build build-all run clean deps
+.PHONY: help build build-all run clean deps
 
 # Binary name
 BINARY=sparkctl
@@ -17,6 +17,8 @@ GOCLEAN=$(GOCMD) clean
 LDFLAGS=-ldflags "-s -w"
 
 # Default target
+.DEFAULT_GOAL := help
+
 all: deps build
 
 # Install dependencies

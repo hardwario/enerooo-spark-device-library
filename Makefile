@@ -3,6 +3,10 @@
 BUMP ?= patch
 
 release:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Error: working tree is not clean. Please commit or stash your changes before releasing."; \
+		exit 1; \
+	fi
 	@scripts/bump-version.sh $(BUMP)
 	@VERSION=$$(grep -m1 '^version:' manifest.yaml | sed 's/version: *"\(.*\)"/\1/'); \
 	git add manifest.yaml && \
