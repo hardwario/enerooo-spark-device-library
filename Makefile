@@ -1,4 +1,5 @@
-.PHONY: release release-minor release-major
+.PHONY: help release release-minor release-major
+.DEFAULT_GOAL := help
 
 BUMP ?= patch
 
@@ -20,3 +21,9 @@ release-minor:
 
 release-major:
 	@$(MAKE) release BUMP=major
+
+help:
+	@echo "Available targets:"
+	@echo "  release       - Bump patch version, commit, tag, and push"
+	@echo "  release-minor - Bump minor version, commit, tag, and push"
+	@echo "  release-major - Bump major version, commit, tag, and push"
