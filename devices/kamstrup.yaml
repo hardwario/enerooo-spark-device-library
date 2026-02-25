@@ -42,10 +42,24 @@ device_types:
     technology: wmbus
     manufacturer_code: KAM
     wmbus_device_type: 6
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: total volume
+      field_name: total_volume
+    - keyword: flow temperature
+      field_name: flow_temperature
+    - keyword: temperature
+      field_name: temperature
+    - keyword: target volume
+      field_name: target_volume
     encryption_required: true
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_volume
+    supplementary:
+    - temperature
+    - flow_temperature
+    - target_volume
 - vendor_name: Kamstrup
   model_number: Water Meter (0x07)
   name: Kamstrup Water Meter (0x07)

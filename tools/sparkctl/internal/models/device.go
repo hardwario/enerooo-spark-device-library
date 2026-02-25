@@ -15,6 +15,7 @@ type DeviceType struct {
 	TechnologyConfig map[string]interface{} `yaml:"technology_config"`
 	ControlConfig    map[string]interface{} `yaml:"control_config,omitempty"`
 	ProcessorConfig  map[string]interface{} `yaml:"processor_config,omitempty"`
+	Metrics          map[string]interface{} `yaml:"metrics,omitempty"`
 }
 
 // GetTechnology returns the technology from the config

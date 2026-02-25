@@ -30,11 +30,26 @@ device_types:
     technology: wmbus
     manufacturer_code: BMP
     wmbus_device_type: 8
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: average ambient temperature last month
+      field_name: avg_ambient_temperature_last_month
+    - keyword: average heater temperature last month
+      field_name: avg_heater_temperature_last_month
+    - keyword: average ambient temperature
+      field_name: avg_ambient_temperature
+    - keyword: max ambient temperature
+      field_name: max_ambient_temperature
+    - keyword: current consumption
+      field_name: total_energy
     encryption_required: true
     shared_encryption_key: '06006500000000000000000000000000'
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_energy
+    supplementary:
+    - avg_ambient_temperature
+    - max_ambient_temperature
 - vendor_name: BMeters
   model_number: HYDROCLIMA 2
   name: BMeters HYDROCLIMA 2
@@ -44,11 +59,26 @@ device_types:
     technology: wmbus
     manufacturer_code: BMP
     wmbus_device_type: 8
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: average ambient temperature last month
+      field_name: avg_ambient_temperature_last_month
+    - keyword: average heater temperature last month
+      field_name: avg_heater_temperature_last_month
+    - keyword: average ambient temperature
+      field_name: avg_ambient_temperature
+    - keyword: max ambient temperature
+      field_name: max_ambient_temperature
+    - keyword: current consumption
+      field_name: total_energy
     encryption_required: true
     shared_encryption_key: '06006500000000000000000000000000'
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_energy
+    supplementary:
+    - avg_ambient_temperature
+    - max_ambient_temperature
 - vendor_name: BMeters
   model_number: IWM-TX5
   name: BMeters IWM-TX5
@@ -72,7 +102,39 @@ device_types:
     technology: wmbus
     manufacturer_code: BMT
     wmbus_device_type: 27
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: average relative humidity 24h
+      field_name: avg_humidity_24h
+    - keyword: average relative humidity 1h
+      field_name: avg_humidity_1h
+    - keyword: maximum relative humidity 24h
+      field_name: max_humidity_24h
+    - keyword: maximum relative humidity 1h
+      field_name: max_humidity_1h
+    - keyword: minimum relative humidity 24h
+      field_name: min_humidity_24h
+    - keyword: minimum relative humidity 1h
+      field_name: min_humidity_1h
+    - keyword: current relative humidity
+      field_name: current_humidity
+    - keyword: average temperature 24h
+      field_name: avg_temperature_24h
+    - keyword: average temperature 1h
+      field_name: avg_temperature_1h
+    - keyword: maximum temperature 24h
+      field_name: max_temperature_24h
+    - keyword: maximum temperature 1h
+      field_name: max_temperature_1h
+    - keyword: minimum temperature 24h
+      field_name: min_temperature_24h
+    - keyword: minimum temperature 1h
+      field_name: min_temperature_1h
+    - keyword: current temperature
+      field_name: current_temperature
     encryption_required: false
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: current_temperature
+    supplementary:
+    - current_humidity

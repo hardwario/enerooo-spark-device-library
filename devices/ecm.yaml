@@ -16,7 +16,43 @@ device_types:
     technology: wmbus
     manufacturer_code: ECM
     wmbus_device_type: 7
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: january total
+      field_name: january_total
+    - keyword: february total
+      field_name: february_total
+    - keyword: march total
+      field_name: march_total
+    - keyword: april total
+      field_name: april_total
+    - keyword: may total
+      field_name: may_total
+    - keyword: june total
+      field_name: june_total
+    - keyword: july total
+      field_name: july_total
+    - keyword: august total
+      field_name: august_total
+    - keyword: september total
+      field_name: september_total
+    - keyword: october total
+      field_name: october_total
+    - keyword: november total
+      field_name: november_total
+    - keyword: december total
+      field_name: december_total
+    - keyword: backward flow
+      field_name: backward_flow
+    - keyword: fraud date
+      field_name: fraud_date
+    - keyword: fraud type
+      field_name: fraud_type
+    - keyword: leak date
+      field_name: leak_date
     encryption_required: false
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_volume
+    supplementary:
+    - battery_voltage
