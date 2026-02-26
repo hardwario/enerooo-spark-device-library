@@ -61,6 +61,19 @@ device_types:
     - flow_temperature
     - target_volume
 - vendor_name: Kamstrup
+  model_number: Room Sensor (0x16)
+  name: Kamstrup Room Sensor (0x16)
+  device_type: environment_sensor
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: KAM
+    wmbus_device_type: 22
+    data_record_mapping: []
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+- vendor_name: Kamstrup
   model_number: Water Meter (0x07)
   name: Kamstrup Water Meter (0x07)
   device_type: water_meter
