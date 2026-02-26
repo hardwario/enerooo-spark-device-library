@@ -25,3 +25,30 @@ device_types:
     technology: lorawan
   control_config: {}
   processor_config: {}
+- vendor_name: Emylo
+  model_number: ER12W
+  name: Emylo ER12W
+  device_type: power_meter
+  description: Smart socket/relay with power monitoring
+  technology_config:
+    technology: lorawan
+  control_config:
+    controllable: true
+    capabilities:
+      relay:
+        type: relay
+        commands:
+        - 'on'
+        - 'off'
+        - toggle
+  processor_config:
+    decoder_type: emylo_er12w
+  validation:
+    ranges:
+      power_factor:
+        min: -1
+        max: 1
+        allow_negative: true
+      voltage_v:
+        min: 0
+        max: 500
