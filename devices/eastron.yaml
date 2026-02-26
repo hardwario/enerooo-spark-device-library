@@ -129,3 +129,29 @@ device_types:
       data_type: float32
   control_config: {}
   processor_config: {}
+  validation:
+    ranges:
+      pf_l1:
+        min: -1
+        max: 1
+        allow_negative: true
+      pf_l2:
+        min: -1
+        max: 1
+        allow_negative: true
+      pf_l3:
+        min: -1
+        max: 1
+        allow_negative: true
+      voltage_l1:
+        min: 0
+        max: 500
+      voltage_l2:
+        min: 0
+        max: 500
+      voltage_l3:
+        min: 0
+        max: 500
+      frequency_hz:
+        min: 45
+        max: 65
