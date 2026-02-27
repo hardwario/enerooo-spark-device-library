@@ -8,45 +8,164 @@
 
 device_types:
 - vendor_name: ENEROOO
-  model_number: ER10M
-  name: ER10M Power Meter
-  device_type: power_meter
-  description: this is a test
-  technology_config:
-    technology: modbus
-    register_definitions:
-    - field:
-        name: driver
-        unit: ''
-      scale: 1.0
-      offset: 0.0
-      address: 0
-      data_type: uint16
-  control_config: {}
-  processor_config: {}
-- vendor_name: ENEROOO
-  model_number: ER12M
-  name: ER12M  Power Meter
-  device_type: power_meter
-  description: ''
-  technology_config:
-    technology: modbus
-    register_definitions:
-    - field:
-        name: driver
-        unit: ''
-      scale: 1.0
-      offset: 0.0
-      address: 0
-      data_type: uint16
-  control_config: {}
-  processor_config: {}
-- vendor_name: ENEROOO
   model_number: ENEROOO-EDGE-V1
   name: Edge Gateway
   device_type: gateway
   description: ''
   technology_config:
     technology: modbus
+  control_config: {}
+  processor_config: {}
+- vendor_name: ENEROOO
+  model_number: ER10M
+  name: ER10M Single-Phase Meter
+  device_type: power_meter
+  description: Enerooo ER10M Single-Phase Meter
+  technology_config:
+    technology: modbus
+    register_definitions:
+    - field:
+        name: voltage
+        unit: V
+      scale: 0.1
+      offset: 0.0
+      address: 300259
+      data_type: uint16
+    - field:
+        name: frequency
+        unit: Hz
+      scale: 0.01
+      offset: 0.0
+      address: 300273
+      data_type: uint16
+    - field:
+        name: power_factor
+        unit: ''
+      scale: 0.001
+      offset: 0.0
+      address: 300269
+      data_type: int16
+    - field:
+        name: instant_power
+        unit: W
+      scale: 1.0
+      offset: 0.0
+      address: 300263
+      data_type: int32
+    - field:
+        name: energy_import_int
+        unit: kWh
+      scale: 1.0
+      offset: 0.0
+      address: 301025
+      data_type: uint32
+    - field:
+        name: energy_import_dec
+        unit: kWh
+      scale: 0.01
+      offset: 0.0
+      address: 301027
+      data_type: uint16
+    - field:
+        name: energy_export_int
+        unit: kWh
+      scale: 1.0
+      offset: 0.0
+      address: 301033
+      data_type: uint32
+    - field:
+        name: energy_export_dec
+        unit: kWh
+      scale: 0.01
+      offset: 0.0
+      address: 301035
+      data_type: uint16
+  control_config: {}
+  processor_config: {}
+- vendor_name: ENEROOO
+  model_number: ER12M
+  name: ER12M Three-Phase Meter
+  device_type: power_meter
+  description: Enerooo ER12M Three-Phase Meter
+  technology_config:
+    technology: modbus
+    register_definitions:
+    - field:
+        name: voltage_l1
+        unit: V
+      scale: 0.1
+      offset: 0.0
+      address: 300289
+      data_type: uint16
+    - field:
+        name: voltage_l2
+        unit: V
+      scale: 0.1
+      offset: 0.0
+      address: 300303
+      data_type: uint16
+    - field:
+        name: voltage_l3
+        unit: V
+      scale: 0.1
+      offset: 0.0
+      address: 300317
+      data_type: uint16
+    - field:
+        name: power_factor_l1
+        unit: ''
+      scale: 0.001
+      offset: 0.0
+      address: 300299
+      data_type: int16
+    - field:
+        name: power_factor_l2
+        unit: ''
+      scale: 0.001
+      offset: 0.0
+      address: 300313
+      data_type: int16
+    - field:
+        name: power_factor_l3
+        unit: ''
+      scale: 0.001
+      offset: 0.0
+      address: 300327
+      data_type: int16
+    - field:
+        name: instant_power_l1
+        unit: W
+      scale: 1.0
+      offset: 0.0
+      address: 300293
+      data_type: int32
+    - field:
+        name: instant_power_l2
+        unit: W
+      scale: 1.0
+      offset: 0.0
+      address: 300307
+      data_type: int32
+    - field:
+        name: instant_power_l3
+        unit: W
+      scale: 1.0
+      offset: 0.0
+      address: 300321
+      data_type: int32
+    - field:
+        name: energy_import
+        unit: kWh
+      scale: 1.0
+      offset: 0.0
+      address: 301281
+      data_type: uint32
+    - field:
+        name: energy_export
+        unit: kWh
+      scale: 1.0
+      offset: 0.0
+      address: 301309
+      data_type: uint32
   control_config: {}
   processor_config: {}
