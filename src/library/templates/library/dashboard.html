@@ -3,82 +3,62 @@
 {% block title %}Dashboard - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Dashboard</h2>
+<h2 class="text-2xl font-bold mb-6">Dashboard</h2>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-bg-primary">
-            <div class="card-body">
-                <h5 class="card-title">Vendors</h5>
-                <p class="card-text display-6">{{ vendor_count }}</p>
-            </div>
-        </div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-blue-600 text-white rounded-lg shadow p-6">
+        <h5 class="text-sm font-medium opacity-90">Vendors</h5>
+        <p class="text-4xl font-bold mt-2">{{ vendor_count }}</p>
     </div>
-    <div class="col-md-3">
-        <div class="card text-bg-success">
-            <div class="card-body">
-                <h5 class="card-title">Devices</h5>
-                <p class="card-text display-6">{{ device_count }}</p>
-            </div>
-        </div>
+    <div class="bg-green-600 text-white rounded-lg shadow p-6">
+        <h5 class="text-sm font-medium opacity-90">Devices</h5>
+        <p class="text-4xl font-bold mt-2">{{ device_count }}</p>
     </div>
-    <div class="col-md-3">
-        <div class="card text-bg-info">
-            <div class="card-body">
-                <h5 class="card-title">Current Version</h5>
-                <p class="card-text display-6">{{ current_version|default:"—" }}</p>
-            </div>
-        </div>
+    <div class="bg-cyan-500 text-white rounded-lg shadow p-6">
+        <h5 class="text-sm font-medium opacity-90">Current Version</h5>
+        <p class="text-4xl font-bold mt-2">{{ current_version|default:"—" }}</p>
     </div>
-    <div class="col-md-3">
-        <div class="card text-bg-warning">
-            <div class="card-body">
-                <h5 class="card-title">API Keys</h5>
-                <p class="card-text display-6">{{ apikey_count }}</p>
-            </div>
-        </div>
+    <div class="bg-yellow-500 text-white rounded-lg shadow p-6">
+        <h5 class="text-sm font-medium opacity-90">API Keys</h5>
+        <p class="text-4xl font-bold mt-2">{{ apikey_count }}</p>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Devices by Technology</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <tbody>
-                        {% for tech in tech_breakdown %}
-                        <tr>
-                            <td>
-                                <span class="badge badge-{{ tech.technology }}">{{ tech.technology }}</span>
-                            </td>
-                            <td class="text-end">{{ tech.count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b">
+            <h5 class="font-semibold">Devices by Technology</h5>
+        </div>
+        <div class="p-6">
+            <table class="w-full text-sm">
+                <tbody>
+                    {% for tech in tech_breakdown %}
+                    <tr class="border-b last:border-0">
+                        <td class="py-2">
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if tech.technology == 'modbus' %}bg-[#0d6efd]{% elif tech.technology == 'lorawan' %}bg-[#198754]{% elif tech.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ tech.technology }}</span>
+                        </td>
+                        <td class="py-2 text-right">{{ tech.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Devices by Type</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <tbody>
-                        {% for dt in type_breakdown %}
-                        <tr>
-                            <td>{{ dt.device_type }}</td>
-                            <td class="text-end">{{ dt.count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b">
+            <h5 class="font-semibold">Devices by Type</h5>
+        </div>
+        <div class="p-6">
+            <table class="w-full text-sm">
+                <tbody>
+                    {% for dt in type_breakdown %}
+                    <tr class="border-b last:border-0">
+                        <td class="py-2">{{ dt.device_type }}</td>
+                        <td class="py-2 text-right">{{ dt.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

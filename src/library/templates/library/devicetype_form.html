@@ -3,22 +3,21 @@
 {% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Device - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'library:device-list' %}">Devices</a></li>
-        <li class="breadcrumb-item active">{% if form.instance.pk %}Edit {{ form.instance.name }}{% else %}Create Device{% endif %}</li>
-    </ol>
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">{% if form.instance.pk %}Edit {{ form.instance.name }}{% else %}Create Device{% endif %}</span>
 </nav>
 
-<h2 class="mb-4">{% if form.instance.pk %}Edit Device{% else %}Create Device{% endif %}</h2>
+<h2 class="text-2xl font-bold mb-6">{% if form.instance.pk %}Edit Device{% else %}Create Device{% endif %}</h2>
 
-<div class="card">
-    <div class="card-body">
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
         <form method="post">
             {% csrf_token %}
             {% for field in form %}
-            <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+            <div class="mb-4">
+                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
                 {% if field.field.widget.input_type == "select" or field.field.widget.attrs.class %}
                     {{ field }}
                 {% else %}
@@ -26,14 +25,16 @@
                            name="{{ field.html_name }}"
                            id="{{ field.id_for_label }}"
                            value="{{ field.value|default:'' }}"
-                           class="form-control {% if field.errors %}is-invalid{% endif %}">
+                           class="w-full rounded border px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 {% if field.errors %}border-red-500{% else %}border-gray-300{% endif %}">
                 {% endif %}
-                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                {% if field.help_text %}<div class="text-sm text-gray-500 mt-1">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
             </div>
             {% endfor %}
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{% url 'library:device-list' %}" class="btn btn-outline-secondary">Cancel</a>
+            <div class="flex gap-2">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">Save</button>
+                <a href="{% url 'library:device-list' %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
+            </div>
         </form>
     </div>
 </div>

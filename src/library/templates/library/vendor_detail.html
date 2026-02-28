@@ -3,37 +3,36 @@
 {% block title %}{{ vendor.name }} - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'library:vendor-list' %}">Vendors</a></li>
-        <li class="breadcrumb-item active">{{ vendor.name }}</li>
-    </ol>
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:vendor-list' %}" class="hover:text-gray-700">Vendors</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">{{ vendor.name }}</span>
 </nav>
 
-<h2 class="mb-4">{{ vendor.name }}</h2>
+<h2 class="text-2xl font-bold mb-6">{{ vendor.name }}</h2>
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-hover">
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <table class="w-full text-sm">
             <thead>
-                <tr>
-                    <th>Model</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Technology</th>
+                <tr class="border-b">
+                    <th class="text-left py-3 px-2 font-semibold">Model</th>
+                    <th class="text-left py-3 px-2 font-semibold">Name</th>
+                    <th class="text-left py-3 px-2 font-semibold">Type</th>
+                    <th class="text-left py-3 px-2 font-semibold">Technology</th>
                 </tr>
             </thead>
             <tbody>
                 {% for device in devices %}
-                <tr>
-                    <td><a href="{% url 'library:device-detail' device.pk %}">{{ device.model_number }}</a></td>
-                    <td>{{ device.name }}</td>
-                    <td>{{ device.get_device_type_display }}</td>
-                    <td><span class="badge badge-{{ device.technology }}">{{ device.get_technology_display }}</span></td>
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-3 px-2"><a href="{% url 'library:device-detail' device.pk %}" class="text-blue-600 hover:text-blue-800">{{ device.model_number }}</a></td>
+                    <td class="py-3 px-2">{{ device.name }}</td>
+                    <td class="py-3 px-2">{{ device.get_device_type_display }}</td>
+                    <td class="py-3 px-2"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-[#0d6efd]{% elif device.technology == 'lorawan' %}bg-[#198754]{% elif device.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ device.get_technology_display }}</span></td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="text-muted">No devices for this vendor.</td>
+                    <td colspan="4" class="py-3 px-2 text-gray-500">No devices for this vendor.</td>
                 </tr>
                 {% endfor %}
             </tbody>

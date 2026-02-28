@@ -3,63 +3,63 @@
 {% block title %}API Keys - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>API Keys</h2>
-    <a href="{% url 'library:apikey-create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i>Create API Key
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">API Keys</h2>
+    <a href="{% url 'library:apikey-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+        <i class="bi bi-plus-lg mr-1"></i>Create API Key
     </a>
 </div>
 
 {% if new_key %}
-<div class="alert alert-success">
+<div class="bg-green-50 border border-green-200 text-green-800 p-4 rounded mb-4">
     <strong>API Key created!</strong> Copy this key now — it won't be shown again.
     <div class="mt-2">
-        <code class="fs-5">{{ new_key }}</code>
+        <code class="text-lg">{{ new_key }}</code>
     </div>
 </div>
 {% endif %}
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-hover">
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <table class="w-full text-sm">
             <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Key Prefix</th>
-                    <th>Status</th>
-                    <th>Last Used</th>
-                    <th>Created By</th>
-                    <th>Created</th>
-                    <th></th>
+                <tr class="border-b">
+                    <th class="text-left py-3 px-2 font-semibold">Name</th>
+                    <th class="text-left py-3 px-2 font-semibold">Key Prefix</th>
+                    <th class="text-left py-3 px-2 font-semibold">Status</th>
+                    <th class="text-left py-3 px-2 font-semibold">Last Used</th>
+                    <th class="text-left py-3 px-2 font-semibold">Created By</th>
+                    <th class="text-left py-3 px-2 font-semibold">Created</th>
+                    <th class="py-3 px-2"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for apikey in apikeys %}
-                <tr>
-                    <td>{{ apikey.name }}</td>
-                    <td><code>{{ apikey.key|truncatechars:12 }}</code></td>
-                    <td>
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-3 px-2">{{ apikey.name }}</td>
+                    <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ apikey.key|truncatechars:12 }}</code></td>
+                    <td class="py-3 px-2">
                         {% if apikey.is_active %}
-                            <span class="badge bg-success">Active</span>
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
                         {% else %}
-                            <span class="badge bg-secondary">Revoked</span>
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Revoked</span>
                         {% endif %}
                     </td>
-                    <td>{{ apikey.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</td>
-                    <td>{{ apikey.created_by|default:"—" }}</td>
-                    <td>{{ apikey.created|date:"Y-m-d" }}</td>
-                    <td>
+                    <td class="py-3 px-2">{{ apikey.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</td>
+                    <td class="py-3 px-2">{{ apikey.created_by|default:"—" }}</td>
+                    <td class="py-3 px-2">{{ apikey.created|date:"Y-m-d" }}</td>
+                    <td class="py-3 px-2">
                         {% if apikey.is_active %}
-                        <form method="post" action="{% url 'library:apikey-revoke' apikey.pk %}" style="display:inline">
+                        <form method="post" action="{% url 'library:apikey-revoke' apikey.pk %}" class="inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke this API key?')">Revoke</button>
+                            <button type="submit" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" onclick="return confirm('Revoke this API key?')">Revoke</button>
                         </form>
                         {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-muted">No API keys yet.</td>
+                    <td colspan="7" class="py-3 px-2 text-gray-500">No API keys yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -67,11 +67,11 @@
     </div>
 </div>
 
-<div class="card mt-3">
-    <div class="card-header"><h5 class="mb-0">Usage</h5></div>
-    <div class="card-body">
-        <p>Include the API key in the <code>X-API-Key</code> header:</p>
-        <pre class="mb-0">curl -H "X-API-Key: YOUR_KEY" {{ request.scheme }}://{{ request.get_host }}/api/v1/sync/</pre>
+<div class="bg-white rounded-lg shadow mt-4">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Usage</h5></div>
+    <div class="p-6">
+        <p class="text-sm mb-2">Include the API key in the <code class="bg-gray-100 px-1 rounded">X-API-Key</code> header:</p>
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">curl -H "X-API-Key: YOUR_KEY" {{ request.scheme }}://{{ request.get_host }}/api/v1/sync/</pre>
     </div>
 </div>
 {% endblock %}

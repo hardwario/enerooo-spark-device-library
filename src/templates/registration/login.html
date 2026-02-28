@@ -3,29 +3,25 @@
 {% block title %}Login - {{ COMPANY_NAME }}{% endblock %}
 
 {% block anonymous_content %}
-<div class="container">
-    <div class="row justify-content-center mt-5">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="card-title text-center mb-4">{{ COMPANY_NAME }}</h4>
-                    <form method="post">
-                        {% csrf_token %}
-                        {% if form.errors %}
-                            <div class="alert alert-danger">Invalid username or password.</div>
-                        {% endif %}
-                        <div class="mb-3">
-                            <label for="id_username" class="form-label">Username</label>
-                            <input type="text" name="username" id="id_username" class="form-control" autofocus required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="id_password" class="form-label">Password</label>
-                            <input type="password" name="password" id="id_password" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Login</button>
-                    </form>
+<div class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="w-full max-w-sm">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h4 class="text-xl font-semibold text-center mb-6">{{ COMPANY_NAME }}</h4>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.errors %}
+                    <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded mb-4">Invalid username or password.</div>
+                {% endif %}
+                <div class="mb-4">
+                    <label for="id_username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" name="username" id="id_username" class="w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border" autofocus required>
                 </div>
-            </div>
+                <div class="mb-4">
+                    <label for="id_password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" name="password" id="id_password" class="w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium">Login</button>
+            </form>
         </div>
     </div>
 </div>

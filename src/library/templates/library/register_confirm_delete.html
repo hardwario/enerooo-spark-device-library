@@ -3,15 +3,17 @@
 {% block title %}Delete Register - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Delete Register</h2>
+<h2 class="text-2xl font-bold mb-6">Delete Register</h2>
 
-<div class="card">
-    <div class="card-body">
-        <p>Are you sure you want to delete register <strong>{{ object.field_name }}</strong> (address {{ object.address }})?</p>
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <p class="mb-4">Are you sure you want to delete register <strong>{{ object.field_name }}</strong> (address {{ object.address }})?</p>
         <form method="post">
             {% csrf_token %}
-            <button type="submit" class="btn btn-danger">Delete</button>
-            <a href="{% url 'library:device-detail' object.modbus_config.device_type.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            <div class="flex gap-2">
+                <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">Delete</button>
+                <a href="{% url 'library:device-detail' object.modbus_config.device_type.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
+            </div>
         </form>
     </div>
 </div>
