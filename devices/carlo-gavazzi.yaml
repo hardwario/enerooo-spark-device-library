@@ -80,6 +80,18 @@ device_types:
       data_type: int32
   control_config: {}
   processor_config: {}
+  validation:
+    ranges:
+      power_factor:
+        min: -1
+        max: 1
+        allow_negative: true
+      voltage_v:
+        min: 0
+        max: 500
+      frequency_hz:
+        min: 45
+        max: 65
 - vendor_name: Carlo Gavazzi
   model_number: EM530
   name: Carlo Gavazzi EM530
@@ -202,6 +214,32 @@ device_types:
       data_type: int32
   control_config: {}
   processor_config: {}
+  validation:
+    ranges:
+      pf_l1:
+        min: -1
+        max: 1
+        allow_negative: true
+      pf_l2:
+        min: -1
+        max: 1
+        allow_negative: true
+      pf_l3:
+        min: -1
+        max: 1
+        allow_negative: true
+      voltage_l1:
+        min: 0
+        max: 500
+      voltage_l2:
+        min: 0
+        max: 500
+      voltage_l3:
+        min: 0
+        max: 500
+      frequency_hz:
+        min: 45
+        max: 65
 - vendor_name: Carlo Gavazzi
   model_number: EM540
   name: Carlo Gavazzi EM540
@@ -324,3 +362,29 @@ device_types:
       data_type: int32
   control_config: {}
   processor_config: {}
+  validation:
+    ranges:
+      pf_l1:
+        min: -1
+        max: 1
+        allow_negative: true
+      pf_l2:
+        min: -1
+        max: 1
+        allow_negative: true
+      pf_l3:
+        min: -1
+        max: 1
+        allow_negative: true
+      voltage_l1:
+        min: 0
+        max: 500
+      voltage_l2:
+        min: 0
+        max: 500
+      voltage_l3:
+        min: 0
+        max: 500
+      frequency_hz:
+        min: 45
+        max: 65

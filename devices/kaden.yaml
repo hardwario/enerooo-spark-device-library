@@ -16,11 +16,24 @@ device_types:
     technology: wmbus
     manufacturer_code: VIP
     wmbus_device_type: 8
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: current room temp
+      field_name: room_temperature
+    - keyword: current temp
+      field_name: temperature
+    - keyword: current consumption
+      field_name: total_energy
+    - keyword: consumption at set date
+      field_name: consumption_at_set_date
     encryption_required: true
     shared_encryption_key: 82B0551191F51D66EFCDAB8967452301
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_energy
+    supplementary:
+    - consumption_at_set_date
+    - room_temperature
 - vendor_name: Kaden
   model_number: D10
   name: Kaden D10

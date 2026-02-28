@@ -16,11 +16,23 @@ device_types:
     technology: wmbus
     manufacturer_code: ZRI
     wmbus_device_type: 8
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: consumption at set date 8
+      field_name: consumption_at_set_date_8
+    - keyword: consumption at set date 1
+      field_name: consumption_at_set_date_1
+    - keyword: consumption at set date
+      field_name: consumption_at_set_date
+    - keyword: current consumption
+      field_name: total_energy
     encryption_required: true
     shared_encryption_key: EB7CA876CAA641DAC39239326F6DD7EA
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_energy
+    supplementary:
+    - consumption_at_set_date
 - vendor_name: Zenner
   model_number: Water Meter (0x07)
   name: Zenner Water Meter (0x07)
@@ -56,10 +68,27 @@ device_types:
     technology: wmbus
     manufacturer_code: ZRI
     wmbus_device_type: 4
-    data_record_mapping: []
+    data_record_mapping:
+    - keyword: total energy consumption last month
+      field_name: total_energy_last_month
+    - keyword: total energy consumption
+      field_name: total_energy
+    - keyword: due energy consumption
+      field_name: due_energy
+    - keyword: max power last month
+      field_name: max_power_last_month
+    - keyword: prev 1 month
+      field_name: energy_prev_1_month
     encryption_required: true
   control_config: {}
   processor_config: {}
+  metrics:
+    primary: total_energy
+    supplementary:
+    - total_volume
+    - power
+    - flow_temperature
+    - return_temperature
 - vendor_name: Zenner
   model_number: Zenner (0x04)
   name: Zenner Zenner (0x04)

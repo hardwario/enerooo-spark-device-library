@@ -42,6 +42,33 @@ device_types:
     technology: wmbus
     manufacturer_code: KAM
     wmbus_device_type: 6
+    data_record_mapping:
+    - keyword: total volume
+      field_name: total_volume
+    - keyword: flow temperature
+      field_name: flow_temperature
+    - keyword: temperature
+      field_name: temperature
+    - keyword: target volume
+      field_name: target_volume
+    encryption_required: true
+  control_config: {}
+  processor_config: {}
+  metrics:
+    primary: total_volume
+    supplementary:
+    - temperature
+    - flow_temperature
+    - target_volume
+- vendor_name: Kamstrup
+  model_number: Room Sensor (0x16)
+  name: Kamstrup Room Sensor (0x16)
+  device_type: environment_sensor
+  description: ''
+  technology_config:
+    technology: wmbus
+    manufacturer_code: KAM
+    wmbus_device_type: 22
     data_record_mapping: []
     encryption_required: true
   control_config: {}
