@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}v{{ version.version }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:version-list' %}">Versions</a></li>
+        <li class="breadcrumb-item active">v{{ version.version }}</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">
+    v{{ version.version }}
+    {% if version.is_current %}<span class="badge bg-success">Current</span>{% endif %}
+</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">Details</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Schema Version</dt>
+                    <dd class="col-sm-8">{{ version.schema_version }}</dd>
+                    <dt class="col-sm-4">Released</dt>
+                    <dd class="col-sm-8">{{ version.released_at|date:"Y-m-d H:i" }}</dd>
+                    <dt class="col-sm-4">Published By</dt>
+                    <dd class="col-sm-8">{{ version.published_by|default:"—" }}</dd>
+                    {% if version.notes %}
+                    <dt class="col-sm-4">Notes</dt>
+                    <dd class="col-sm-8">{{ version.notes }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Changes</h5></div>
+            <div class="card-body">
+                {% if changes %}
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for change in changes %}
+                        <tr>
+                            <td>{{ change.device_type.name }}</td>
+                            <td>
+                                {% if change.change_type == "added" %}
+                                    <span class="badge bg-success">Added</span>
+                                {% elif change.change_type == "modified" %}
+                                    <span class="badge bg-warning text-dark">Modified</span>
+                                {% elif change.change_type == "removed" %}
+                                    <span class="badge bg-danger">Removed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted mb-0">No device changes tracked for this version.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

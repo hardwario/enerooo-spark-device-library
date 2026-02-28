@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Device - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:device-list' %}">Devices</a></li>
+        <li class="breadcrumb-item active">{% if form.instance.pk %}Edit {{ form.instance.name }}{% else %}Create Device{% endif %}</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">{% if form.instance.pk %}Edit Device{% else %}Create Device{% endif %}</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {% if field.field.widget.input_type == "select" or field.field.widget.attrs.class %}
+                    {{ field }}
+                {% else %}
+                    <input type="{{ field.field.widget.input_type|default:'text' }}"
+                           name="{{ field.html_name }}"
+                           id="{{ field.id_for_label }}"
+                           value="{{ field.value|default:'' }}"
+                           class="form-control {% if field.errors %}is-invalid{% endif %}">
+                {% endif %}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{% url 'library:device-list' %}" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

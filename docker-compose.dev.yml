@@ -1,0 +1,34 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8005:8000"
+    env_file:
+      - src/.env.dev
+    volumes:
+      - ./src:/app/src
+      - ./devices:/app/devices
+      - ./manifest.yaml:/app/manifest.yaml
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python manage.py runserver 0.0.0.0:8000
+
+  db:
+    image: postgres:16
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: spark_device_library
+      POSTGRES_USER: spark_device_library
+      POSTGRES_PASSWORD: spark_device_library
+    volumes:
+      - spark_device_library_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spark_device_library"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  spark_device_library_postgres:

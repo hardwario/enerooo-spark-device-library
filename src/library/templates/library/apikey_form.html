@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Create API Key - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:apikey-list' %}">API Keys</a></li>
+        <li class="breadcrumb-item active">Create</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">Create API Key</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                       class="form-control {% if field.errors %}is-invalid{% endif %}"
+                       value="{{ field.value|default:'' }}">
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a href="{% url 'library:apikey-list' %}" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

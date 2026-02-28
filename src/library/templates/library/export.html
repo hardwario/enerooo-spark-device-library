@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Export - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Export YAML Definitions</h2>
+
+{% if stats %}
+<div class="alert alert-success">
+    <strong>Export complete:</strong>
+    {{ stats.vendors_exported }} vendors,
+    {{ stats.devices_exported }} devices exported to {{ output_dir }}.
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="output_dir" class="form-label">Output Directory</label>
+                <input type="text" name="output_dir" id="output_dir" class="form-control"
+                       value="{{ default_output_dir }}"
+                       placeholder="/path/to/output/devices/">
+                <div class="form-text">Directory where YAML files will be written. manifest.yaml will be written to its parent directory.</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Export</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header"><h5 class="mb-0">CLI Usage</h5></div>
+    <div class="card-body">
+        <pre class="mb-0">python manage.py export_yaml --output-dir /path/to/devices/</pre>
+    </div>
+</div>
+{% endblock %}

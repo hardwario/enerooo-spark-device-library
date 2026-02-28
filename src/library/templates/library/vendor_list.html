@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Vendors - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Vendors</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th class="text-end">Devices</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vendor in vendors %}
+                <tr>
+                    <td><a href="{% url 'library:vendor-detail' vendor.slug %}">{{ vendor.name }}</a></td>
+                    <td><code>{{ vendor.slug }}</code></td>
+                    <td class="text-end">{{ vendor.device_count }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-muted">No vendors yet. Import device definitions to get started.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

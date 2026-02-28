@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:device-list' %}">Devices</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'library:vendor-detail' device.vendor.slug %}">{{ device.vendor.name }}</a></li>
+        <li class="breadcrumb-item active">{{ device.model_number }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ device.name }}</h2>
+    <div>
+        <a href="{% url 'library:device-edit' device.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        <a href="{% url 'library:device-delete' device.pk %}" class="btn btn-outline-danger">
+            <i class="bi bi-trash me-1"></i>Delete
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">General</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Vendor</dt>
+                    <dd class="col-sm-8">{{ device.vendor.name }}</dd>
+                    <dt class="col-sm-4">Model</dt>
+                    <dd class="col-sm-8">{{ device.model_number }}</dd>
+                    <dt class="col-sm-4">Device Type</dt>
+                    <dd class="col-sm-8">{{ device.get_device_type_display }}</dd>
+                    <dt class="col-sm-4">Technology</dt>
+                    <dd class="col-sm-8"><span class="badge badge-{{ device.technology }}">{{ device.get_technology_display }}</span></dd>
+                    {% if device.description %}
+                    <dt class="col-sm-4">Description</dt>
+                    <dd class="col-sm-8">{{ device.description }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <!-- Technology Config -->
+        {% if device.technology == "modbus" and modbus_config %}
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">Modbus Configuration</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    {% if modbus_config.function %}
+                    <dt class="col-sm-4">Function</dt>
+                    <dd class="col-sm-8">{{ modbus_config.function }}</dd>
+                    {% endif %}
+                    {% if modbus_config.byte_order %}
+                    <dt class="col-sm-4">Byte Order</dt>
+                    <dd class="col-sm-8">{{ modbus_config.byte_order }}</dd>
+                    {% endif %}
+                    {% if modbus_config.word_order %}
+                    <dt class="col-sm-4">Word Order</dt>
+                    <dd class="col-sm-8">{{ modbus_config.word_order }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if device.technology == "lorawan" and lorawan_config %}
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">LoRaWAN Configuration</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    {% if lorawan_config.device_class %}
+                    <dt class="col-sm-4">Device Class</dt>
+                    <dd class="col-sm-8">{{ lorawan_config.get_device_class_display }}</dd>
+                    {% endif %}
+                    {% if lorawan_config.downlink_f_port %}
+                    <dt class="col-sm-4">Downlink F-Port</dt>
+                    <dd class="col-sm-8">{{ lorawan_config.downlink_f_port }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if device.technology == "wmbus" and wmbus_config %}
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">wM-Bus Configuration</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Manufacturer</dt>
+                    <dd class="col-sm-8">{{ wmbus_config.manufacturer_code }}</dd>
+                    <dt class="col-sm-4">Device Type</dt>
+                    <dd class="col-sm-8">{{ wmbus_config.wmbus_device_type }}</dd>
+                    <dt class="col-sm-4">Encryption</dt>
+                    <dd class="col-sm-8">{% if wmbus_config.encryption_required %}Required{% else %}Not required{% endif %}</dd>
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Control Config -->
+        {% if control_config %}
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">Control Configuration</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Controllable</dt>
+                    <dd class="col-sm-8">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
+                    {% if control_config.capabilities %}
+                    <dt class="col-sm-4">Capabilities</dt>
+                    <dd class="col-sm-8"><pre class="mb-0">{{ control_config.capabilities|pprint }}</pre></dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Processor Config -->
+        {% if processor_config and processor_config.decoder_type %}
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">Processor Configuration</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Decoder Type</dt>
+                    <dd class="col-sm-8"><code>{{ processor_config.decoder_type }}</code></dd>
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Register Definitions (Modbus) -->
+{% if device.technology == "modbus" and registers %}
+<div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Register Definitions ({{ registers|length }})</h5>
+        <a href="{% url 'library:register-create' device.pk %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Register
+        </a>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Address</th>
+                    <th>Field Name</th>
+                    <th>Unit</th>
+                    <th>Data Type</th>
+                    <th>Scale</th>
+                    <th>Offset</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registers %}
+                <tr>
+                    <td><code>{{ reg.address }}</code></td>
+                    <td>{{ reg.field_name }}</td>
+                    <td>{{ reg.field_unit|default:"—" }}</td>
+                    <td><code>{{ reg.data_type }}</code></td>
+                    <td>{{ reg.scale }}</td>
+                    <td>{{ reg.offset }}</td>
+                    <td>
+                        <a href="{% url 'library:register-edit' reg.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'library:register-delete' reg.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

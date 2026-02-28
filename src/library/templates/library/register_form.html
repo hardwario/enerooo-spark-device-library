@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Register - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:device-list' %}">Devices</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'library:device-detail' device.pk %}">{{ device.name }}</a></li>
+        <li class="breadcrumb-item active">{% if form.instance.pk %}Edit Register{% else %}Add Register{% endif %}</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">{% if form.instance.pk %}Edit Register{% else %}Add Register{% endif %}</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{% url 'library:device-detail' device.pk %}" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ object.name }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:device-list' %}">Devices</a></li>
+        <li class="breadcrumb-item active">Delete</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">Delete Device</h2>
+
+<div class="card">
+    <div class="card-body">
+        <p>Are you sure you want to delete <strong>{{ object.name }}</strong> ({{ object.vendor.name }} {{ object.model_number }})?</p>
+        <p class="text-danger">This action cannot be undone.</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Delete</button>
+            <a href="{% url 'library:device-detail' object.pk %}" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

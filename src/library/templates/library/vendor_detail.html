@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vendor.name }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'library:vendor-list' %}">Vendors</a></li>
+        <li class="breadcrumb-item active">{{ vendor.name }}</li>
+    </ol>
+</nav>
+
+<h2 class="mb-4">{{ vendor.name }}</h2>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Technology</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for device in devices %}
+                <tr>
+                    <td><a href="{% url 'library:device-detail' device.pk %}">{{ device.model_number }}</a></td>
+                    <td>{{ device.name }}</td>
+                    <td>{{ device.get_device_type_display }}</td>
+                    <td><span class="badge badge-{{ device.technology }}">{{ device.get_technology_display }}</span></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-muted">No devices for this vendor.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
