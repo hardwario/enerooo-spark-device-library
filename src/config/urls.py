@@ -21,6 +21,10 @@ urlpatterns = [
         ),
         name="password_change",
     ),
+    # Core app (users, invitations)
+    path("", include("core.urls")),
+    # Audit log
+    path("", include("auditlog.urls")),
     # Library app (web UI)
     path("", include("library.urls")),
     # API

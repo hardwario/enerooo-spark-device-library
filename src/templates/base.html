@@ -19,6 +19,19 @@
             }
         }
     </script>
+    <style type="text/tailwindcss">
+        @layer base {
+            input[type="text"], input[type="password"], input[type="email"],
+            input[type="number"], input[type="url"], input[type="tel"],
+            input[type="date"], input[type="datetime-local"],
+            select, textarea {
+                @apply w-full rounded border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500;
+            }
+            input[type="checkbox"] {
+                @apply rounded border-gray-300 text-blue-600 focus:ring-blue-500;
+            }
+        }
+    </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-gray-100">
@@ -64,6 +77,24 @@
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'export' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:export' %}">
                         <i class="bi bi-download mr-2"></i>Export
+                    </a>
+                </li>
+            </ul>
+            <hr class="border-gray-700 my-3">
+            <ul class="space-y-1">
+                <li>
+                    <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'user-list' or request.resolver_match.url_name == 'user-role' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'core:user-list' %}">
+                        <i class="bi bi-people mr-2"></i>Users
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'invitation' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'core:invitation-list' %}">
+                        <i class="bi bi-envelope mr-2"></i>Invitations
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'log-list' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'auditlog:log-list' %}">
+                        <i class="bi bi-journal-text mr-2"></i>Activity Log
                     </a>
                 </li>
             </ul>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Invitations - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">Invitations</h2>
+    <a href="{% url 'core:invitation-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+        <i class="bi bi-envelope-plus mr-1"></i>New Invitation
+    </a>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-3 px-2 font-semibold">Email</th>
+                    <th class="text-left py-3 px-2 font-semibold">Role</th>
+                    <th class="text-left py-3 px-2 font-semibold">Status</th>
+                    <th class="text-left py-3 px-2 font-semibold">Created</th>
+                    <th class="text-left py-3 px-2 font-semibold">Expires</th>
+                    <th class="text-left py-3 px-2 font-semibold">Invited By</th>
+                    <th class="py-3 px-2"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invitation in invitations %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-3 px-2">{{ invitation.email }}</td>
+                    <td class="py-3 px-2">
+                        {% if invitation.role == 'admin' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Admin</span>
+                        {% elif invitation.role == 'editor' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Editor</span>
+                        {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Viewer</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2">
+                        {% if invitation.status == 'pending' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Pending</span>
+                        {% elif invitation.status == 'accepted' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Accepted</span>
+                        {% if invitation.accepted_by %}
+                        <span class="text-gray-500 text-xs ml-1">by {{ invitation.accepted_by.username }}</span>
+                        {% endif %}
+                        {% elif invitation.status == 'expired' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Expired</span>
+                        {% elif invitation.status == 'revoked' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Revoked</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2">{{ invitation.created|timesince }} ago</td>
+                    <td class="py-3 px-2">{{ invitation.expires_at|date:"M d, Y H:i" }}</td>
+                    <td class="py-3 px-2">{{ invitation.invited_by.username|default:"-" }}</td>
+                    <td class="py-3 px-2">
+                        {% if invitation.status == 'pending' %}
+                        <div class="flex gap-1">
+                            <button type="button" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" onclick="copyInviteLink('{{ invitation.token }}')" title="Copy link">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                            <form method="post" action="{% url 'core:invitation-resend' invitation.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50" title="Resend email">
+                                    <i class="bi bi-send"></i>
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'core:invitation-revoke' invitation.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" onclick="return confirm('Revoke this invitation?')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="py-3 px-2 text-gray-500 text-center">
+                        No invitations yet.
+                        <a href="{% url 'core:invitation-create' %}" class="text-blue-600 hover:text-blue-800">Create one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyInviteLink(token) {
+    var url = window.location.origin + '/invite/' + token + '/';
+    navigator.clipboard.writeText(url).then(function() {
+        var btn = event.target.closest('button');
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        setTimeout(function() {
+            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+        }, 1500);
+    });
+}
+</script>
+{% endblock %}

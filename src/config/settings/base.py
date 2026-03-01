@@ -62,6 +62,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "core",
     "library",
+    "auditlog",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -135,6 +136,11 @@ CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="spark_device_library_csrftok
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 X_FRAME_OPTIONS = "DENY"
+
+# EMAIL
+# ------------------------------------------------------------------------------
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "Spark Device Library <noreply@enerooo.cloud>"
 
 # ADMIN
 # ------------------------------------------------------------------------------
