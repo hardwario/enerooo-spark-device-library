@@ -41,7 +41,6 @@
         <nav class="hidden md:flex md:flex-col w-64 bg-gray-900 text-white p-4 flex-shrink-0">
             <div class="mb-6">
                 <h5 class="text-white font-semibold text-lg">{{ COMPANY_NAME }}</h5>
-                <small class="text-gray-500">v{{ APP_VERSION }}</small>
             </div>
             <ul class="space-y-1 flex-1">
                 <li>
@@ -112,13 +111,21 @@
                 </li>
             </ul>
             <hr class="border-gray-700 my-3">
-            <div class="text-gray-500 text-sm px-3 flex items-center">
+            <ul class="space-y-1">
+                <li>
+                    <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'profile' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'core:profile' %}">
+                        <i class="bi bi-person-gear mr-2"></i>Profile
+                    </a>
+                </li>
+            </ul>
+            <div class="text-gray-500 text-sm px-3 flex items-center mt-2">
                 <i class="bi bi-person mr-1"></i>{{ user.username }}
                 <form method="post" action="{% url 'logout' %}" class="inline ml-2">
                     {% csrf_token %}
                     <button type="submit" class="text-gray-500 hover:text-gray-300"><i class="bi bi-box-arrow-right"></i></button>
                 </form>
             </div>
+            <small class="text-gray-600 text-xs px-3 mt-2">v{{ APP_VERSION }}</small>
         </nav>
 
         <!-- Main content -->

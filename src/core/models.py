@@ -3,12 +3,18 @@
 import secrets
 import uuid
 from datetime import timedelta
+from zoneinfo import available_timezones
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 from model_utils.models import TimeStampedModel
+
+TIMEZONE_CHOICES = [("UTC", "UTC")] + sorted(
+    [(tz, tz) for tz in available_timezones() if "/" in tz and not tz.startswith("Etc/")],
+    key=lambda x: x[0],
+)
 
 
 class User(AbstractUser):
@@ -27,6 +33,7 @@ class User(AbstractUser):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.VIEWER)
+    timezone = models.CharField(max_length=63, default="UTC", choices=TIMEZONE_CHOICES)
 
     class Meta:
         ordering = ["username"]

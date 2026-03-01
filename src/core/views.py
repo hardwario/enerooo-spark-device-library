@@ -14,11 +14,31 @@ from django.views.generic import CreateView, ListView, UpdateView
 
 from auditlog.helpers import log_action
 
-from .forms import AcceptInvitationForm, InvitationForm, UserRoleForm
+from .forms import AcceptInvitationForm, InvitationForm, ProfileForm, UserRoleForm
 from .models import Invitation, User
 from .permissions import RoleRequiredMixin
 
 logger = logging.getLogger(__name__)
+
+
+# Profile view
+
+
+class ProfileView(RoleRequiredMixin, UpdateView):
+    """Allow users to update their own profile."""
+
+    model = User
+    form_class = ProfileForm
+    template_name = "core/profile.html"
+    success_url = reverse_lazy("core:profile")
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
+    def form_valid(self, form):
+        log_action(self.request, "updated_profile", self.request.user, category="user")
+        messages.success(self.request, "Profile updated successfully.")
+        return super().form_valid(form)
 
 
 # User management views (admin only)

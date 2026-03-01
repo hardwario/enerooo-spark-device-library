@@ -7,6 +7,8 @@ from . import views
 app_name = "core"
 
 urlpatterns = [
+    # Profile
+    path("profile/", views.ProfileView.as_view(), name="profile"),
     # User management (admin only)
     path("users/", views.UserListView.as_view(), name="user-list"),
     path("users/<uuid:pk>/role/", views.UserUpdateRoleView.as_view(), name="user-role"),

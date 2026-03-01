@@ -44,6 +44,14 @@ class AcceptInvitationForm(forms.Form):
         return cleaned_data
 
 
+class ProfileForm(forms.ModelForm):
+    """Form for updating the current user's profile."""
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "timezone"]
+
+
 class UserRoleForm(forms.ModelForm):
     """Form for updating a user's role and active status."""
 
