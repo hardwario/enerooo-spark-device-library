@@ -398,6 +398,26 @@ class DeviceHistorySnapshotView(LoginRequiredMixin, TemplateView):
         ctx["wmbus_config"] = snapshot.get("wmbus_config")
         ctx["control_config"] = snapshot.get("control_config")
         ctx["processor_config"] = snapshot.get("processor_config")
+
+        # Version navigation and history
+        all_versions = list(
+            DeviceHistory.objects.filter(device=device)
+            .order_by("version")
+            .values_list("version", flat=True)
+        )
+        ctx["all_versions"] = all_versions
+        ctx["latest_version"] = all_versions[-1] if all_versions else version
+        idx = all_versions.index(version) if version in all_versions else -1
+        ctx["prev_version"] = all_versions[idx - 1] if idx > 0 else None
+        ctx["next_version"] = all_versions[idx + 1] if 0 <= idx < len(all_versions) - 1 else None
+
+        # Full history for the timeline
+        ctx["history"] = (
+            DeviceHistory.objects.filter(device=device)
+            .select_related("user")
+            .order_by("-version")
+        )
+
         return ctx
 
 

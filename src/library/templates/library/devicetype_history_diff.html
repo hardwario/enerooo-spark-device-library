@@ -24,7 +24,7 @@
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm font-semibold text-gray-500 mb-1">From</div>
         <div class="text-lg font-bold">v{{ from_entry.version }}</div>
-        <div class="text-sm text-gray-500">{{ from_entry.created|date:"N j, Y H:i" }} &middot; {{ from_entry.user.get_full_name|default:from_entry.user.username|default:"System" }}</div>
+        <div class="text-sm text-gray-500">{{ from_entry.created|date:"N j, Y H:i" }} &middot; {% if from_entry.user %}{{ from_entry.user.get_full_name|default:from_entry.user.username }}{% else %}System{% endif %}</div>
         <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full mt-1
             {% if from_entry.action == 'created' %}bg-green-100 text-green-700
             {% elif from_entry.action == 'updated' %}bg-blue-100 text-blue-700
@@ -34,7 +34,7 @@
     <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm font-semibold text-gray-500 mb-1">To</div>
         <div class="text-lg font-bold">v{{ to_entry.version }}</div>
-        <div class="text-sm text-gray-500">{{ to_entry.created|date:"N j, Y H:i" }} &middot; {{ to_entry.user.get_full_name|default:to_entry.user.username|default:"System" }}</div>
+        <div class="text-sm text-gray-500">{{ to_entry.created|date:"N j, Y H:i" }} &middot; {% if to_entry.user %}{{ to_entry.user.get_full_name|default:to_entry.user.username }}{% else %}System{% endif %}</div>
         <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full mt-1
             {% if to_entry.action == 'created' %}bg-green-100 text-green-700
             {% elif to_entry.action == 'updated' %}bg-blue-100 text-blue-700
