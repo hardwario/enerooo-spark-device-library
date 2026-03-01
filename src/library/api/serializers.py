@@ -173,11 +173,11 @@ class VendorSerializer(serializers.ModelSerializer):
 class VendorWithDevicesSerializer(serializers.ModelSerializer):
     """Vendor with nested device types for sync endpoint."""
 
-    device_types = DeviceTypeDetailSerializer(many=True, read_only=True)
+    devices = DeviceTypeDetailSerializer(many=True, read_only=True, source="device_types")
 
     class Meta:
         model = Vendor
-        fields = ["name", "slug", "device_types"]
+        fields = ["name", "slug", "devices"]
 
 
 # === Manifest ===

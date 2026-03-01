@@ -16,7 +16,7 @@ from auditlog.helpers import log_action
 from core.models import User
 from core.permissions import RoleRequiredMixin
 
-from .exporters import export_to_yaml
+from .exporters import export_to_yaml, snapshot_to_schema
 from .forms import APIKeyForm, DeviceTypeForm, RegisterDefinitionForm, VendorForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
@@ -606,14 +606,14 @@ class VersionExportView(LoginRequiredMixin, View):
             vendor_name = snapshot.get("vendor", "Unknown")
             if vendor_name not in vendors:
                 vendors[vendor_name] = []
-            vendors[vendor_name].append(_snapshot_to_schema(snapshot))
+            vendors[vendor_name].append(snapshot_to_schema(snapshot))
 
         # Build final document
         vendor_list = []
         for vendor_name in sorted(vendors):
             vendor_list.append({
                 "name": vendor_name,
-                "device_types": vendors[vendor_name],
+                "devices": vendors[vendor_name],
             })
 
         document = {
@@ -632,66 +632,6 @@ class VersionExportView(LoginRequiredMixin, View):
             response["Content-Disposition"] = f'attachment; filename="library-v{lib_version.version}.json"'
 
         return response
-
-
-def _snapshot_to_schema(snapshot: dict) -> dict:
-    """Convert a DeviceHistory snapshot dict to the YAML device schema format."""
-    technology = snapshot.get("technology", "")
-
-    tech_config = {"technology": technology}
-    if technology == "modbus":
-        mc = snapshot.get("modbus_config", {})
-        if mc.get("function"):
-            tech_config["function"] = mc["function"]
-        if mc.get("byte_order"):
-            tech_config["byte_order"] = mc["byte_order"]
-        if mc.get("word_order"):
-            tech_config["word_order"] = mc["word_order"]
-        registers = snapshot.get("registers", [])
-        if registers:
-            tech_config["register_definitions"] = [
-                {
-                    "field": {"name": r["field_name"], "unit": r.get("field_unit", "")},
-                    "scale": r.get("scale", 1.0),
-                    "offset": r.get("offset", 0.0),
-                    "address": r["address"],
-                    "data_type": r.get("data_type", "uint16"),
-                }
-                for r in registers
-            ]
-    elif technology == "lorawan":
-        lc = snapshot.get("lorawan_config", {})
-        if lc.get("device_class"):
-            tech_config["device_class"] = lc["device_class"]
-        if lc.get("downlink_f_port") is not None:
-            tech_config["downlink_f_port"] = lc["downlink_f_port"]
-    elif technology == "wmbus":
-        wc = snapshot.get("wmbus_config", {})
-        tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
-        tech_config["wmbus_device_type"] = wc.get("wmbus_device_type")
-        tech_config["data_record_mapping"] = wc.get("data_record_mapping", [])
-        tech_config["encryption_required"] = wc.get("encryption_required", False)
-        if wc.get("shared_encryption_key"):
-            tech_config["shared_encryption_key"] = wc["shared_encryption_key"]
-
-    device = {
-        "vendor_name": snapshot.get("vendor", ""),
-        "model_number": snapshot.get("model_number", ""),
-        "name": snapshot.get("name", ""),
-        "device_type": snapshot.get("device_type", ""),
-        "description": snapshot.get("description", ""),
-        "technology_config": tech_config,
-    }
-
-    ctrl = snapshot.get("control_config", {})
-    if ctrl and (ctrl.get("controllable") or ctrl.get("capabilities")):
-        device["control_config"] = ctrl
-
-    proc = snapshot.get("processor_config", {})
-    if proc and proc.get("decoder_type"):
-        device["processor_config"] = proc
-
-    return device
 
 
 # === API Keys ===

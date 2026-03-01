@@ -8,6 +8,8 @@ from .viewsets import (
     AdminDeviceTypeViewSet,
     AdminVendorViewSet,
     AdminVersionViewSet,
+    LibraryContentViewSet,
+    LibraryVersionSyncViewSet,
     ManifestViewSet,
     SyncDeviceViewSet,
     SyncVendorViewSet,
@@ -21,6 +23,10 @@ router.register("manifest", ManifestViewSet, basename="manifest")
 router.register("vendors", SyncVendorViewSet, basename="vendor")
 router.register("devices", SyncDeviceViewSet, basename="device")
 router.register("sync", SyncViewSet, basename="sync")
+
+# HMAC-authenticated library sync
+router.register("library/version", LibraryVersionSyncViewSet, basename="library-version")
+router.register("library/content", LibraryContentViewSet, basename="library-content")
 
 # Admin API (session auth)
 router.register("admin/vendors", AdminVendorViewSet, basename="admin-vendor")

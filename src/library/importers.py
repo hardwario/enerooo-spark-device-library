@@ -74,11 +74,12 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
         with open(file_path) as f:
             data = yaml.safe_load(f)
 
-        if not data or "device_types" not in data:
-            logger.warning("No device_types in %s", file_path)
+        devices_key = "devices" if "devices" in (data or {}) else "device_types"
+        if not data or devices_key not in data:
+            logger.warning("No devices in %s", file_path)
             continue
 
-        for device_data in data["device_types"]:
+        for device_data in data[devices_key]:
             try:
                 _import_device(vendor, device_data, stats)
             except Exception as e:

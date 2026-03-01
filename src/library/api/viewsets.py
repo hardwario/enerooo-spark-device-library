@@ -8,9 +8,10 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from library.models import APIKey, DeviceType, LibraryVersion, Vendor
+from library.exporters import snapshot_to_schema
+from library.models import APIKey, DeviceHistory, DeviceType, LibraryVersion, LibraryVersionDevice, Vendor
 
-from .permissions import HasAPIKey, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
+from .permissions import HasAPIKey, HasHMACSignature, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
     DeviceTypeAdminSerializer,
@@ -127,6 +128,75 @@ class SyncViewSet(viewsets.ViewSet):
             response["ETag"] = f'"{etag}"'
             response["Last-Modified"] = http_date(last_modified.timestamp())
         return response
+
+
+# === HMAC-authenticated library sync endpoints ===
+
+
+class LibraryVersionSyncViewSet(viewsets.ViewSet):
+    """Current library version for cheap polling."""
+
+    permission_classes = [HasHMACSignature]
+
+    def list(self, request):
+        current = LibraryVersion.objects.filter(is_current=True).first()
+        return Response({"version": current.version if current else 0})
+
+
+class LibraryContentViewSet(viewsets.ViewSet):
+    """Full library content for a specific version."""
+
+    permission_classes = [HasHMACSignature]
+
+    def retrieve(self, request, pk=None):
+        try:
+            lib_version = LibraryVersion.objects.get(version=int(pk))
+        except (LibraryVersion.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"detail": "Version not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        entries = lib_version.device_changes.exclude(
+            change_type=LibraryVersionDevice.ChangeType.REMOVED,
+        )
+
+        # Batch-fetch all relevant DeviceHistory snapshots
+        history_lookup = {}
+        for entry in entries:
+            if entry.device_type_id:
+                snapshot = (
+                    DeviceHistory.objects.filter(
+                        device_id=entry.device_type_id,
+                        version=entry.device_version,
+                    )
+                    .values_list("snapshot", flat=True)
+                    .first()
+                )
+                if snapshot:
+                    history_lookup[entry.device_type_id] = snapshot
+
+        # Group devices by vendor
+        vendors = {}
+        for entry in entries:
+            snap = history_lookup.get(entry.device_type_id)
+            if not snap:
+                continue
+            vendor_name = snap.get("vendor", "Unknown")
+            if vendor_name not in vendors:
+                vendors[vendor_name] = []
+            vendors[vendor_name].append(snapshot_to_schema(snap))
+
+        vendor_list = [
+            {"name": name, "devices": vendors[name]}
+            for name in sorted(vendors)
+        ]
+
+        return Response({
+            "version": lib_version.version,
+            "schema_version": lib_version.schema_version,
+            "vendors": vendor_list,
+        })
 
 
 # === Admin API viewsets (CRUD, session auth) ===
