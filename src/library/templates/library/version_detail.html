@@ -67,7 +67,7 @@
                 <tr class="border-b {% if entry.change_type == 'unchanged' %}text-gray-400{% endif %}">
                     <td class="py-2 px-2">
                         {% if entry.device_type %}
-                            <a href="{% url 'library:device-detail' entry.device_type.pk %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.device_label }}</a>
+                            <a href="{% url 'library:device-history-snapshot' entry.device_type.pk entry.device_version %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.device_label }}</a>
                         {% else %}
                             {{ entry.device_label }}
                         {% endif %}

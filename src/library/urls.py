@@ -20,6 +20,7 @@ urlpatterns = [
     path("devices/<uuid:pk>/", views.DeviceTypeDetailView.as_view(), name="device-detail"),
     path("devices/<uuid:pk>/edit/", views.DeviceTypeUpdateView.as_view(), name="device-edit"),
     path("devices/<uuid:pk>/delete/", views.DeviceTypeDeleteView.as_view(), name="device-delete"),
+    path("devices/<uuid:pk>/history/<int:version>/", views.DeviceHistorySnapshotView.as_view(), name="device-history-snapshot"),
     path("devices/<uuid:pk>/history/diff/", views.DeviceHistoryDiffView.as_view(), name="device-history-diff"),
     # Registers (for Modbus devices)
     path("devices/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),

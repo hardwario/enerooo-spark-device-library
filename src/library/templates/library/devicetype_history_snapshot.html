@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}{{ snapshot.name }} v{{ entry.version }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:device-detail' device.pk %}" class="hover:text-gray-700">{{ device }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">v{{ entry.version }}</span>
+</nav>
+
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">
+        {{ snapshot.name }}
+        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 ml-2 align-middle">v{{ entry.version }}</span>
+        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+            {% if entry.action == 'created' %}bg-green-100 text-green-700
+            {% elif entry.action == 'updated' %}bg-blue-100 text-blue-700
+            {% elif entry.action == 'deleted' %}bg-red-100 text-red-700
+            {% endif %} ml-1 align-middle">{{ entry.get_action_display }}</span>
+    </h2>
+    <div class="flex gap-2">
+        <a href="{% url 'library:device-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+            View Current
+        </a>
+    </div>
+</div>
+
+<div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6 text-sm text-amber-800">
+    This is a historical snapshot from {{ entry.created|date:"Y-m-d H:i" }}{% if entry.user %} by {{ entry.user.get_full_name|default:entry.user.username }}{% endif %}. It may differ from the current device state.
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
+            <div class="p-6">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    <dt class="font-medium text-gray-600">Vendor</dt>
+                    <dd class="col-span-2">{{ snapshot.vendor }}</dd>
+                    <dt class="font-medium text-gray-600">Model</dt>
+                    <dd class="col-span-2">{{ snapshot.model_number }}</dd>
+                    <dt class="font-medium text-gray-600">Device Type</dt>
+                    <dd class="col-span-2">{{ snapshot.device_type }}</dd>
+                    <dt class="font-medium text-gray-600">Technology</dt>
+                    <dd class="col-span-2"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if technology == 'modbus' %}bg-[#0d6efd]{% elif technology == 'lorawan' %}bg-[#198754]{% elif technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ technology }}</span></dd>
+                    {% if snapshot.description %}
+                    <dt class="font-medium text-gray-600">Description</dt>
+                    <dd class="col-span-2">{{ snapshot.description }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        {% if technology == "modbus" and modbus_config %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Modbus Configuration</h5></div>
+            <div class="p-6">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    {% if modbus_config.function %}
+                    <dt class="font-medium text-gray-600">Function</dt>
+                    <dd class="col-span-2">{{ modbus_config.function }}</dd>
+                    {% endif %}
+                    {% if modbus_config.byte_order %}
+                    <dt class="font-medium text-gray-600">Byte Order</dt>
+                    <dd class="col-span-2">{{ modbus_config.byte_order }}</dd>
+                    {% endif %}
+                    {% if modbus_config.word_order %}
+                    <dt class="font-medium text-gray-600">Word Order</dt>
+                    <dd class="col-span-2">{{ modbus_config.word_order }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if technology == "lorawan" and lorawan_config %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b"><h5 class="font-semibold">LoRaWAN Configuration</h5></div>
+            <div class="p-6">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    {% if lorawan_config.device_class %}
+                    <dt class="font-medium text-gray-600">Device Class</dt>
+                    <dd class="col-span-2">{{ lorawan_config.device_class }}</dd>
+                    {% endif %}
+                    {% if lorawan_config.downlink_f_port %}
+                    <dt class="font-medium text-gray-600">Downlink F-Port</dt>
+                    <dd class="col-span-2">{{ lorawan_config.downlink_f_port }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if technology == "wmbus" and wmbus_config %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b"><h5 class="font-semibold">wM-Bus Configuration</h5></div>
+            <div class="p-6">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    <dt class="font-medium text-gray-600">Manufacturer</dt>
+                    <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
+                    <dt class="font-medium text-gray-600">Device Type</dt>
+                    <dd class="col-span-2">{{ wmbus_config.wmbus_device_type }}</dd>
+                    <dt class="font-medium text-gray-600">Encryption</dt>
+                    <dd class="col-span-2">{% if wmbus_config.encryption_required %}Required{% else %}Not required{% endif %}</dd>
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if control_config %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Control Configuration</h5></div>
+            <div class="p-6">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    <dt class="font-medium text-gray-600">Controllable</dt>
+                    <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
+                    {% if control_config.capabilities %}
+                    <dt class="font-medium text-gray-600">Capabilities</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded">{{ control_config.capabilities }}</pre></dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if processor_config and processor_config.decoder_type %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Processor Configuration</h5></div>
+            <div class="p-6">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    <dt class="font-medium text-gray-600">Decoder Type</dt>
+                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ processor_config.decoder_type }}</code></dd>
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if technology == "modbus" and registers %}
+<div class="bg-white rounded-lg shadow mt-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">Register Definitions ({{ registers|length }})</h5>
+    </div>
+    <div class="p-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-2 px-2 font-semibold">Address</th>
+                    <th class="text-left py-2 px-2 font-semibold">Field Name</th>
+                    <th class="text-left py-2 px-2 font-semibold">Unit</th>
+                    <th class="text-left py-2 px-2 font-semibold">Data Type</th>
+                    <th class="text-left py-2 px-2 font-semibold">Scale</th>
+                    <th class="text-left py-2 px-2 font-semibold">Offset</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registers %}
+                <tr class="border-b">
+                    <td class="py-2 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.address }}</code></td>
+                    <td class="py-2 px-2">{{ reg.field_name }}</td>
+                    <td class="py-2 px-2">{{ reg.field_unit|default:"—" }}</td>
+                    <td class="py-2 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.data_type }}</code></td>
+                    <td class="py-2 px-2">{{ reg.scale }}</td>
+                    <td class="py-2 px-2">{{ reg.offset }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

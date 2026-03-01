@@ -376,6 +376,31 @@ class DeviceHistoryDiffView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
+class DeviceHistorySnapshotView(LoginRequiredMixin, TemplateView):
+    """Read-only view of a device at a specific history version."""
+
+    template_name = "library/devicetype_history_snapshot.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        device = get_object_or_404(DeviceType, pk=self.kwargs["pk"])
+        version = self.kwargs["version"]
+        entry = get_object_or_404(DeviceHistory, device=device, version=version)
+
+        snapshot = entry.snapshot
+        ctx["device"] = device
+        ctx["entry"] = entry
+        ctx["snapshot"] = snapshot
+        ctx["technology"] = snapshot.get("technology", "")
+        ctx["modbus_config"] = snapshot.get("modbus_config")
+        ctx["registers"] = snapshot.get("registers", [])
+        ctx["lorawan_config"] = snapshot.get("lorawan_config")
+        ctx["wmbus_config"] = snapshot.get("wmbus_config")
+        ctx["control_config"] = snapshot.get("control_config")
+        ctx["processor_config"] = snapshot.get("processor_config")
+        return ctx
+
+
 # === Import / Export ===
 
 
