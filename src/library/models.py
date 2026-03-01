@@ -148,6 +148,46 @@ class ProcessorConfig(TimeStampedModel):
         return f"ProcessorConfig for {self.device_type}"
 
 
+class DeviceHistory(TimeStampedModel):
+    """Tracks full snapshots of device definitions on every change."""
+
+    class Action(models.TextChoices):
+        CREATED = "created", "Created"
+        UPDATED = "updated", "Updated"
+        DELETED = "deleted", "Deleted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device = models.ForeignKey(
+        "DeviceType",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="history",
+    )
+    device_label = models.CharField(max_length=255)
+    version = models.PositiveIntegerField()
+    action = models.CharField(max_length=10, choices=Action.choices)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="device_history",
+    )
+    snapshot = models.JSONField(default=dict)
+    changes = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-created"]
+        unique_together = [("device", "version")]
+        indexes = [
+            models.Index(fields=["device", "-created"]),
+        ]
+
+    def __str__(self):
+        return f"v{self.version} {self.action} — {self.device_label}"
+
+
 class LibraryVersion(TimeStampedModel):
     """A published version of the device library."""
 

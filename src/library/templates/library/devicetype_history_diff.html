@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}History Diff — {{ device.name }} — {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:device-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">History Diff</span>
+</nav>
+
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">
+        v{{ from_entry.version }} &rarr; v{{ to_entry.version }}
+    </h2>
+    <a href="{% url 'library:device-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+        Back to Device
+    </a>
+</div>
+
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm font-semibold text-gray-500 mb-1">From</div>
+        <div class="text-lg font-bold">v{{ from_entry.version }}</div>
+        <div class="text-sm text-gray-500">{{ from_entry.created|date:"N j, Y H:i" }} &middot; {{ from_entry.user.get_full_name|default:from_entry.user.username|default:"System" }}</div>
+        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full mt-1
+            {% if from_entry.action == 'created' %}bg-green-100 text-green-700
+            {% elif from_entry.action == 'updated' %}bg-blue-100 text-blue-700
+            {% elif from_entry.action == 'deleted' %}bg-red-100 text-red-700
+            {% endif %}">{{ from_entry.get_action_display }}</span>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm font-semibold text-gray-500 mb-1">To</div>
+        <div class="text-lg font-bold">v{{ to_entry.version }}</div>
+        <div class="text-sm text-gray-500">{{ to_entry.created|date:"N j, Y H:i" }} &middot; {{ to_entry.user.get_full_name|default:to_entry.user.username|default:"System" }}</div>
+        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full mt-1
+            {% if to_entry.action == 'created' %}bg-green-100 text-green-700
+            {% elif to_entry.action == 'updated' %}bg-blue-100 text-blue-700
+            {% elif to_entry.action == 'deleted' %}bg-red-100 text-red-700
+            {% endif %}">{{ to_entry.get_action_display }}</span>
+    </div>
+</div>
+
+{% if not diff %}
+<div class="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+    No differences found between these two versions.
+</div>
+{% else %}
+
+<!-- Field Changes -->
+{% for field, change in diff.items %}
+{% if field != "registers" %}
+<div class="bg-white rounded-lg shadow mb-3">
+    <div class="px-6 py-3 border-b">
+        <h5 class="font-semibold text-sm">{{ field }}</h5>
+    </div>
+    <div class="grid grid-cols-2 divide-x">
+        <div class="p-4">
+            <div class="text-xs text-gray-400 mb-1">v{{ from_entry.version }}</div>
+            {% if change.old is None %}
+                <span class="text-gray-400 italic">not set</span>
+            {% elif change.old == True or change.old == False %}
+                <span>{{ change.old|yesno:"Yes,No" }}</span>
+            {% else %}
+                <pre class="text-sm bg-red-50 p-2 rounded whitespace-pre-wrap text-red-800">{{ change.old|pprint }}</pre>
+            {% endif %}
+        </div>
+        <div class="p-4">
+            <div class="text-xs text-gray-400 mb-1">v{{ to_entry.version }}</div>
+            {% if change.new is None %}
+                <span class="text-gray-400 italic">not set</span>
+            {% elif change.new == True or change.new == False %}
+                <span>{{ change.new|yesno:"Yes,No" }}</span>
+            {% else %}
+                <pre class="text-sm bg-green-50 p-2 rounded whitespace-pre-wrap text-green-800">{{ change.new|pprint }}</pre>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Register Changes -->
+{% with reg_diff=diff.registers %}
+{% if reg_diff %}
+<div class="bg-white rounded-lg shadow mb-3">
+    <div class="px-6 py-3 border-b">
+        <h5 class="font-semibold text-sm">Registers</h5>
+    </div>
+    <div class="p-6">
+        {% if reg_diff.added %}
+        <div class="mb-4">
+            <h6 class="text-xs font-semibold text-green-700 uppercase mb-2">Added</h6>
+            <table class="w-full text-sm">
+                <thead><tr class="border-b">
+                    <th class="text-left py-1 px-2">Address</th>
+                    <th class="text-left py-1 px-2">Field Name</th>
+                    <th class="text-left py-1 px-2">Unit</th>
+                    <th class="text-left py-1 px-2">Data Type</th>
+                    <th class="text-left py-1 px-2">Scale</th>
+                    <th class="text-left py-1 px-2">Offset</th>
+                </tr></thead>
+                <tbody>
+                {% for reg in reg_diff.added %}
+                <tr class="border-b bg-green-50">
+                    <td class="py-1 px-2"><code>{{ reg.address }}</code></td>
+                    <td class="py-1 px-2">{{ reg.field_name }}</td>
+                    <td class="py-1 px-2">{{ reg.field_unit|default:"—" }}</td>
+                    <td class="py-1 px-2"><code>{{ reg.data_type }}</code></td>
+                    <td class="py-1 px-2">{{ reg.scale }}</td>
+                    <td class="py-1 px-2">{{ reg.offset }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if reg_diff.removed %}
+        <div class="mb-4">
+            <h6 class="text-xs font-semibold text-red-700 uppercase mb-2">Removed</h6>
+            <table class="w-full text-sm">
+                <thead><tr class="border-b">
+                    <th class="text-left py-1 px-2">Address</th>
+                    <th class="text-left py-1 px-2">Field Name</th>
+                    <th class="text-left py-1 px-2">Unit</th>
+                    <th class="text-left py-1 px-2">Data Type</th>
+                    <th class="text-left py-1 px-2">Scale</th>
+                    <th class="text-left py-1 px-2">Offset</th>
+                </tr></thead>
+                <tbody>
+                {% for reg in reg_diff.removed %}
+                <tr class="border-b bg-red-50">
+                    <td class="py-1 px-2"><code>{{ reg.address }}</code></td>
+                    <td class="py-1 px-2">{{ reg.field_name }}</td>
+                    <td class="py-1 px-2">{{ reg.field_unit|default:"—" }}</td>
+                    <td class="py-1 px-2"><code>{{ reg.data_type }}</code></td>
+                    <td class="py-1 px-2">{{ reg.scale }}</td>
+                    <td class="py-1 px-2">{{ reg.offset }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if reg_diff.modified %}
+        <div class="mb-4">
+            <h6 class="text-xs font-semibold text-blue-700 uppercase mb-2">Modified</h6>
+            {% for mod in reg_diff.modified %}
+            <div class="mb-3 border rounded p-3">
+                <div class="text-xs font-medium text-gray-500 mb-2">Address {{ mod.address }}</div>
+                <div class="grid grid-cols-2 divide-x text-sm">
+                    <div class="pr-3">
+                        <div class="text-xs text-gray-400 mb-1">v{{ from_entry.version }}</div>
+                        <pre class="bg-red-50 p-2 rounded whitespace-pre-wrap text-red-800 text-xs">{{ mod.old|pprint }}</pre>
+                    </div>
+                    <div class="pl-3">
+                        <div class="text-xs text-gray-400 mb-1">v{{ to_entry.version }}</div>
+                        <pre class="bg-green-50 p-2 rounded whitespace-pre-wrap text-green-800 text-xs">{{ mod.new|pprint }}</pre>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endwith %}
+
+{% endif %}
+{% endblock %}

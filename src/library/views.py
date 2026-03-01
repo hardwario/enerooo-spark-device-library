@@ -8,11 +8,15 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
+from auditlog.helpers import log_action
+
 from .exporters import export_to_yaml
 from .forms import APIKeyForm, DeviceTypeForm, LibraryVersionForm, RegisterDefinitionForm, VendorForm, YAMLImportForm
+from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
     APIKey,
+    DeviceHistory,
     DeviceType,
     LibraryVersion,
     RegisterDefinition,
@@ -71,6 +75,11 @@ class VendorCreateView(LoginRequiredMixin, CreateView):
     form_class = VendorForm
     template_name = "library/vendor_form.html"
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "created", self.object)
+        return response
+
     def get_success_url(self):
         return reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug})
 
@@ -82,6 +91,7 @@ class VendorDeleteView(LoginRequiredMixin, View):
             messages.error(request, f"Cannot delete {vendor.name} — it still has {vendor.device_types.count()} device(s). Remove them first.")
             return redirect("library:vendor-detail", slug=vendor.slug)
         name = vendor.name
+        log_action(request, "deleted", vendor)
         vendor.delete()
         messages.success(request, f"Vendor \"{name}\" has been deleted.")
         return redirect("library:vendor-list")
@@ -197,6 +207,9 @@ class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
         else:
             ctx["registers"] = []
 
+        # History
+        ctx["history"] = device.history.select_related("user").all()[:20]
+
         return ctx
 
 
@@ -204,6 +217,12 @@ class DeviceTypeCreateView(LoginRequiredMixin, CreateView):
     model = DeviceType
     form_class = DeviceTypeForm
     template_name = "library/devicetype_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self.object, DeviceHistory.Action.CREATED, self.request.user)
+        log_action(self.request, "created", self.object)
+        return response
 
     def get_success_url(self):
         return reverse_lazy("library:device-detail", kwargs={"pk": self.object.pk})
@@ -214,6 +233,17 @@ class DeviceTypeUpdateView(LoginRequiredMixin, UpdateView):
     form_class = DeviceTypeForm
     template_name = "library/devicetype_form.html"
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        self._old_snapshot = snapshot_device(obj)
+        return obj
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self.object, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", self.object)
+        return response
+
     def get_success_url(self):
         return reverse_lazy("library:device-detail", kwargs={"pk": self.object.pk})
 
@@ -222,6 +252,8 @@ class DeviceTypeDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk):
         device = get_object_or_404(DeviceType, pk=pk)
         name = f"{device.vendor.name} {device.model_number}"
+        record_history(device, DeviceHistory.Action.DELETED, request.user)
+        log_action(request, "deleted", device)
         device.delete()
         messages.success(request, f"Device \"{name}\" has been deleted.")
         return redirect("library:device-list")
@@ -249,12 +281,16 @@ class RegisterCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         device = get_object_or_404(DeviceType, pk=self.kwargs["device_pk"])
+        old_snapshot = snapshot_device(device)
         # Ensure modbus config exists
         from .models import ModbusConfig
 
         modbus_config, _ = ModbusConfig.objects.get_or_create(device_type=device)
         form.instance.modbus_config = modbus_config
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, old_snapshot)
+        log_action(self.request, "created", form.instance, details=f"Register added to {device}")
+        return response
 
     def get_success_url(self):
         return reverse_lazy("library:device-detail", kwargs={"pk": self.kwargs["device_pk"]})
@@ -265,10 +301,23 @@ class RegisterUpdateView(LoginRequiredMixin, UpdateView):
     form_class = RegisterDefinitionForm
     template_name = "library/register_form.html"
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        device = obj.modbus_config.device_type
+        self._device = device
+        self._old_snapshot = snapshot_device(device)
+        return obj
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["device"] = self.object.modbus_config.device_type
         return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", form.instance, details=f"Register updated on {self._device}")
+        return response
 
     def get_success_url(self):
         return reverse_lazy("library:device-detail", kwargs={"pk": self.object.modbus_config.device_type.pk})
@@ -278,8 +327,39 @@ class RegisterDeleteView(LoginRequiredMixin, DeleteView):
     model = RegisterDefinition
     template_name = "library/register_confirm_delete.html"
 
-    def get_success_url(self):
-        return reverse_lazy("library:device-detail", kwargs={"pk": self.object.modbus_config.device_type.pk})
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        device = self.object.modbus_config.device_type
+        old_snapshot = snapshot_device(device)
+        reg_name = self.object.field_name
+        self.object.delete()
+        record_history(device, DeviceHistory.Action.UPDATED, request.user, old_snapshot)
+        log_action(request, "deleted", self.object, details=f"Register '{reg_name}' removed from {device}")
+        return redirect("library:device-detail", pk=device.pk)
+
+
+# === Device History ===
+
+
+class DeviceHistoryDiffView(LoginRequiredMixin, TemplateView):
+    template_name = "library/devicetype_history_diff.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        device = get_object_or_404(DeviceType, pk=self.kwargs["pk"])
+        ctx["device"] = device
+
+        from_version = int(self.request.GET.get("from", 0))
+        to_version = int(self.request.GET.get("to", 0))
+
+        from_entry = get_object_or_404(DeviceHistory, device=device, version=from_version)
+        to_entry = get_object_or_404(DeviceHistory, device=device, version=to_version)
+
+        ctx["from_entry"] = from_entry
+        ctx["to_entry"] = to_entry
+        ctx["diff"] = diff_snapshots(from_entry.snapshot, to_entry.snapshot)
+
+        return ctx
 
 
 # === Import / Export ===
