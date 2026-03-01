@@ -45,37 +45,37 @@
             <ul class="space-y-1 flex-1">
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'dashboard' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:dashboard' %}">
-                        <i class="bi bi-speedometer2 mr-2"></i>Dashboard
+                        <i data-lucide="gauge" class="w-4 h-4 mr-2"></i>Dashboard
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'vendor' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:vendor-list' %}">
-                        <i class="bi bi-building mr-2"></i>Vendors
+                        <i data-lucide="building-2" class="w-4 h-4 mr-2"></i>Vendors
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'device' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:device-list' %}">
-                        <i class="bi bi-cpu mr-2"></i>Devices
+                        <i data-lucide="cpu" class="w-4 h-4 mr-2"></i>Devices
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'version' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:version-list' %}">
-                        <i class="bi bi-tag mr-2"></i>Versions
+                        <i data-lucide="tag" class="w-4 h-4 mr-2"></i>Versions
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'apikey' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:apikey-list' %}">
-                        <i class="bi bi-key mr-2"></i>API Keys
+                        <i data-lucide="key-round" class="w-4 h-4 mr-2"></i>API Keys
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'import' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:import' %}">
-                        <i class="bi bi-upload mr-2"></i>Import
+                        <i data-lucide="upload" class="w-4 h-4 mr-2"></i>Import
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'export' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:export' %}">
-                        <i class="bi bi-download mr-2"></i>Export
+                        <i data-lucide="download" class="w-4 h-4 mr-2"></i>Export
                     </a>
                 </li>
             </ul>
@@ -83,17 +83,17 @@
             <ul class="space-y-1">
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'user-list' or request.resolver_match.url_name == 'user-role' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'core:user-list' %}">
-                        <i class="bi bi-people mr-2"></i>Users
+                        <i data-lucide="users" class="w-4 h-4 mr-2"></i>Users
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'invitation' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'core:invitation-list' %}">
-                        <i class="bi bi-envelope mr-2"></i>Invitations
+                        <i data-lucide="mail" class="w-4 h-4 mr-2"></i>Invitations
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'log-list' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'auditlog:log-list' %}">
-                        <i class="bi bi-journal-text mr-2"></i>Activity Log
+                        <i data-lucide="scroll-text" class="w-4 h-4 mr-2"></i>Activity Log
                     </a>
                 </li>
             </ul>
@@ -101,12 +101,12 @@
             <ul class="space-y-1">
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white" href="{% url 'admin:index' %}">
-                        <i class="bi bi-gear mr-2"></i>Admin
+                        <i data-lucide="settings" class="w-4 h-4 mr-2"></i>Admin
                     </a>
                 </li>
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white" href="{% url 'swagger-ui' %}">
-                        <i class="bi bi-braces mr-2"></i>API Docs
+                        <i data-lucide="file-code" class="w-4 h-4 mr-2"></i>API Docs
                     </a>
                 </li>
             </ul>
@@ -114,15 +114,15 @@
             <ul class="space-y-1">
                 <li>
                     <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if request.resolver_match.url_name == 'profile' %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'core:profile' %}">
-                        <i class="bi bi-person-gear mr-2"></i>Profile
+                        <i data-lucide="user-cog" class="w-4 h-4 mr-2"></i>Profile
                     </a>
                 </li>
             </ul>
             <div class="text-gray-500 text-sm px-3 flex items-center mt-2">
-                <i class="bi bi-person mr-1"></i>{{ user.username }}
+                <i data-lucide="user" class="w-3.5 h-3.5 mr-1"></i>{{ user.username }}
                 <form method="post" action="{% url 'logout' %}" class="inline ml-2">
                     {% csrf_token %}
-                    <button type="submit" class="text-gray-500 hover:text-gray-300"><i class="bi bi-box-arrow-right"></i></button>
+                    <button type="submit" class="text-gray-500 hover:text-gray-300"><i data-lucide="log-out" class="w-3.5 h-3.5"></i></button>
                 </form>
             </div>
             <small class="text-gray-600 text-xs px-3 mt-2">v{{ APP_VERSION }}</small>
