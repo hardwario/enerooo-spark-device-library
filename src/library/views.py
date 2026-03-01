@@ -93,6 +93,8 @@ class DeviceTypeListView(LoginRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["vendors"] = Vendor.objects.all()
         ctx["device_type_choices"] = DeviceType.DeviceCategory.choices
+        ctx["total_count"] = DeviceType.objects.count()
+        ctx["filtered_count"] = self.get_queryset().count()
         return ctx
 
 

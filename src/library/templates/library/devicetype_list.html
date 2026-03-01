@@ -85,8 +85,9 @@
     </div>
 </div>
 
-{% if is_paginated %}
-<nav class="mt-4 flex justify-center">
+<div class="mt-4 flex items-center justify-between">
+    <span class="text-sm text-gray-500">Showing {{ filtered_count }} of {{ total_count }} devices</span>
+    {% if is_paginated %}
     <div class="flex gap-1">
         {% if page_obj.has_previous %}
             <a class="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50" href="?page={{ page_obj.previous_page_number }}">Previous</a>
@@ -96,6 +97,6 @@
             <a class="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50" href="?page={{ page_obj.next_page_number }}">Next</a>
         {% endif %}
     </div>
-</nav>
-{% endif %}
+    {% endif %}
+</div>
 {% endblock %}
