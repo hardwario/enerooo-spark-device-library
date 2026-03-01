@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load sorting %}
 
 {% block title %}Vendors - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold">Vendors</h2>
+    <a href="{% url 'library:vendor-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+        <i class="bi bi-plus-lg mr-1"></i>Add Vendor
+    </a>
 </div>
 
 <div class="bg-white rounded-lg shadow">
@@ -12,9 +16,12 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b">
-                    <th class="text-left py-3 px-2 font-semibold">Name</th>
-                    <th class="text-left py-3 px-2 font-semibold">Slug</th>
-                    <th class="text-right py-3 px-2 font-semibold">Devices</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "name" "Name" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "slug" "Slug" %}</th>
+                    <th class="text-right py-3 px-2 font-semibold">{% sort_header "modbus_count" "Modbus" "right" %}</th>
+                    <th class="text-right py-3 px-2 font-semibold">{% sort_header "lorawan_count" "LoRaWAN" "right" %}</th>
+                    <th class="text-right py-3 px-2 font-semibold">{% sort_header "wmbus_count" "wM-Bus" "right" %}</th>
+                    <th class="text-right py-3 px-2 font-semibold">{% sort_header "device_count" "Total" "right" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -22,11 +29,14 @@
                 <tr class="border-b hover:bg-gray-50">
                     <td class="py-3 px-2"><a href="{% url 'library:vendor-detail' vendor.slug %}" class="text-blue-600 hover:text-blue-800">{{ vendor.name }}</a></td>
                     <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ vendor.slug }}</code></td>
-                    <td class="py-3 px-2 text-right">{{ vendor.device_count }}</td>
+                    <td class="py-3 px-2 text-right">{% if vendor.modbus_count %}<span class="inline-block bg-modbus/10 text-modbus px-2 py-0.5 rounded text-xs font-medium">{{ vendor.modbus_count }}</span>{% else %}<span class="text-gray-300">0</span>{% endif %}</td>
+                    <td class="py-3 px-2 text-right">{% if vendor.lorawan_count %}<span class="inline-block bg-lorawan/10 text-lorawan px-2 py-0.5 rounded text-xs font-medium">{{ vendor.lorawan_count }}</span>{% else %}<span class="text-gray-300">0</span>{% endif %}</td>
+                    <td class="py-3 px-2 text-right">{% if vendor.wmbus_count %}<span class="inline-block bg-wmbus/10 text-wmbus px-2 py-0.5 rounded text-xs font-medium">{{ vendor.wmbus_count }}</span>{% else %}<span class="text-gray-300">0</span>{% endif %}</td>
+                    <td class="py-3 px-2 text-right font-medium">{{ vendor.device_count }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" class="py-3 px-2 text-gray-500">No vendors yet. Import device definitions to get started.</td>
+                    <td colspan="6" class="py-3 px-2 text-gray-500">No vendors yet. Import device definitions to get started.</td>
                 </tr>
                 {% endfor %}
             </tbody>

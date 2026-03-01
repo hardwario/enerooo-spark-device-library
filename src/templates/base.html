@@ -146,6 +146,41 @@
         {% block anonymous_content %}{% endblock %}
     {% endif %}
 
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>lucide.createIcons();</script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-confirm-delete]');
+        if (!btn) return;
+        e.preventDefault();
+        const name = btn.dataset.confirmDelete;
+        const url = btn.dataset.deleteUrl;
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                  || '{{ csrf_token }}';
+        Swal.fire({
+            title: 'Delete ' + name + '?',
+            text: 'This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'Delete',
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrfmiddlewaretoken';
+                input.value = csrf;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

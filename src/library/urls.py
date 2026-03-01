@@ -11,7 +11,9 @@ urlpatterns = [
     path("", views.DashboardView.as_view(), name="dashboard"),
     # Vendors
     path("vendors/", views.VendorListView.as_view(), name="vendor-list"),
+    path("vendors/create/", views.VendorCreateView.as_view(), name="vendor-create"),
     path("vendors/<slug:slug>/", views.VendorDetailView.as_view(), name="vendor-detail"),
+    path("vendors/<slug:slug>/delete/", views.VendorDeleteView.as_view(), name="vendor-delete"),
     # Devices
     path("devices/", views.DeviceTypeListView.as_view(), name="device-list"),
     path("devices/create/", views.DeviceTypeCreateView.as_view(), name="device-create"),

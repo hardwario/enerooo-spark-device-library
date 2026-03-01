@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load sorting %}
 
 {% block title %}Devices - {{ COMPANY_NAME }}{% endblock %}
 
@@ -14,6 +15,7 @@
 <div class="bg-white rounded-lg shadow mb-4">
     <div class="p-6">
         <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
                 <select name="vendor" class="w-full rounded border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2">
@@ -53,11 +55,11 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b">
-                    <th class="text-left py-3 px-2 font-semibold">Vendor</th>
-                    <th class="text-left py-3 px-2 font-semibold">Model</th>
-                    <th class="text-left py-3 px-2 font-semibold">Name</th>
-                    <th class="text-left py-3 px-2 font-semibold">Type</th>
-                    <th class="text-left py-3 px-2 font-semibold">Technology</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "vendor" "Vendor" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "model_number" "Model" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "name" "Name" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "device_type" "Type" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "technology" "Technology" %}</th>
                     <th class="py-3 px-2"></th>
                 </tr>
             </thead>
@@ -90,11 +92,11 @@
     {% if is_paginated %}
     <div class="flex gap-1">
         {% if page_obj.has_previous %}
-            <a class="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            <a class="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">Previous</a>
         {% endif %}
         <span class="px-3 py-2 text-sm text-gray-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
         {% if page_obj.has_next %}
-            <a class="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50" href="?page={{ page_obj.next_page_number }}">Next</a>
+            <a class="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">Next</a>
         {% endif %}
     </div>
     {% endif %}

@@ -2,14 +2,14 @@
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from .exporters import export_to_yaml
-from .forms import APIKeyForm, DeviceTypeForm, LibraryVersionForm, RegisterDefinitionForm, YAMLImportForm
+from .forms import APIKeyForm, DeviceTypeForm, LibraryVersionForm, RegisterDefinitionForm, VendorForm, YAMLImportForm
 from .importers import import_from_yaml
 from .models import (
     APIKey,
@@ -48,9 +48,43 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 class VendorListView(LoginRequiredMixin, ListView):
     template_name = "library/vendor_list.html"
     context_object_name = "vendors"
+    ALLOWED_SORT_FIELDS = {"name", "slug", "modbus_count", "lorawan_count", "wmbus_count", "device_count"}
 
     def get_queryset(self):
-        return Vendor.objects.annotate(device_count=Count("device_types"))
+        qs = Vendor.objects.annotate(
+            device_count=Count("device_types"),
+            modbus_count=Count("device_types", filter=Q(device_types__technology="modbus")),
+            lorawan_count=Count("device_types", filter=Q(device_types__technology="lorawan")),
+            wmbus_count=Count("device_types", filter=Q(device_types__technology="wmbus")),
+        )
+        sort = self.request.GET.get("sort", "name")
+        descending = sort.startswith("-")
+        field = sort.lstrip("-")
+        if field not in self.ALLOWED_SORT_FIELDS:
+            field, descending = "name", False
+        order = f"-{field}" if descending else field
+        return qs.order_by(order)
+
+
+class VendorCreateView(LoginRequiredMixin, CreateView):
+    model = Vendor
+    form_class = VendorForm
+    template_name = "library/vendor_form.html"
+
+    def get_success_url(self):
+        return reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug})
+
+
+class VendorDeleteView(LoginRequiredMixin, View):
+    def post(self, request, slug):
+        vendor = get_object_or_404(Vendor, slug=slug)
+        if vendor.device_types.exists():
+            messages.error(request, f"Cannot delete {vendor.name} — it still has {vendor.device_types.count()} device(s). Remove them first.")
+            return redirect("library:vendor-detail", slug=vendor.slug)
+        name = vendor.name
+        vendor.delete()
+        messages.success(request, f"Vendor \"{name}\" has been deleted.")
+        return redirect("library:vendor-list")
 
 
 class VendorDetailView(LoginRequiredMixin, DetailView):
@@ -73,6 +107,13 @@ class DeviceTypeListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
     context_object_name = "devices"
     paginate_by = 50
+    ALLOWED_SORT_FIELDS = {
+        "vendor": "vendor__name",
+        "model_number": "model_number",
+        "name": "name",
+        "device_type": "device_type",
+        "technology": "technology",
+    }
 
     def get_queryset(self):
         qs = DeviceType.objects.select_related("vendor")
@@ -87,7 +128,14 @@ class DeviceTypeListView(LoginRequiredMixin, ListView):
         if device_type:
             qs = qs.filter(device_type=device_type)
 
-        return qs
+        sort = self.request.GET.get("sort", "vendor")
+        descending = sort.startswith("-")
+        field = sort.lstrip("-")
+        db_field = self.ALLOWED_SORT_FIELDS.get(field)
+        if not db_field:
+            db_field, descending = "vendor__name", False
+        order = f"-{db_field}" if descending else db_field
+        return qs.order_by(order, "model_number")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -170,10 +218,13 @@ class DeviceTypeUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy("library:device-detail", kwargs={"pk": self.object.pk})
 
 
-class DeviceTypeDeleteView(LoginRequiredMixin, DeleteView):
-    model = DeviceType
-    template_name = "library/devicetype_confirm_delete.html"
-    success_url = reverse_lazy("library:device-list")
+class DeviceTypeDeleteView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        device = get_object_or_404(DeviceType, pk=pk)
+        name = f"{device.vendor.name} {device.model_number}"
+        device.delete()
+        messages.success(request, f"Device \"{name}\" has been deleted.")
+        return redirect("library:device-list")
 
 
 # === Registers ===

@@ -17,9 +17,12 @@
         <a href="{% url 'library:device-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
             <i class="bi bi-pencil mr-1"></i>Edit
         </a>
-        <a href="{% url 'library:device-delete' device.pk %}" class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
+        <button
+            data-confirm-delete="{{ device.vendor.name }} {{ device.model_number }}"
+            data-delete-url="{% url 'library:device-delete' device.pk %}"
+            class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
             <i class="bi bi-trash mr-1"></i>Delete
-        </a>
+        </button>
     </div>
 </div>
 
