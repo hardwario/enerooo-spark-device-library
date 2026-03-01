@@ -9,66 +9,90 @@
     <span class="text-gray-800">v{{ version.version }}</span>
 </nav>
 
-<h2 class="text-2xl font-bold mb-6">
-    v{{ version.version }}
-    {% if version.is_current %}<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2 align-middle">Current</span>{% endif %}
-</h2>
-
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div>
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Details</h5></div>
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    <dt class="font-medium text-gray-600">Schema Version</dt>
-                    <dd class="col-span-2">{{ version.schema_version }}</dd>
-                    <dt class="font-medium text-gray-600">Released</dt>
-                    <dd class="col-span-2">{{ version.released_at|date:"Y-m-d H:i" }}</dd>
-                    <dt class="font-medium text-gray-600">Published By</dt>
-                    <dd class="col-span-2">{{ version.published_by|default:"—" }}</dd>
-                    {% if version.notes %}
-                    <dt class="font-medium text-gray-600">Notes</dt>
-                    <dd class="col-span-2">{{ version.notes }}</dd>
-                    {% endif %}
-                </dl>
-            </div>
-        </div>
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">
+        v{{ version.version }}
+        {% if version.is_current %}<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2 align-middle">Current</span>{% endif %}
+    </h2>
+    <div class="flex gap-2">
+        <a href="{% url 'library:version-export' version.pk %}?format=json" class="border border-gray-300 px-3 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+            Download JSON
+        </a>
+        <a href="{% url 'library:version-export' version.pk %}?format=yaml" class="border border-gray-300 px-3 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+            Download YAML
+        </a>
     </div>
+</div>
 
-    <div>
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Changes</h5></div>
-            <div class="p-6">
-                {% if changes %}
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b">
-                            <th class="text-left py-2 px-2 font-semibold">Device</th>
-                            <th class="text-left py-2 px-2 font-semibold">Change</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for change in changes %}
-                        <tr class="border-b">
-                            <td class="py-2 px-2">{{ change.device_type.name }}</td>
-                            <td class="py-2 px-2">
-                                {% if change.change_type == "added" %}
-                                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Added</span>
-                                {% elif change.change_type == "modified" %}
-                                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Modified</span>
-                                {% elif change.change_type == "removed" %}
-                                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Removed</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p class="text-gray-500">No device changes tracked for this version.</p>
-                {% endif %}
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Details</h5></div>
+    <div class="p-6">
+        <dl class="grid grid-cols-2 md:grid-cols-4 gap-y-3 gap-x-6 text-sm">
+            <div>
+                <dt class="font-medium text-gray-600">Version</dt>
+                <dd class="mt-1">v{{ version.version }}</dd>
             </div>
-        </div>
+            <div>
+                <dt class="font-medium text-gray-600">Released</dt>
+                <dd class="mt-1">{{ version.released_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Published By</dt>
+                <dd class="mt-1">{{ version.published_by|default:"—" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Devices</dt>
+                <dd class="mt-1">{{ device_count }}{% if changed_count %} <span class="text-gray-500">({{ changed_count }} changed)</span>{% endif %}</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Device Manifest</h5></div>
+    <div class="p-6">
+        {% if manifest %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-2 px-2 font-semibold">Device</th>
+                    <th class="text-left py-2 px-2 font-semibold">Vendor</th>
+                    <th class="text-left py-2 px-2 font-semibold">Technology</th>
+                    <th class="text-left py-2 px-2 font-semibold">Device Version</th>
+                    <th class="text-left py-2 px-2 font-semibold">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in manifest %}
+                <tr class="border-b {% if entry.change_type == 'unchanged' %}text-gray-400{% endif %}">
+                    <td class="py-2 px-2">
+                        {% if entry.device_type %}
+                            <a href="{% url 'library:device-detail' entry.device_type.pk %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.device_label }}</a>
+                        {% else %}
+                            {{ entry.device_label }}
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2">{% if entry.device_type %}{{ entry.device_type.vendor.name }}{% else %}—{% endif %}</td>
+                    <td class="py-2 px-2">{% if entry.device_type %}{{ entry.device_type.get_technology_display }}{% else %}—{% endif %}</td>
+                    <td class="py-2 px-2">v{{ entry.device_version }}</td>
+                    <td class="py-2 px-2">
+                        {% if entry.change_type == "added" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Added</span>
+                        {% elif entry.change_type == "modified" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Modified</span>
+                        {% elif entry.change_type == "removed" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Removed</span>
+                        {% elif entry.change_type == "unchanged" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">Unchanged</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-gray-500">No devices in this version.</p>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

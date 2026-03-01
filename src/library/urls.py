@@ -45,6 +45,7 @@ urlpatterns = [
     path("versions/", views.VersionListView.as_view(), name="version-list"),
     path("versions/create/", views.VersionCreateView.as_view(), name="version-create"),
     path("versions/<uuid:pk>/", views.VersionDetailView.as_view(), name="version-detail"),
+    path("versions/<uuid:pk>/export/", views.VersionExportView.as_view(), name="version-export"),
     # API Keys
     path("api-keys/", views.APIKeyListView.as_view(), name="apikey-list"),
     path("api-keys/create/", views.APIKeyCreateView.as_view(), name="apikey-create"),

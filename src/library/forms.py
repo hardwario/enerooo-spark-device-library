@@ -6,7 +6,6 @@ from .models import (
     APIKey,
     ControlConfig,
     DeviceType,
-    LibraryVersion,
     LoRaWANConfig,
     ModbusConfig,
     ProcessorConfig,
@@ -71,12 +70,6 @@ class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
         fields = ["decoder_type"]
-
-
-class LibraryVersionForm(forms.ModelForm):
-    class Meta:
-        model = LibraryVersion
-        fields = ["version", "schema_version", "notes"]
 
 
 class APIKeyForm(forms.ModelForm):

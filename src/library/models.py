@@ -192,7 +192,7 @@ class LibraryVersion(TimeStampedModel):
     """A published version of the device library."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    version = models.CharField(max_length=20, unique=True)
+    version = models.PositiveIntegerField(unique=True)
     schema_version = models.IntegerField(default=2)
     released_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, default="")
@@ -218,23 +218,28 @@ class LibraryVersion(TimeStampedModel):
 
 
 class LibraryVersionDevice(TimeStampedModel):
-    """Tracks which devices were changed in a library version."""
+    """Tracks device manifest entries for a library version."""
 
     class ChangeType(models.TextChoices):
         ADDED = "added", "Added"
         MODIFIED = "modified", "Modified"
         REMOVED = "removed", "Removed"
+        UNCHANGED = "unchanged", "Unchanged"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     library_version = models.ForeignKey(LibraryVersion, on_delete=models.CASCADE, related_name="device_changes")
-    device_type = models.ForeignKey(DeviceType, on_delete=models.CASCADE, related_name="version_changes")
+    device_type = models.ForeignKey(
+        DeviceType, on_delete=models.SET_NULL, null=True, blank=True, related_name="version_changes"
+    )
+    device_version = models.PositiveIntegerField(default=1)
+    device_label = models.CharField(max_length=255, default="")
     change_type = models.CharField(max_length=20, choices=ChangeType.choices)
 
     class Meta:
-        unique_together = [("library_version", "device_type")]
+        ordering = ["change_type", "device_label"]
 
     def __str__(self):
-        return f"{self.get_change_type_display()}: {self.device_type}"
+        return f"{self.get_change_type_display()}: {self.device_label}"
 
 
 def generate_api_key():

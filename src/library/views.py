@@ -1,17 +1,23 @@
 """Library views for the web UI."""
 
+import json
+
+import yaml
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Q
+from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from auditlog.helpers import log_action
+from core.models import User
+from core.permissions import RoleRequiredMixin
 
 from .exporters import export_to_yaml
-from .forms import APIKeyForm, DeviceTypeForm, LibraryVersionForm, RegisterDefinitionForm, VendorForm, YAMLImportForm
+from .forms import APIKeyForm, DeviceTypeForm, RegisterDefinitionForm, VendorForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
@@ -19,6 +25,7 @@ from .models import (
     DeviceHistory,
     DeviceType,
     LibraryVersion,
+    LibraryVersionDevice,
     RegisterDefinition,
     Vendor,
 )
@@ -35,7 +42,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx["vendor_count"] = Vendor.objects.count()
         ctx["device_count"] = DeviceType.objects.count()
         current = LibraryVersion.objects.filter(is_current=True).first()
-        ctx["current_version"] = current.version if current else None
+        ctx["current_version"] = f"v{current.version}" if current else None
         ctx["apikey_count"] = APIKey.objects.filter(is_active=True).count()
         ctx["tech_breakdown"] = (
             DeviceType.objects.values("technology").annotate(count=Count("id")).order_by("technology")
@@ -126,7 +133,14 @@ class DeviceTypeListView(LoginRequiredMixin, ListView):
     }
 
     def get_queryset(self):
-        qs = DeviceType.objects.select_related("vendor")
+        latest_version = (
+            DeviceHistory.objects.filter(device=OuterRef("pk"))
+            .order_by("-version")
+            .values("version")[:1]
+        )
+        qs = DeviceType.objects.select_related("vendor").annotate(
+            current_version=Subquery(latest_version),
+        )
         vendor = self.request.GET.get("vendor")
         technology = self.request.GET.get("technology")
         device_type = self.request.GET.get("device_type")
@@ -427,22 +441,212 @@ class VersionDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["changes"] = self.object.device_changes.select_related("device_type").all()
+        entries = self.object.device_changes.select_related("device_type", "device_type__vendor").all()
+        ctx["manifest"] = entries
+        ctx["device_count"] = entries.exclude(change_type=LibraryVersionDevice.ChangeType.REMOVED).count()
+        ctx["changed_count"] = entries.exclude(change_type=LibraryVersionDevice.ChangeType.UNCHANGED).count()
         return ctx
 
 
-class VersionCreateView(LoginRequiredMixin, CreateView):
-    model = LibraryVersion
-    form_class = LibraryVersionForm
-    template_name = "library/version_form.html"
+class VersionCreateView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
 
-    def form_valid(self, form):
-        form.instance.published_by = self.request.user
-        form.instance.is_current = True
-        return super().form_valid(form)
+    def post(self, request):
+        # Auto-compute next version number
+        max_version = LibraryVersion.objects.aggregate(v=Max("version"))["v"] or 0
+        new_version = max_version + 1
 
-    def get_success_url(self):
-        return reverse_lazy("library:version-detail", kwargs={"pk": self.object.pk})
+        # Backfill: ensure every DeviceType has at least one DeviceHistory entry
+        devices_without_history = DeviceType.objects.filter(history__isnull=True)
+        for device in devices_without_history:
+            record_history(device, DeviceHistory.Action.CREATED, user=None)
+
+        # Create the new library version
+        lib_version = LibraryVersion.objects.create(
+            version=new_version,
+            published_by=request.user,
+            is_current=True,
+        )
+
+        # Build previous version's manifest for comparison
+        prev_version = (
+            LibraryVersion.objects.filter(version__lt=new_version).order_by("-version").first()
+        )
+        prev_manifest = {}
+        if prev_version:
+            for entry in prev_version.device_changes.all():
+                if entry.device_type_id and entry.change_type != LibraryVersionDevice.ChangeType.REMOVED:
+                    prev_manifest[entry.device_type_id] = entry.device_version
+
+        # Snapshot all current devices
+        current_device_ids = set()
+        for device in DeviceType.objects.select_related("vendor"):
+            current_device_ids.add(device.pk)
+            # Get latest DeviceHistory version for this device
+            latest_version = (
+                DeviceHistory.objects.filter(device=device)
+                .order_by("-version")
+                .values_list("version", flat=True)
+                .first()
+            ) or 1
+
+            # Determine change_type
+            if device.pk in prev_manifest:
+                if prev_manifest[device.pk] == latest_version:
+                    change_type = LibraryVersionDevice.ChangeType.UNCHANGED
+                else:
+                    change_type = LibraryVersionDevice.ChangeType.MODIFIED
+            else:
+                change_type = LibraryVersionDevice.ChangeType.ADDED
+
+            LibraryVersionDevice.objects.create(
+                library_version=lib_version,
+                device_type=device,
+                device_version=latest_version,
+                device_label=str(device),
+                change_type=change_type,
+            )
+
+        # Detect removed devices (in previous but not in current)
+        if prev_version:
+            for prev_device_id, prev_device_version in prev_manifest.items():
+                if prev_device_id not in current_device_ids:
+                    # Get label from previous manifest entry
+                    prev_entry = prev_version.device_changes.filter(device_type_id=prev_device_id).first()
+                    label = prev_entry.device_label if prev_entry else "Deleted device"
+                    LibraryVersionDevice.objects.create(
+                        library_version=lib_version,
+                        device_type=None,
+                        device_version=prev_device_version,
+                        device_label=label,
+                        change_type=LibraryVersionDevice.ChangeType.REMOVED,
+                    )
+
+        messages.success(request, f"Library version v{new_version} created.")
+        return redirect("library:version-detail", pk=lib_version.pk)
+
+
+class VersionExportView(LoginRequiredMixin, View):
+    """Export a library version as JSON or YAML download."""
+
+    def get(self, request, pk):
+        lib_version = get_object_or_404(LibraryVersion, pk=pk)
+        fmt = request.GET.get("format", "json")
+
+        entries = lib_version.device_changes.select_related("device_type").exclude(
+            change_type=LibraryVersionDevice.ChangeType.REMOVED,
+        )
+
+        # Batch-fetch all relevant DeviceHistory snapshots
+        history_lookup = {}
+        for entry in entries:
+            if entry.device_type_id:
+                history_entry = (
+                    DeviceHistory.objects.filter(
+                        device_id=entry.device_type_id,
+                        version=entry.device_version,
+                    )
+                    .values_list("snapshot", flat=True)
+                    .first()
+                )
+                if history_entry:
+                    history_lookup[entry.device_type_id] = history_entry
+
+        # Group devices by vendor and convert snapshots to schema format
+        vendors = {}
+        for entry in entries:
+            snapshot = history_lookup.get(entry.device_type_id)
+            if not snapshot:
+                continue
+            vendor_name = snapshot.get("vendor", "Unknown")
+            if vendor_name not in vendors:
+                vendors[vendor_name] = []
+            vendors[vendor_name].append(_snapshot_to_schema(snapshot))
+
+        # Build final document
+        vendor_list = []
+        for vendor_name in sorted(vendors):
+            vendor_list.append({
+                "name": vendor_name,
+                "device_types": vendors[vendor_name],
+            })
+
+        document = {
+            "version": lib_version.version,
+            "schema_version": lib_version.schema_version,
+            "vendors": vendor_list,
+        }
+
+        if fmt == "yaml":
+            content = yaml.dump(document, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            response = HttpResponse(content, content_type="application/x-yaml")
+            response["Content-Disposition"] = f'attachment; filename="library-v{lib_version.version}.yaml"'
+        else:
+            content = json.dumps(document, indent=2, ensure_ascii=False)
+            response = HttpResponse(content, content_type="application/json")
+            response["Content-Disposition"] = f'attachment; filename="library-v{lib_version.version}.json"'
+
+        return response
+
+
+def _snapshot_to_schema(snapshot: dict) -> dict:
+    """Convert a DeviceHistory snapshot dict to the YAML device schema format."""
+    technology = snapshot.get("technology", "")
+
+    tech_config = {"technology": technology}
+    if technology == "modbus":
+        mc = snapshot.get("modbus_config", {})
+        if mc.get("function"):
+            tech_config["function"] = mc["function"]
+        if mc.get("byte_order"):
+            tech_config["byte_order"] = mc["byte_order"]
+        if mc.get("word_order"):
+            tech_config["word_order"] = mc["word_order"]
+        registers = snapshot.get("registers", [])
+        if registers:
+            tech_config["register_definitions"] = [
+                {
+                    "field": {"name": r["field_name"], "unit": r.get("field_unit", "")},
+                    "scale": r.get("scale", 1.0),
+                    "offset": r.get("offset", 0.0),
+                    "address": r["address"],
+                    "data_type": r.get("data_type", "uint16"),
+                }
+                for r in registers
+            ]
+    elif technology == "lorawan":
+        lc = snapshot.get("lorawan_config", {})
+        if lc.get("device_class"):
+            tech_config["device_class"] = lc["device_class"]
+        if lc.get("downlink_f_port") is not None:
+            tech_config["downlink_f_port"] = lc["downlink_f_port"]
+    elif technology == "wmbus":
+        wc = snapshot.get("wmbus_config", {})
+        tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
+        tech_config["wmbus_device_type"] = wc.get("wmbus_device_type")
+        tech_config["data_record_mapping"] = wc.get("data_record_mapping", [])
+        tech_config["encryption_required"] = wc.get("encryption_required", False)
+        if wc.get("shared_encryption_key"):
+            tech_config["shared_encryption_key"] = wc["shared_encryption_key"]
+
+    device = {
+        "vendor_name": snapshot.get("vendor", ""),
+        "model_number": snapshot.get("model_number", ""),
+        "name": snapshot.get("name", ""),
+        "device_type": snapshot.get("device_type", ""),
+        "description": snapshot.get("description", ""),
+        "technology_config": tech_config,
+    }
+
+    ctrl = snapshot.get("control_config", {})
+    if ctrl and (ctrl.get("controllable") or ctrl.get("capabilities")):
+        device["control_config"] = ctrl
+
+    proc = snapshot.get("processor_config", {})
+    if proc and proc.get("decoder_type"):
+        device["processor_config"] = proc
+
+    return device
 
 
 # === API Keys ===

@@ -180,6 +180,38 @@
             }
         });
     });
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-confirm-action]');
+        if (!btn) return;
+        e.preventDefault();
+        const title = btn.dataset.confirmAction;
+        const text = btn.dataset.confirmText || '';
+        const url = btn.dataset.actionUrl;
+        const confirmLabel = btn.dataset.confirmButton || 'Confirm';
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                  || '{{ csrf_token }}';
+        Swal.fire({
+            title: title,
+            text: text,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb',
+            confirmButtonText: confirmLabel,
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrfmiddlewaretoken';
+                input.value = csrf;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    });
     </script>
     {% block extra_js %}{% endblock %}
 </body>

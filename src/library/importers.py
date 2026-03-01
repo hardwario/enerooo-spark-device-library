@@ -6,8 +6,10 @@ from pathlib import Path
 import yaml
 from django.utils.text import slugify
 
+from .history import record_history, snapshot_device
 from .models import (
     ControlConfig,
+    DeviceHistory,
     DeviceType,
     LoRaWANConfig,
     ModbusConfig,
@@ -92,6 +94,10 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> DeviceType:
     tech_config = data.get("technology_config", {})
     technology = tech_config.get("technology", "")
 
+    # Check if device already exists so we can capture a pre-update snapshot
+    existing = DeviceType.objects.filter(vendor=vendor, model_number=data["model_number"]).first()
+    old_snapshot = snapshot_device(existing) if existing else None
+
     device, created = DeviceType.objects.update_or_create(
         vendor=vendor,
         model_number=data["model_number"],
@@ -138,6 +144,12 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> DeviceType:
                 "decoder_type": processor_data.get("decoder_type", ""),
             },
         )
+
+    # Record device history
+    if created:
+        record_history(device, DeviceHistory.Action.CREATED, user=None)
+    else:
+        record_history(device, DeviceHistory.Action.UPDATED, user=None, previous_snapshot=old_snapshot)
 
     return device
 

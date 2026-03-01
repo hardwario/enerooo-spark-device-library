@@ -194,11 +194,16 @@ class ManifestSerializer(serializers.Serializer):
 
 
 class LibraryVersionDeviceSerializer(serializers.ModelSerializer):
-    device_name = serializers.CharField(source="device_type.name", read_only=True)
+    device_name = serializers.SerializerMethodField()
 
     class Meta:
         model = LibraryVersionDevice
-        fields = ["device_name", "change_type"]
+        fields = ["device_name", "device_version", "device_label", "change_type"]
+
+    def get_device_name(self, obj):
+        if obj.device_type:
+            return obj.device_type.name
+        return obj.device_label
 
 
 class LibraryVersionSerializer(serializers.ModelSerializer):
