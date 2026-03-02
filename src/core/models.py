@@ -43,15 +43,15 @@ class User(AbstractUser):
 
     def has_role(self, minimum_role: str) -> bool:
         """Check if user has at least the given role level."""
-        return self.ROLE_HIERARCHY.get(self.role, 0) >= self.ROLE_HIERARCHY.get(minimum_role, 0)
+        return self.is_superuser or self.ROLE_HIERARCHY.get(self.role, 0) >= self.ROLE_HIERARCHY.get(minimum_role, 0)
 
     @property
     def is_admin_role(self) -> bool:
-        return self.has_role(self.Role.ADMIN)
+        return self.is_superuser or self.has_role(self.Role.ADMIN)
 
     @property
     def is_editor(self) -> bool:
-        return self.has_role(self.Role.EDITOR)
+        return self.is_superuser or self.has_role(self.Role.EDITOR)
 
 
 class Invitation(TimeStampedModel):
