@@ -17,3 +17,12 @@ class RoleRequiredMixin(LoginRequiredMixin):
             if not request.user.has_role(self.required_role):
                 raise PermissionDenied
         return response
+
+
+class SuperuserRequiredMixin(LoginRequiredMixin):
+    """Mixin that requires the user to be a superuser."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)

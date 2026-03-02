@@ -14,7 +14,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, T
 
 from auditlog.helpers import log_action
 from core.models import User
-from core.permissions import RoleRequiredMixin
+from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
 from .forms import APIKeyForm, RegisterDefinitionForm, VendorForm, VendorModelForm, YAMLImportForm
@@ -424,7 +424,7 @@ class DeviceHistorySnapshotView(LoginRequiredMixin, TemplateView):
 # === Import / Export ===
 
 
-class ImportView(LoginRequiredMixin, TemplateView):
+class ImportView(SuperuserRequiredMixin, TemplateView):
     template_name = "library/import.html"
 
     def get_context_data(self, **kwargs):
@@ -452,7 +452,7 @@ class ImportView(LoginRequiredMixin, TemplateView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-class ExportView(LoginRequiredMixin, TemplateView):
+class ExportView(SuperuserRequiredMixin, TemplateView):
     template_name = "library/export.html"
 
     def get_context_data(self, **kwargs):
