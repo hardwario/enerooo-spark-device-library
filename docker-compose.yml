@@ -1,6 +1,7 @@
 services:
   web:
-    build: .
+    image: ghcr.io/hardwario/enerooo-spark-device-library:latest
+    restart: unless-stopped
     ports:
       - "${PORT:-8002}:8000"
     env_file:
@@ -11,6 +12,7 @@ services:
 
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-spark_device_library}
       POSTGRES_USER: ${POSTGRES_USER:-spark_device_library}
