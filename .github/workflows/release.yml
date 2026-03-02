@@ -59,14 +59,14 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository }}:latest
 
-      - name: Copy scripts to production
+      - name: Copy files to production
         if: steps.check_tag.outputs.exists == 'true'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          source: "scripts/backup-db.sh"
+          source: "docker-compose.yml,scripts/backup-db.sh"
           target: /opt/spark-device-library
 
       - name: Deploy to production
@@ -76,6 +76,7 @@ jobs:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script_stop: true
           script: |
             cd /opt/spark-device-library
             chmod +x scripts/backup-db.sh
