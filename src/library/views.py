@@ -13,6 +13,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from auditlog.helpers import log_action
+from auditlog.models import AuditLog
 from core.models import User
 from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
 
@@ -445,6 +446,19 @@ class ImportView(SuperuserRequiredMixin, TemplateView):
                     manifest_path=form.cleaned_data["manifest_path"],
                     clear=form.cleaned_data["clear_existing"],
                 )
+                log_action(
+                    request,
+                    "imported",
+                    Vendor(),  # no single target — use category override
+                    category=AuditLog.Category.IMPORT,
+                    details={
+                        "vendors_created": stats["vendors_created"],
+                        "vendors_updated": stats["vendors_updated"],
+                        "devices_created": stats["devices_created"],
+                        "devices_updated": stats["devices_updated"],
+                        "errors": len(stats.get("errors", [])),
+                    },
+                )
                 return self.render_to_response(self.get_context_data(form=form, stats=stats))
             except Exception as e:
                 messages.error(request, f"Import failed: {e}")
@@ -464,6 +478,7 @@ class ExportView(SuperuserRequiredMixin, TemplateView):
         output_dir = request.POST.get("output_dir", "/app/export/devices/")
         try:
             stats = export_to_yaml(output_dir=output_dir)
+            log_action(request, "exported", Vendor(), category=AuditLog.Category.EXPORT, details=stats)
             return self.render_to_response(self.get_context_data(stats=stats, output_dir=output_dir))
         except Exception as e:
             messages.error(request, f"Export failed: {e}")
@@ -602,6 +617,9 @@ class VersionCreateView(RoleRequiredMixin, View):
         for device in devices_without_history:
             record_history(device, DeviceHistory.Action.CREATED, user=None)
 
+        # Mark previous current version as not current
+        LibraryVersion.objects.filter(is_current=True).update(is_current=False)
+
         # Create the new library version
         lib_version = LibraryVersion.objects.create(
             version=new_version,
@@ -663,6 +681,7 @@ class VersionCreateView(RoleRequiredMixin, View):
                         change_type=LibraryVersionDevice.ChangeType.REMOVED,
                     )
 
+        log_action(request, "created", lib_version)
         messages.success(request, f"Library version v{new_version} created.")
         return redirect("library:version-detail", pk=lib_version.pk)
 
@@ -753,6 +772,7 @@ class APIKeyCreateView(LoginRequiredMixin, CreateView):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
         self.request.session["new_api_key"] = self.object.key
+        log_action(self.request, "created", self.object)
         return response
 
     def get_success_url(self):
@@ -775,6 +795,7 @@ class APIKeyRevokeView(LoginRequiredMixin, View):
         apikey = get_object_or_404(APIKey, pk=pk)
         apikey.is_active = False
         apikey.save(update_fields=["is_active"])
+        log_action(request, "revoked", apikey)
         messages.success(request, f"API key '{apikey.name}' has been revoked.")
         return redirect("library:apikey-detail", pk=apikey.pk)
 
@@ -784,6 +805,7 @@ class APIKeyEnableView(LoginRequiredMixin, View):
         apikey = get_object_or_404(APIKey, pk=pk)
         apikey.is_active = True
         apikey.save(update_fields=["is_active"])
+        log_action(request, "enabled", apikey)
         messages.success(request, f"API key '{apikey.name}' has been enabled.")
         return redirect("library:apikey-detail", pk=apikey.pk)
 
@@ -795,6 +817,7 @@ class APIKeyRegenerateView(LoginRequiredMixin, View):
         apikey.key = generate_api_key()
         apikey.save(update_fields=["key"])
         request.session["new_api_key"] = apikey.key
+        log_action(request, "regenerated", apikey)
         messages.success(request, f"API key '{apikey.name}' has been regenerated. Copy the new key now.")
         return redirect("library:apikey-detail", pk=apikey.pk)
 
@@ -803,6 +826,7 @@ class APIKeyDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk):
         apikey = get_object_or_404(APIKey, pk=pk)
         name = apikey.name
+        log_action(request, "deleted", apikey)
         apikey.delete()
         messages.success(request, f"API key '{name}' has been deleted.")
         return redirect("library:apikey-list")
