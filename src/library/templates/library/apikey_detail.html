@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}{{ apikey.name }} - API Keys - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:apikey-list' %}" class="hover:text-gray-700">API Keys</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">{{ apikey.name }}</span>
+</nav>
+
+{% if new_key %}
+<div class="bg-green-50 border border-green-200 text-green-800 p-4 rounded mb-4">
+    <strong>Copy this key now — it won't be shown again.</strong>
+    <div class="mt-2">
+        <code class="text-lg break-all">{{ new_key }}</code>
+    </div>
+</div>
+{% endif %}
+
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">
+        {{ apikey.name }}
+        {% if apikey.is_active %}
+            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2 align-middle">Active</span>
+        {% else %}
+            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 ml-2 align-middle">Revoked</span>
+        {% endif %}
+    </h2>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Details</h5></div>
+    <div class="p-6">
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm">
+            <div>
+                <dt class="font-medium text-gray-600">Name</dt>
+                <dd class="mt-1">{{ apikey.name }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Key ID</dt>
+                <dd class="mt-1"><code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">{{ apikey.id }}</code></dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Key Prefix</dt>
+                <dd class="mt-1"><code class="bg-gray-100 px-2 py-0.5 rounded text-xs">{{ apikey.key|truncatechars:16 }}</code></dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Status</dt>
+                <dd class="mt-1">
+                    {% if apikey.is_active %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                    {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Revoked</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Created By</dt>
+                <dd class="mt-1">{{ apikey.created_by|default:"—" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Created</dt>
+                <dd class="mt-1">{{ apikey.created|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Last Used</dt>
+                <dd class="mt-1">{{ apikey.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Actions</h5></div>
+    <div class="p-6 flex flex-wrap gap-3">
+        {% if apikey.is_active %}
+        <button
+            data-confirm-action="Revoke this API key?"
+            data-confirm-text="The key will no longer authenticate requests."
+            data-action-url="{% url 'library:apikey-revoke' apikey.pk %}"
+            data-confirm-button="Revoke"
+            class="border border-yellow-400 text-yellow-700 px-4 py-2 rounded text-sm font-medium hover:bg-yellow-50">
+            <i data-lucide="shield-off" class="w-4 h-4 inline mr-1"></i>Revoke
+        </button>
+        {% else %}
+        <button
+            data-confirm-action="Enable this API key?"
+            data-confirm-text="The key will start authenticating requests again."
+            data-action-url="{% url 'library:apikey-enable' apikey.pk %}"
+            data-confirm-button="Enable"
+            class="border border-green-400 text-green-700 px-4 py-2 rounded text-sm font-medium hover:bg-green-50">
+            <i data-lucide="shield-check" class="w-4 h-4 inline mr-1"></i>Enable
+        </button>
+        {% endif %}
+
+        <button
+            data-confirm-action="Regenerate this API key?"
+            data-confirm-text="The current key will stop working immediately. You'll need to update any services using it."
+            data-action-url="{% url 'library:apikey-regenerate' apikey.pk %}"
+            data-confirm-button="Regenerate"
+            class="border border-blue-400 text-blue-700 px-4 py-2 rounded text-sm font-medium hover:bg-blue-50">
+            <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-1"></i>Regenerate
+        </button>
+
+        <button
+            data-confirm-delete="{{ apikey.name }}"
+            data-delete-url="{% url 'library:apikey-delete' apikey.pk %}"
+            class="border border-red-400 text-red-700 px-4 py-2 rounded text-sm font-medium hover:bg-red-50">
+            <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i>Delete
+        </button>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Usage</h5></div>
+    <div class="p-6">
+        <p class="text-sm mb-2">Include the API key in the <code class="bg-gray-100 px-1 rounded">X-API-Key</code> header:</p>
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">curl -H "X-API-Key: YOUR_KEY" {{ request.scheme }}://{{ request.get_host }}/api/v1/sync/</pre>
+        <p class="text-sm mt-4 mb-2">For HMAC-authenticated endpoints, use the Key ID and Key Secret:</p>
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">LIBRARY_KEY_ID={{ apikey.id }}
+LIBRARY_KEY_SECRET=YOUR_KEY</pre>
+    </div>
+</div>
+{% endblock %}

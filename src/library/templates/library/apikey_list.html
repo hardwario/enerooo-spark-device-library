@@ -36,7 +36,7 @@
             <tbody>
                 {% for apikey in apikeys %}
                 <tr class="border-b hover:bg-gray-50">
-                    <td class="py-3 px-2">{{ apikey.name }}</td>
+                    <td class="py-3 px-2"><a href="{% url 'library:apikey-detail' apikey.pk %}" class="text-blue-600 hover:text-blue-800">{{ apikey.name }}</a></td>
                     <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ apikey.key|truncatechars:12 }}</code></td>
                     <td class="py-3 px-2">
                         {% if apikey.is_active %}

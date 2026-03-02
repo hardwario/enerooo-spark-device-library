@@ -493,6 +493,102 @@ class VersionDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
+class VersionCompareView(LoginRequiredMixin, TemplateView):
+    """Compare two library versions by diffing all device snapshots."""
+
+    template_name = "library/version_compare.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from_ver = int(self.request.GET.get("from", 0))
+        to_ver = int(self.request.GET.get("to", 0))
+
+        from_version = get_object_or_404(LibraryVersion, version=from_ver)
+        to_version = get_object_or_404(LibraryVersion, version=to_ver)
+        ctx["from_version"] = from_version
+        ctx["to_version"] = to_version
+
+        # Build snapshot lookups for each version: {device_type_id: (label, snapshot)}
+        def _build_snapshot_map(lib_version):
+            entries = lib_version.device_changes.exclude(
+                change_type=LibraryVersionDevice.ChangeType.REMOVED,
+            )
+            result = {}
+            for entry in entries:
+                if not entry.device_type_id:
+                    continue
+                snapshot = (
+                    DeviceHistory.objects.filter(
+                        device_id=entry.device_type_id,
+                        version=entry.device_version,
+                    )
+                    .values_list("snapshot", flat=True)
+                    .first()
+                )
+                if snapshot:
+                    result[entry.device_type_id] = {
+                        "label": entry.device_label,
+                        "version": entry.device_version,
+                        "snapshot": snapshot,
+                    }
+            return result
+
+        from_map = _build_snapshot_map(from_version)
+        to_map = _build_snapshot_map(to_version)
+
+        # Also collect removed entries (no device_type_id) by label
+        from_removed = {
+            e.device_label
+            for e in from_version.device_changes.filter(
+                change_type=LibraryVersionDevice.ChangeType.REMOVED,
+            )
+        }
+        to_removed = {
+            e.device_label
+            for e in to_version.device_changes.filter(
+                change_type=LibraryVersionDevice.ChangeType.REMOVED,
+            )
+        }
+
+        from .history import diff_snapshots
+
+        all_device_ids = set(from_map) | set(to_map)
+        added = []
+        removed = []
+        modified = []
+        unchanged = 0
+
+        for device_id in sorted(all_device_ids, key=lambda d: (from_map.get(d) or to_map.get(d))["label"]):
+            in_from = device_id in from_map
+            in_to = device_id in to_map
+
+            if in_to and not in_from:
+                added.append(to_map[device_id])
+            elif in_from and not in_to:
+                removed.append(from_map[device_id])
+            else:
+                old_snap = from_map[device_id]["snapshot"]
+                new_snap = to_map[device_id]["snapshot"]
+                diff = diff_snapshots(old_snap, new_snap)
+                if diff:
+                    modified.append({
+                        "label": to_map[device_id]["label"],
+                        "from_version": from_map[device_id]["version"],
+                        "to_version": to_map[device_id]["version"],
+                        "diff": diff,
+                    })
+                else:
+                    unchanged += 1
+
+        ctx["added"] = added
+        ctx["removed"] = removed
+        ctx["modified"] = modified
+        ctx["unchanged_count"] = unchanged
+        ctx["versions"] = LibraryVersion.objects.values_list("version", flat=True).order_by("version")
+
+        return ctx
+
+
 class VersionCreateView(RoleRequiredMixin, View):
     required_role = User.Role.ADMIN
 
@@ -663,10 +759,50 @@ class APIKeyCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:apikey-list")
 
 
+class APIKeyDetailView(LoginRequiredMixin, DetailView):
+    template_name = "library/apikey_detail.html"
+    model = APIKey
+    context_object_name = "apikey"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["new_key"] = self.request.session.pop("new_api_key", None)
+        return ctx
+
+
 class APIKeyRevokeView(LoginRequiredMixin, View):
     def post(self, request, pk):
         apikey = get_object_or_404(APIKey, pk=pk)
         apikey.is_active = False
         apikey.save(update_fields=["is_active"])
         messages.success(request, f"API key '{apikey.name}' has been revoked.")
+        return redirect("library:apikey-detail", pk=apikey.pk)
+
+
+class APIKeyEnableView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        apikey = get_object_or_404(APIKey, pk=pk)
+        apikey.is_active = True
+        apikey.save(update_fields=["is_active"])
+        messages.success(request, f"API key '{apikey.name}' has been enabled.")
+        return redirect("library:apikey-detail", pk=apikey.pk)
+
+
+class APIKeyRegenerateView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        apikey = get_object_or_404(APIKey, pk=pk)
+        from .models import generate_api_key
+        apikey.key = generate_api_key()
+        apikey.save(update_fields=["key"])
+        request.session["new_api_key"] = apikey.key
+        messages.success(request, f"API key '{apikey.name}' has been regenerated. Copy the new key now.")
+        return redirect("library:apikey-detail", pk=apikey.pk)
+
+
+class APIKeyDeleteView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        apikey = get_object_or_404(APIKey, pk=pk)
+        name = apikey.name
+        apikey.delete()
+        messages.success(request, f"API key '{name}' has been deleted.")
         return redirect("library:apikey-list")

@@ -51,4 +51,31 @@
         </table>
     </div>
 </div>
+
+{% if versions|length >= 2 %}
+<div class="bg-white rounded-lg shadow mt-6">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Compare Versions</h5></div>
+    <div class="p-6">
+        <form method="get" action="{% url 'library:version-compare' %}" class="flex items-end gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">From</label>
+                <select name="from" class="!w-auto !py-1.5 !text-sm">
+                    {% for version in versions %}
+                    <option value="{{ version.version }}" {% if forloop.counter == 2 %}selected{% endif %}>v{{ version.version }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">To</label>
+                <select name="to" class="!w-auto !py-1.5 !text-sm">
+                    {% for version in versions %}
+                    <option value="{{ version.version }}" {% if forloop.first %}selected{% endif %}>v{{ version.version }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 text-sm font-medium">Compare</button>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

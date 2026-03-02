@@ -44,11 +44,16 @@ urlpatterns = [
     path("export/", views.ExportView.as_view(), name="export"),
     # Versions
     path("versions/", views.VersionListView.as_view(), name="version-list"),
+    path("versions/compare/", views.VersionCompareView.as_view(), name="version-compare"),
     path("versions/create/", views.VersionCreateView.as_view(), name="version-create"),
     path("versions/<uuid:pk>/", views.VersionDetailView.as_view(), name="version-detail"),
     path("versions/<uuid:pk>/export/", views.VersionExportView.as_view(), name="version-export"),
     # API Keys
     path("api-keys/", views.APIKeyListView.as_view(), name="apikey-list"),
     path("api-keys/create/", views.APIKeyCreateView.as_view(), name="apikey-create"),
+    path("api-keys/<uuid:pk>/", views.APIKeyDetailView.as_view(), name="apikey-detail"),
     path("api-keys/<uuid:pk>/revoke/", views.APIKeyRevokeView.as_view(), name="apikey-revoke"),
+    path("api-keys/<uuid:pk>/enable/", views.APIKeyEnableView.as_view(), name="apikey-enable"),
+    path("api-keys/<uuid:pk>/regenerate/", views.APIKeyRegenerateView.as_view(), name="apikey-regenerate"),
+    path("api-keys/<uuid:pk>/delete/", views.APIKeyDeleteView.as_view(), name="apikey-delete"),
 ]
