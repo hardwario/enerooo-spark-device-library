@@ -40,7 +40,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vendor_count"] = Vendor.objects.count()
-        ctx["device_count"] = DeviceType.objects.count()
+        ctx["model_count"] = DeviceType.objects.count()
         current = LibraryVersion.objects.filter(is_current=True).first()
         ctx["current_version"] = f"v{current.version}" if current else None
         ctx["apikey_count"] = APIKey.objects.filter(is_active=True).count()
@@ -95,7 +95,7 @@ class VendorDeleteView(LoginRequiredMixin, View):
     def post(self, request, slug):
         vendor = get_object_or_404(Vendor, slug=slug)
         if vendor.device_types.exists():
-            messages.error(request, f"Cannot delete {vendor.name} — it still has {vendor.device_types.count()} device(s). Remove them first.")
+            messages.error(request, f"Cannot delete {vendor.name} — it still has {vendor.device_types.count()} model(s). Remove them first.")
             return redirect("library:vendor-detail", slug=vendor.slug)
         name = vendor.name
         log_action(request, "deleted", vendor)
@@ -113,7 +113,7 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["devices"] = self.object.device_types.select_related("vendor").all()
+        ctx["models"] = self.object.device_types.select_related("vendor").all()
         return ctx
 
 
@@ -122,7 +122,7 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
 
 class DeviceTypeListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
-    context_object_name = "devices"
+    context_object_name = "models"
     paginate_by = 50
     ALLOWED_SORT_FIELDS = {
         "vendor": "vendor__name",
@@ -239,7 +239,7 @@ class DeviceTypeCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:device-detail", kwargs={"pk": self.object.pk})
+        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
 class DeviceTypeUpdateView(LoginRequiredMixin, UpdateView):
@@ -259,7 +259,7 @@ class DeviceTypeUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:device-detail", kwargs={"pk": self.object.pk})
+        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
 class DeviceTypeDeleteView(LoginRequiredMixin, View):
@@ -269,8 +269,8 @@ class DeviceTypeDeleteView(LoginRequiredMixin, View):
         record_history(device, DeviceHistory.Action.DELETED, request.user)
         log_action(request, "deleted", device)
         device.delete()
-        messages.success(request, f"Device \"{name}\" has been deleted.")
-        return redirect("library:device-list")
+        messages.success(request, f"Model \"{name}\" has been deleted.")
+        return redirect("library:model-list")
 
 
 # === Registers ===
@@ -280,7 +280,7 @@ class RegisterListView(LoginRequiredMixin, ListView):
     """Redirect to device detail (registers shown inline)."""
 
     def get(self, request, device_pk):
-        return redirect("library:device-detail", pk=device_pk)
+        return redirect("library:model-detail", pk=device_pk)
 
 
 class RegisterCreateView(LoginRequiredMixin, CreateView):
@@ -307,7 +307,7 @@ class RegisterCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:device-detail", kwargs={"pk": self.kwargs["device_pk"]})
+        return reverse_lazy("library:model-detail", kwargs={"pk": self.kwargs["device_pk"]})
 
 
 class RegisterUpdateView(LoginRequiredMixin, UpdateView):
@@ -334,7 +334,7 @@ class RegisterUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:device-detail", kwargs={"pk": self.object.modbus_config.device_type.pk})
+        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.modbus_config.device_type.pk})
 
 
 class RegisterDeleteView(LoginRequiredMixin, DeleteView):
@@ -349,7 +349,7 @@ class RegisterDeleteView(LoginRequiredMixin, DeleteView):
         self.object.delete()
         record_history(device, DeviceHistory.Action.UPDATED, request.user, old_snapshot)
         log_action(request, "deleted", self.object, details=f"Register '{reg_name}' removed from {device}")
-        return redirect("library:device-detail", pk=device.pk)
+        return redirect("library:model-detail", pk=device.pk)
 
 
 # === Device History ===
@@ -613,7 +613,7 @@ class VersionExportView(LoginRequiredMixin, View):
         for vendor_name in sorted(vendors):
             vendor_list.append({
                 "name": vendor_name,
-                "devices": vendors[vendor_name],
+                "models": vendors[vendor_name],
             })
 
         document = {

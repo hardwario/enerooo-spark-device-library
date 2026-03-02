@@ -4,7 +4,7 @@
 
 {% block content %}
 <nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
-    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
     <span class="mx-1">/</span>
     <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="hover:text-gray-700">{{ device.vendor.name }}</a>
     <span class="mx-1">/</span>
@@ -14,12 +14,12 @@
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold">{{ device.name }}</h2>
     <div class="flex gap-2">
-        <a href="{% url 'library:device-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
+        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
             <i class="bi bi-pencil mr-1"></i>Edit
         </a>
         <button
             data-confirm-delete="{{ device.vendor.name }} {{ device.model_number }}"
-            data-delete-url="{% url 'library:device-delete' device.pk %}"
+            data-delete-url="{% url 'library:model-delete' device.pk %}"
             class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
             <i class="bi bi-trash mr-1"></i>Delete
         </button>
@@ -189,7 +189,7 @@
         <h5 class="font-semibold">Change History</h5>
     </div>
     <div class="p-6">
-        <form id="history-diff-form" method="get" action="{% url 'library:device-history-diff' device.pk %}">
+        <form id="history-diff-form" method="get" action="{% url 'library:model-history-diff' device.pk %}">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b">

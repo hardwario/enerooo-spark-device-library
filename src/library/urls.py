@@ -14,18 +14,18 @@ urlpatterns = [
     path("vendors/create/", views.VendorCreateView.as_view(), name="vendor-create"),
     path("vendors/<slug:slug>/", views.VendorDetailView.as_view(), name="vendor-detail"),
     path("vendors/<slug:slug>/delete/", views.VendorDeleteView.as_view(), name="vendor-delete"),
-    # Devices
-    path("devices/", views.DeviceTypeListView.as_view(), name="device-list"),
-    path("devices/create/", views.DeviceTypeCreateView.as_view(), name="device-create"),
-    path("devices/<uuid:pk>/", views.DeviceTypeDetailView.as_view(), name="device-detail"),
-    path("devices/<uuid:pk>/edit/", views.DeviceTypeUpdateView.as_view(), name="device-edit"),
-    path("devices/<uuid:pk>/delete/", views.DeviceTypeDeleteView.as_view(), name="device-delete"),
-    path("devices/<uuid:pk>/history/<int:version>/", views.DeviceHistorySnapshotView.as_view(), name="device-history-snapshot"),
-    path("devices/<uuid:pk>/history/diff/", views.DeviceHistoryDiffView.as_view(), name="device-history-diff"),
-    # Registers (for Modbus devices)
-    path("devices/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
+    # Models
+    path("models/", views.DeviceTypeListView.as_view(), name="model-list"),
+    path("models/create/", views.DeviceTypeCreateView.as_view(), name="model-create"),
+    path("models/<uuid:pk>/", views.DeviceTypeDetailView.as_view(), name="model-detail"),
+    path("models/<uuid:pk>/edit/", views.DeviceTypeUpdateView.as_view(), name="model-edit"),
+    path("models/<uuid:pk>/delete/", views.DeviceTypeDeleteView.as_view(), name="model-delete"),
+    path("models/<uuid:pk>/history/<int:version>/", views.DeviceHistorySnapshotView.as_view(), name="model-history-snapshot"),
+    path("models/<uuid:pk>/history/diff/", views.DeviceHistoryDiffView.as_view(), name="model-history-diff"),
+    # Registers (for Modbus models)
+    path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
     path(
-        "devices/<uuid:device_pk>/registers/create/",
+        "models/<uuid:device_pk>/registers/create/",
         views.RegisterCreateView.as_view(),
         name="register-create",
     ),

@@ -4,9 +4,9 @@
 
 {% block content %}
 <nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
-    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
     <span class="mx-1">/</span>
-    <a href="{% url 'library:device-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
+    <a href="{% url 'library:model-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
     <span class="mx-1">/</span>
     <span class="text-gray-800">{% if form.instance.pk %}Edit Register{% else %}Add Register{% endif %}</span>
 </nav>
@@ -27,7 +27,7 @@
             {% endfor %}
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">Save</button>
-                <a href="{% url 'library:device-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
+                <a href="{% url 'library:model-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
             </div>
         </form>
     </div>

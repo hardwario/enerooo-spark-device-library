@@ -4,9 +4,9 @@
 
 {% block content %}
 <nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
-    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
     <span class="mx-1">/</span>
-    <a href="{% url 'library:device-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
+    <a href="{% url 'library:model-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
     <span class="mx-1">/</span>
     <span class="text-gray-800">History Diff</span>
 </nav>
@@ -15,8 +15,8 @@
     <h2 class="text-2xl font-bold">
         v{{ from_entry.version }} &rarr; v{{ to_entry.version }}
     </h2>
-    <a href="{% url 'library:device-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
-        Back to Device
+    <a href="{% url 'library:model-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+        Back to Model
     </a>
 </div>
 

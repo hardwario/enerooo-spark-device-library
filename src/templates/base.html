@@ -54,8 +54,8 @@
                     </a>
                 </li>
                 <li>
-                    <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'device' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:device-list' %}">
-                        <i data-lucide="cpu" class="w-4 h-4 mr-2"></i>Devices
+                    <a class="flex items-center px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 hover:text-white {% if 'model' in request.resolver_match.url_name %}bg-gray-800 text-white font-semibold{% endif %}" href="{% url 'library:model-list' %}">
+                        <i data-lucide="cpu" class="w-4 h-4 mr-2"></i>Models
                     </a>
                 </li>
                 <li>

@@ -41,7 +41,7 @@
                 <dd class="mt-1">{{ version.published_by|default:"—" }}</dd>
             </div>
             <div>
-                <dt class="font-medium text-gray-600">Devices</dt>
+                <dt class="font-medium text-gray-600">Models</dt>
                 <dd class="mt-1">{{ device_count }}{% if changed_count %} <span class="text-gray-500">({{ changed_count }} changed)</span>{% endif %}</dd>
             </div>
         </dl>
@@ -49,16 +49,16 @@
 </div>
 
 <div class="bg-white rounded-lg shadow">
-    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Device Manifest</h5></div>
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Model Manifest</h5></div>
     <div class="p-6">
         {% if manifest %}
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b">
-                    <th class="text-left py-2 px-2 font-semibold">Device</th>
+                    <th class="text-left py-2 px-2 font-semibold">Model</th>
                     <th class="text-left py-2 px-2 font-semibold">Vendor</th>
                     <th class="text-left py-2 px-2 font-semibold">Technology</th>
-                    <th class="text-left py-2 px-2 font-semibold">Device Version</th>
+                    <th class="text-left py-2 px-2 font-semibold">Model Version</th>
                     <th class="text-left py-2 px-2 font-semibold">Status</th>
                 </tr>
             </thead>
@@ -67,7 +67,7 @@
                 <tr class="border-b {% if entry.change_type == 'unchanged' %}text-gray-400{% endif %}">
                     <td class="py-2 px-2">
                         {% if entry.device_type %}
-                            <a href="{% url 'library:device-history-snapshot' entry.device_type.pk entry.device_version %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.device_label }}</a>
+                            <a href="{% url 'library:model-history-snapshot' entry.device_type.pk entry.device_version %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.device_label }}</a>
                         {% else %}
                             {{ entry.device_label }}
                         {% endif %}
@@ -91,7 +91,7 @@
             </tbody>
         </table>
         {% else %}
-        <p class="text-gray-500">No devices in this version.</p>
+        <p class="text-gray-500">No models in this version.</p>
         {% endif %}
     </div>
 </div>

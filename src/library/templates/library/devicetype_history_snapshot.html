@@ -4,9 +4,9 @@
 
 {% block content %}
 <nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
-    <a href="{% url 'library:device-list' %}" class="hover:text-gray-700">Devices</a>
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
     <span class="mx-1">/</span>
-    <a href="{% url 'library:device-detail' device.pk %}" class="hover:text-gray-700">{{ device }}</a>
+    <a href="{% url 'library:model-detail' device.pk %}" class="hover:text-gray-700">{{ device }}</a>
     <span class="mx-1">/</span>
     <span class="text-gray-800">v{{ entry.version }}</span>
 </nav>
@@ -25,12 +25,12 @@
         <!-- Version navigation -->
         <div class="flex items-center gap-1 ml-4">
             {% if prev_version %}
-                <a href="{% url 'library:device-history-snapshot' device.pk prev_version %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="v{{ prev_version }}">&larr; Prev</a>
+                <a href="{% url 'library:model-history-snapshot' device.pk prev_version %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="v{{ prev_version }}">&larr; Prev</a>
             {% else %}
                 <span class="border border-gray-200 px-2 py-1 rounded text-sm text-gray-300">&larr; Prev</span>
             {% endif %}
             {% if next_version %}
-                <a href="{% url 'library:device-history-snapshot' device.pk next_version %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="v{{ next_version }}">Next &rarr;</a>
+                <a href="{% url 'library:model-history-snapshot' device.pk next_version %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="v{{ next_version }}">Next &rarr;</a>
             {% else %}
                 <span class="border border-gray-200 px-2 py-1 rounded text-sm text-gray-300">Next &rarr;</span>
             {% endif %}
@@ -38,18 +38,18 @@
     </div>
     <div class="flex gap-2">
         {% if entry.version != latest_version %}
-            <a href="{% url 'library:device-history-diff' device.pk %}?from={{ entry.version }}&to={{ latest_version }}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
+            <a href="{% url 'library:model-history-diff' device.pk %}?from={{ entry.version }}&to={{ latest_version }}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
                 Compare with latest (v{{ latest_version }})
             </a>
         {% endif %}
-        <a href="{% url 'library:device-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+        <a href="{% url 'library:model-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
             View Current
         </a>
     </div>
 </div>
 
 <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6 text-sm text-amber-800">
-    This is a historical snapshot from {{ entry.created|date:"Y-m-d H:i" }}{% if entry.user %} by {{ entry.user.get_full_name|default:entry.user.username }}{% endif %}. It may differ from the current device state.
+    This is a historical snapshot from {{ entry.created|date:"Y-m-d H:i" }}{% if entry.user %} by {{ entry.user.get_full_name|default:entry.user.username }}{% endif %}. It may differ from the current model state.
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -203,7 +203,7 @@
         <h5 class="font-semibold">Version History</h5>
     </div>
     <div class="p-6">
-        <form id="history-diff-form" method="get" action="{% url 'library:device-history-diff' device.pk %}">
+        <form id="history-diff-form" method="get" action="{% url 'library:model-history-diff' device.pk %}">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b">
@@ -226,7 +226,7 @@
                             {% if h.version == entry.version %}
                                 <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">v{{ h.version }}</span>
                             {% else %}
-                                <a href="{% url 'library:device-history-snapshot' device.pk h.version %}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">v{{ h.version }}</a>
+                                <a href="{% url 'library:model-history-snapshot' device.pk h.version %}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">v{{ h.version }}</a>
                             {% endif %}
                         </td>
                         <td class="py-2 px-2 text-gray-600">{{ h.created|timesince }} ago</td>
