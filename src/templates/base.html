@@ -240,27 +240,43 @@
         const WARNING_TIME = {{ AUTO_LOGOUT_WARNING_TIME }} * 1000;
         const WARNING_AT = IDLE_TIME - WARNING_TIME;
         const PING_INTERVAL = 5 * 60 * 1000;
+        const PING_URL = '{% url "session-ping" %}';
+        const LOGIN_URL = '{% url "login" %}?timeout=1';
+        const CSRF_TOKEN = '{{ csrf_token }}';
 
         let lastActivity = Date.now();
         let warningTimer = null;
-        let logoutTimer = null;
         let countdownInterval = null;
 
         const modal = document.getElementById('timeout-modal');
         const countdown = document.getElementById('timeout-countdown');
         const stayBtn = document.getElementById('timeout-stay');
 
+        function pingServer(force) {
+            if (force || Date.now() - lastActivity < PING_INTERVAL) {
+                return fetch(PING_URL, {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+                    redirect: 'manual',
+                }).then(function(r) {
+                    if (r.type === 'opaqueredirect' || !r.ok) {
+                        window.location.href = LOGIN_URL;
+                    }
+                }).catch(function() {});
+            }
+        }
+
         function resetTimers() {
             lastActivity = Date.now();
             clearTimeout(warningTimer);
-            clearTimeout(logoutTimer);
             clearInterval(countdownInterval);
             modal.classList.add('hidden');
-
             warningTimer = setTimeout(showWarning, WARNING_AT);
         }
 
         function showWarning() {
+            // Ping first to check if session is still alive
+            pingServer(true);
             let remaining = Math.ceil(WARNING_TIME / 1000);
             countdown.textContent = remaining;
             modal.classList.remove('hidden');
@@ -270,21 +286,9 @@
                 countdown.textContent = remaining;
                 if (remaining <= 0) {
                     clearInterval(countdownInterval);
-                    window.location.href = '{% url "login" %}?timeout=1';
+                    window.location.href = LOGIN_URL;
                 }
             }, 1000);
-        }
-
-        function pingServer() {
-            if (Date.now() - lastActivity < PING_INTERVAL) {
-                fetch('{% url "session-ping" %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}',
-                        'Content-Type': 'application/json',
-                    },
-                });
-            }
         }
 
         ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function(evt) {
@@ -296,14 +300,14 @@
 
         stayBtn.addEventListener('click', function() {
             resetTimers();
-            pingServer();
+            pingServer(true);
         });
 
         document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) pingServer();
+            if (!document.hidden) pingServer(true);
         });
 
-        setInterval(pingServer, PING_INTERVAL);
+        setInterval(function() { pingServer(false); }, PING_INTERVAL);
         resetTimers();
     })();
     </script>
