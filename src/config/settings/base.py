@@ -91,6 +91,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.middleware.AutoLogoutMiddleware",
     "core.middleware.TimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -125,6 +126,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.app_version",
+                "core.context_processors.auto_logout",
             ],
         },
     },
@@ -136,6 +138,12 @@ SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="spark_device_library_s
 CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="spark_device_library_csrftoken")
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+# AUTO-LOGOUT
+# ------------------------------------------------------------------------------
+AUTO_LOGOUT_IDLE_TIME = 15 * 60  # 15 minutes
+AUTO_LOGOUT_WARNING_TIME = 60  # Show warning 60 seconds before logout
 X_FRAME_OPTIONS = "DENY"
 
 # EMAIL

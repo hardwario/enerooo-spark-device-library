@@ -5,11 +5,14 @@ import logging
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
+from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, ListView, UpdateView
 
 from auditlog.helpers import log_action
@@ -19,6 +22,13 @@ from .models import Invitation, User
 from .permissions import RoleRequiredMixin
 
 logger = logging.getLogger(__name__)
+
+
+@login_required
+@require_POST
+def session_ping(request):
+    """Lightweight endpoint to keep the session alive."""
+    return JsonResponse({"status": "ok"})
 
 
 # Profile view

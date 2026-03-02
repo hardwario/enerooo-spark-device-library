@@ -148,6 +148,22 @@
         {% block anonymous_content %}{% endblock %}
     {% endif %}
 
+    <!-- Session timeout warning modal -->
+    {% if user.is_authenticated %}
+    <div id="timeout-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
+            <h3 class="text-lg font-semibold mb-2">Session Expiring</h3>
+            <p class="text-gray-600 mb-4">You will be logged out in <span id="timeout-countdown" class="font-bold text-red-600"></span> seconds due to inactivity.</p>
+            <div class="flex gap-3">
+                <button id="timeout-stay" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium text-sm">Stay Logged In</button>
+                <a href="{% url 'logout' %}" class="flex-1 text-center border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 font-medium text-sm"
+                   onclick="event.preventDefault(); document.getElementById('timeout-logout-form').submit();">Log Out</a>
+            </div>
+            <form id="timeout-logout-form" method="post" action="{% url 'logout' %}" class="hidden">{% csrf_token %}</form>
+        </div>
+    </div>
+    {% endif %}
+
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>lucide.createIcons();</script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -215,6 +231,81 @@
         });
     });
     </script>
+    {% if user.is_authenticated %}
+    <script>
+    (function() {
+        const IDLE_TIME = {{ AUTO_LOGOUT_IDLE_TIME }} * 1000;
+        const WARNING_TIME = {{ AUTO_LOGOUT_WARNING_TIME }} * 1000;
+        const WARNING_AT = IDLE_TIME - WARNING_TIME;
+        const PING_INTERVAL = 5 * 60 * 1000;
+
+        let lastActivity = Date.now();
+        let warningTimer = null;
+        let logoutTimer = null;
+        let countdownInterval = null;
+
+        const modal = document.getElementById('timeout-modal');
+        const countdown = document.getElementById('timeout-countdown');
+        const stayBtn = document.getElementById('timeout-stay');
+
+        function resetTimers() {
+            lastActivity = Date.now();
+            clearTimeout(warningTimer);
+            clearTimeout(logoutTimer);
+            clearInterval(countdownInterval);
+            modal.classList.add('hidden');
+
+            warningTimer = setTimeout(showWarning, WARNING_AT);
+        }
+
+        function showWarning() {
+            let remaining = Math.ceil(WARNING_TIME / 1000);
+            countdown.textContent = remaining;
+            modal.classList.remove('hidden');
+
+            countdownInterval = setInterval(function() {
+                remaining--;
+                countdown.textContent = remaining;
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                    window.location.href = '{% url "login" %}?timeout=1';
+                }
+            }, 1000);
+        }
+
+        function pingServer() {
+            if (Date.now() - lastActivity < PING_INTERVAL) {
+                fetch('{% url "session-ping" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json',
+                    },
+                });
+            }
+        }
+
+        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function(evt) {
+            document.addEventListener(evt, function() {
+                if (!modal.classList.contains('hidden')) return;
+                resetTimers();
+            }, {passive: true});
+        });
+
+        stayBtn.addEventListener('click', function() {
+            resetTimers();
+            pingServer();
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) pingServer();
+        });
+
+        setInterval(pingServer, PING_INTERVAL);
+        resetTimers();
+    })();
+    </script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>
