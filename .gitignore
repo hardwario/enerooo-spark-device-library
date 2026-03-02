@@ -70,6 +70,3 @@ Thumbs.db
 
 # Database backups
 backups/
-
-# Go build artifacts (sparkctl)
-tools/sparkctl/build/
