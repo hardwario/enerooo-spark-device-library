@@ -5,12 +5,12 @@ from django import forms
 from .models import (
     APIKey,
     ControlConfig,
-    DeviceType,
     LoRaWANConfig,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
     Vendor,
+    VendorModel,
     WMBusConfig,
 )
 
@@ -21,9 +21,9 @@ class VendorForm(forms.ModelForm):
         fields = ["name", "slug"]
 
 
-class DeviceTypeForm(forms.ModelForm):
+class VendorModelForm(forms.ModelForm):
     class Meta:
-        model = DeviceType
+        model = VendorModel
         fields = ["vendor", "model_number", "name", "device_type", "technology", "description"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),

@@ -47,6 +47,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='libraryversiondevice',
             name='device_type',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='version_changes', to='library.devicetype'),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='version_changes', to='library.vendormodel'),
         ),
     ]

@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='DeviceType',
+            name='VendorModel',
             fields=[
                 ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
                 ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
@@ -73,7 +73,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('controllable', models.BooleanField(default=False)),
                 ('capabilities', models.JSONField(blank=True, default=dict)),
-                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='control_config', to='library.devicetype')),
+                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='control_config', to='library.vendormodel')),
             ],
             options={
                 'abstract': False,
@@ -104,7 +104,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('device_class', models.CharField(blank=True, choices=[('A', 'Class A'), ('B', 'Class B'), ('C', 'Class C')], default='', max_length=1)),
                 ('downlink_f_port', models.IntegerField(blank=True, null=True)),
-                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='lorawan_config', to='library.devicetype')),
+                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='lorawan_config', to='library.vendormodel')),
             ],
             options={
                 'abstract': False,
@@ -119,7 +119,7 @@ class Migration(migrations.Migration):
                 ('function', models.CharField(blank=True, default='', max_length=50)),
                 ('byte_order', models.CharField(blank=True, default='', max_length=50)),
                 ('word_order', models.CharField(blank=True, default='', max_length=50)),
-                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='modbus_config', to='library.devicetype')),
+                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='modbus_config', to='library.vendormodel')),
             ],
             options={
                 'abstract': False,
@@ -132,7 +132,7 @@ class Migration(migrations.Migration):
                 ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('decoder_type', models.CharField(blank=True, default='', max_length=255)),
-                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='processor_config', to='library.devicetype')),
+                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='processor_config', to='library.vendormodel')),
             ],
             options={
                 'abstract': False,
@@ -157,7 +157,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.AddField(
-            model_name='devicetype',
+            model_name='vendormodel',
             name='vendor',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='device_types', to='library.vendor'),
         ),
@@ -172,7 +172,7 @@ class Migration(migrations.Migration):
                 ('data_record_mapping', models.JSONField(blank=True, default=list)),
                 ('encryption_required', models.BooleanField(default=False)),
                 ('shared_encryption_key', models.CharField(blank=True, default='', max_length=255)),
-                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='wmbus_config', to='library.devicetype')),
+                ('device_type', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='wmbus_config', to='library.vendormodel')),
             ],
             options={
                 'abstract': False,
@@ -185,7 +185,7 @@ class Migration(migrations.Migration):
                 ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('change_type', models.CharField(choices=[('added', 'Added'), ('modified', 'Modified'), ('removed', 'Removed')], max_length=20)),
-                ('device_type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='version_changes', to='library.devicetype')),
+                ('device_type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='version_changes', to='library.vendormodel')),
                 ('library_version', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='device_changes', to='library.libraryversion')),
             ],
             options={
@@ -193,7 +193,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.AlterUniqueTogether(
-            name='devicetype',
+            name='vendormodel',
             unique_together={('vendor', 'model_number')},
         ),
     ]

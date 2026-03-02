@@ -105,7 +105,7 @@ def main() -> None:
                 path = save_content(remote_version, content)
                 vendor_count = len(content.get("vendors", []))
                 device_count = sum(
-                    len(v.get("devices", []))
+                    len(v.get("models", []))
                     for v in content.get("vendors", [])
                 )
                 print(f"library-sync: saved v{remote_version} ({vendor_count} vendors, {device_count} devices) -> {path}")

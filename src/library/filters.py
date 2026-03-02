@@ -3,17 +3,17 @@
 import django_filters
 from django.db import models
 
-from .models import DeviceType
+from .models import VendorModel
 
 
-class DeviceTypeFilter(django_filters.FilterSet):
+class VendorModelFilter(django_filters.FilterSet):
     vendor = django_filters.CharFilter(field_name="vendor__slug", lookup_expr="exact")
-    technology = django_filters.ChoiceFilter(choices=DeviceType.Technology.choices)
-    device_type = django_filters.ChoiceFilter(choices=DeviceType.DeviceCategory.choices)
+    technology = django_filters.ChoiceFilter(choices=VendorModel.Technology.choices)
+    device_type = django_filters.ChoiceFilter(choices=VendorModel.DeviceCategory.choices)
     search = django_filters.CharFilter(method="filter_search")
 
     class Meta:
-        model = DeviceType
+        model = VendorModel
         fields = ["vendor", "technology", "device_type"]
 
     def filter_search(self, queryset, name, value):

@@ -15,11 +15,11 @@ urlpatterns = [
     path("vendors/<slug:slug>/", views.VendorDetailView.as_view(), name="vendor-detail"),
     path("vendors/<slug:slug>/delete/", views.VendorDeleteView.as_view(), name="vendor-delete"),
     # Models
-    path("models/", views.DeviceTypeListView.as_view(), name="model-list"),
-    path("models/create/", views.DeviceTypeCreateView.as_view(), name="model-create"),
-    path("models/<uuid:pk>/", views.DeviceTypeDetailView.as_view(), name="model-detail"),
-    path("models/<uuid:pk>/edit/", views.DeviceTypeUpdateView.as_view(), name="model-edit"),
-    path("models/<uuid:pk>/delete/", views.DeviceTypeDeleteView.as_view(), name="model-delete"),
+    path("models/", views.VendorModelListView.as_view(), name="model-list"),
+    path("models/create/", views.VendorModelCreateView.as_view(), name="model-create"),
+    path("models/<uuid:pk>/", views.VendorModelDetailView.as_view(), name="model-detail"),
+    path("models/<uuid:pk>/edit/", views.VendorModelUpdateView.as_view(), name="model-edit"),
+    path("models/<uuid:pk>/delete/", views.VendorModelDeleteView.as_view(), name="model-delete"),
     path("models/<uuid:pk>/history/<int:version>/", views.DeviceHistorySnapshotView.as_view(), name="model-history-snapshot"),
     path("models/<uuid:pk>/history/diff/", views.DeviceHistoryDiffView.as_view(), name="model-history-diff"),
     # Registers (for Modbus models)

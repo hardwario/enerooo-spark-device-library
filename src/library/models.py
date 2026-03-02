@@ -22,8 +22,8 @@ class Vendor(TimeStampedModel):
         return self.name
 
 
-class DeviceType(TimeStampedModel):
-    """A device type definition."""
+class VendorModel(TimeStampedModel):
+    """A vendor model definition."""
 
     class DeviceCategory(models.TextChoices):
         POWER_METER = "power_meter", "Power Meter"
@@ -39,7 +39,9 @@ class DeviceType(TimeStampedModel):
         WMBUS = "wmbus", "wM-Bus"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name="device_types")
+    vendor = models.ForeignKey(
+        Vendor, on_delete=models.CASCADE, related_name="device_types"
+    )
     model_number = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
     device_type = models.CharField(max_length=30, choices=DeviceCategory.choices)
@@ -58,7 +60,7 @@ class ModbusConfig(TimeStampedModel):
     """Modbus-specific configuration for a device type."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    device_type = models.OneToOneField(DeviceType, on_delete=models.CASCADE, related_name="modbus_config")
+    device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="modbus_config")
     function = models.CharField(max_length=50, blank=True, default="")
     byte_order = models.CharField(max_length=50, blank=True, default="")
     word_order = models.CharField(max_length=50, blank=True, default="")
@@ -102,7 +104,7 @@ class LoRaWANConfig(TimeStampedModel):
         C = "C", "Class C"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    device_type = models.OneToOneField(DeviceType, on_delete=models.CASCADE, related_name="lorawan_config")
+    device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
     downlink_f_port = models.IntegerField(null=True, blank=True)
 
@@ -114,7 +116,7 @@ class WMBusConfig(TimeStampedModel):
     """wM-Bus-specific configuration for a device type."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    device_type = models.OneToOneField(DeviceType, on_delete=models.CASCADE, related_name="wmbus_config")
+    device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="wmbus_config")
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
     wmbus_device_type = models.IntegerField(null=True, blank=True)
     data_record_mapping = models.JSONField(default=list, blank=True)
@@ -129,7 +131,7 @@ class ControlConfig(TimeStampedModel):
     """Control capabilities for a device type."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    device_type = models.OneToOneField(DeviceType, on_delete=models.CASCADE, related_name="control_config")
+    device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="control_config")
     controllable = models.BooleanField(default=False)
     capabilities = models.JSONField(default=dict, blank=True)
 
@@ -141,7 +143,7 @@ class ProcessorConfig(TimeStampedModel):
     """Processor/decoder configuration for a device type."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    device_type = models.OneToOneField(DeviceType, on_delete=models.CASCADE, related_name="processor_config")
+    device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
     decoder_type = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
@@ -158,7 +160,7 @@ class DeviceHistory(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device = models.ForeignKey(
-        "DeviceType",
+        "VendorModel",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -229,7 +231,7 @@ class LibraryVersionDevice(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     library_version = models.ForeignKey(LibraryVersion, on_delete=models.CASCADE, related_name="device_changes")
     device_type = models.ForeignKey(
-        DeviceType, on_delete=models.SET_NULL, null=True, blank=True, related_name="version_changes"
+        VendorModel, on_delete=models.SET_NULL, null=True, blank=True, related_name="version_changes"
     )
     device_version = models.PositiveIntegerField(default=1)
     device_label = models.CharField(max_length=255, default="")

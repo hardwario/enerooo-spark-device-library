@@ -9,17 +9,17 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from library.exporters import snapshot_to_schema
-from library.models import APIKey, DeviceHistory, DeviceType, LibraryVersion, LibraryVersionDevice, Vendor
+from library.models import APIKey, DeviceHistory, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
 
 from .permissions import HasAPIKey, HasHMACSignature, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
-    DeviceTypeAdminSerializer,
-    DeviceTypeDetailSerializer,
-    DeviceTypeListSerializer,
     LibraryVersionSerializer,
     ManifestSerializer,
     VendorAdminSerializer,
+    VendorModelAdminSerializer,
+    VendorModelDetailSerializer,
+    VendorModelListSerializer,
     VendorSerializer,
     VendorWithDevicesSerializer,
 )
@@ -39,7 +39,7 @@ class ManifestViewSet(viewsets.ViewSet):
             "version": current.version if current else "0.0.0",
             "schema_version": current.schema_version if current else 2,
             "vendor_count": Vendor.objects.count(),
-            "device_count": DeviceType.objects.count(),
+            "device_count": VendorModel.objects.count(),
         }
         serializer = ManifestSerializer(data)
 
@@ -75,11 +75,11 @@ class SyncDeviceViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "retrieve":
-            return DeviceTypeDetailSerializer
-        return DeviceTypeListSerializer
+            return VendorModelDetailSerializer
+        return VendorModelListSerializer
 
     def get_queryset(self):
-        qs = DeviceType.objects.select_related(
+        qs = VendorModel.objects.select_related(
             "vendor",
             "modbus_config",
             "lorawan_config",
@@ -99,7 +99,7 @@ class SyncViewSet(viewsets.ViewSet):
 
     def list(self, request):
         # Check ETag / If-Modified-Since
-        last_modified = DeviceType.objects.aggregate(last=Max("modified"))["last"]
+        last_modified = VendorModel.objects.aggregate(last=Max("modified"))["last"]
 
         if last_modified:
             etag = hashlib.md5(str(last_modified).encode()).hexdigest()
@@ -188,7 +188,7 @@ class LibraryContentViewSet(viewsets.ViewSet):
             vendors[vendor_name].append(snapshot_to_schema(snap))
 
         vendor_list = [
-            {"name": name, "devices": vendors[name]}
+            {"name": name, "models": vendors[name]}
             for name in sorted(vendors)
         ]
 
@@ -210,12 +210,12 @@ class AdminVendorViewSet(viewsets.ModelViewSet):
     queryset = Vendor.objects.all()
 
 
-class AdminDeviceTypeViewSet(viewsets.ModelViewSet):
-    """CRUD for device types (admin)."""
+class AdminVendorModelViewSet(viewsets.ModelViewSet):
+    """CRUD for vendor models (admin)."""
 
     permission_classes = [IsEditorOrAdmin]
-    serializer_class = DeviceTypeAdminSerializer
-    queryset = DeviceType.objects.select_related("vendor").all()
+    serializer_class = VendorModelAdminSerializer
+    queryset = VendorModel.objects.select_related("vendor").all()
     filterset_fields = ["vendor", "technology", "device_type"]
 
 

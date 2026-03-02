@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from .viewsets import (
     AdminAPIKeyViewSet,
-    AdminDeviceTypeViewSet,
+    AdminVendorModelViewSet,
     AdminVendorViewSet,
     AdminVersionViewSet,
     LibraryContentViewSet,
@@ -30,7 +30,7 @@ router.register("library/content", LibraryContentViewSet, basename="library-cont
 
 # Admin API (session auth)
 router.register("admin/vendors", AdminVendorViewSet, basename="admin-vendor")
-router.register("admin/devices", AdminDeviceTypeViewSet, basename="admin-device")
+router.register("admin/devices", AdminVendorModelViewSet, basename="admin-device")
 router.register("admin/versions", AdminVersionViewSet, basename="admin-version")
 router.register("admin/api-keys", AdminAPIKeyViewSet, basename="admin-apikey")
 

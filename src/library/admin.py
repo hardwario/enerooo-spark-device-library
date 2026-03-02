@@ -5,7 +5,6 @@ from django.contrib import admin
 from .models import (
     APIKey,
     ControlConfig,
-    DeviceType,
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
@@ -13,6 +12,7 @@ from .models import (
     ProcessorConfig,
     RegisterDefinition,
     Vendor,
+    VendorModel,
     WMBusConfig,
 )
 
@@ -58,8 +58,8 @@ class ProcessorConfigInline(admin.StackedInline):
     max_num = 1
 
 
-@admin.register(DeviceType)
-class DeviceTypeAdmin(admin.ModelAdmin):
+@admin.register(VendorModel)
+class VendorModelAdmin(admin.ModelAdmin):
     list_display = ["name", "vendor", "model_number", "device_type", "technology", "created"]
     list_filter = ["device_type", "technology", "vendor"]
     search_fields = ["name", "model_number", "vendor__name"]

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def snapshot_device(device):
-    """Serialize a DeviceType and all related configs into a JSON-safe dict."""
+    """Serialize a VendorModel and all related configs into a JSON-safe dict."""
     data = {
         "vendor": device.vendor.name if device.vendor else None,
         "model_number": device.model_number,
@@ -149,7 +149,7 @@ def record_history(device, action, user, previous_snapshot=None):
     """Take a snapshot and create a DeviceHistory entry.
 
     Args:
-        device: DeviceType instance.
+        device: VendorModel instance.
         action: One of DeviceHistory.Action values.
         user: The user performing the action.
         previous_snapshot: Snapshot dict from before the change (for diffs).

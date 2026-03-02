@@ -17,17 +17,17 @@ from core.models import User
 from core.permissions import RoleRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
-from .forms import APIKeyForm, DeviceTypeForm, RegisterDefinitionForm, VendorForm, YAMLImportForm
+from .forms import APIKeyForm, RegisterDefinitionForm, VendorForm, VendorModelForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
     APIKey,
     DeviceHistory,
-    DeviceType,
     LibraryVersion,
     LibraryVersionDevice,
     RegisterDefinition,
     Vendor,
+    VendorModel,
 )
 
 
@@ -40,15 +40,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vendor_count"] = Vendor.objects.count()
-        ctx["model_count"] = DeviceType.objects.count()
+        ctx["model_count"] = VendorModel.objects.count()
         current = LibraryVersion.objects.filter(is_current=True).first()
         ctx["current_version"] = f"v{current.version}" if current else None
         ctx["apikey_count"] = APIKey.objects.filter(is_active=True).count()
         ctx["tech_breakdown"] = (
-            DeviceType.objects.values("technology").annotate(count=Count("id")).order_by("technology")
+            VendorModel.objects.values("technology").annotate(count=Count("id")).order_by("technology")
         )
         ctx["type_breakdown"] = (
-            DeviceType.objects.values("device_type").annotate(count=Count("id")).order_by("device_type")
+            VendorModel.objects.values("device_type").annotate(count=Count("id")).order_by("device_type")
         )
         return ctx
 
@@ -120,7 +120,7 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
 # === Devices ===
 
 
-class DeviceTypeListView(LoginRequiredMixin, ListView):
+class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
     context_object_name = "models"
     paginate_by = 50
@@ -138,7 +138,7 @@ class DeviceTypeListView(LoginRequiredMixin, ListView):
             .order_by("-version")
             .values("version")[:1]
         )
-        qs = DeviceType.objects.select_related("vendor").annotate(
+        qs = VendorModel.objects.select_related("vendor").annotate(
             current_version=Subquery(latest_version),
         )
         vendor = self.request.GET.get("vendor")
@@ -164,19 +164,19 @@ class DeviceTypeListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vendors"] = Vendor.objects.all()
-        ctx["device_type_choices"] = DeviceType.DeviceCategory.choices
-        ctx["total_count"] = DeviceType.objects.count()
+        ctx["device_type_choices"] = VendorModel.DeviceCategory.choices
+        ctx["total_count"] = VendorModel.objects.count()
         ctx["filtered_count"] = self.get_queryset().count()
         return ctx
 
 
-class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
+class VendorModelDetailView(LoginRequiredMixin, DetailView):
     template_name = "library/devicetype_detail.html"
-    model = DeviceType
+    model = VendorModel
     context_object_name = "device"
 
     def get_queryset(self):
-        return DeviceType.objects.select_related(
+        return VendorModel.objects.select_related(
             "vendor",
             "modbus_config",
             "lorawan_config",
@@ -227,9 +227,9 @@ class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class DeviceTypeCreateView(LoginRequiredMixin, CreateView):
-    model = DeviceType
-    form_class = DeviceTypeForm
+class VendorModelCreateView(LoginRequiredMixin, CreateView):
+    model = VendorModel
+    form_class = VendorModelForm
     template_name = "library/devicetype_form.html"
 
     def form_valid(self, form):
@@ -242,9 +242,9 @@ class DeviceTypeCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
-class DeviceTypeUpdateView(LoginRequiredMixin, UpdateView):
-    model = DeviceType
-    form_class = DeviceTypeForm
+class VendorModelUpdateView(LoginRequiredMixin, UpdateView):
+    model = VendorModel
+    form_class = VendorModelForm
     template_name = "library/devicetype_form.html"
 
     def get_object(self, queryset=None):
@@ -262,9 +262,9 @@ class DeviceTypeUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
-class DeviceTypeDeleteView(LoginRequiredMixin, View):
+class VendorModelDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk):
-        device = get_object_or_404(DeviceType, pk=pk)
+        device = get_object_or_404(VendorModel, pk=pk)
         name = f"{device.vendor.name} {device.model_number}"
         record_history(device, DeviceHistory.Action.DELETED, request.user)
         log_action(request, "deleted", device)
@@ -290,11 +290,11 @@ class RegisterCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["device"] = get_object_or_404(DeviceType, pk=self.kwargs["device_pk"])
+        ctx["device"] = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
         return ctx
 
     def form_valid(self, form):
-        device = get_object_or_404(DeviceType, pk=self.kwargs["device_pk"])
+        device = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
         old_snapshot = snapshot_device(device)
         # Ensure modbus config exists
         from .models import ModbusConfig
@@ -360,7 +360,7 @@ class DeviceHistoryDiffView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        device = get_object_or_404(DeviceType, pk=self.kwargs["pk"])
+        device = get_object_or_404(VendorModel, pk=self.kwargs["pk"])
         ctx["device"] = device
 
         from_version = int(self.request.GET.get("from", 0))
@@ -383,7 +383,7 @@ class DeviceHistorySnapshotView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        device = get_object_or_404(DeviceType, pk=self.kwargs["pk"])
+        device = get_object_or_404(VendorModel, pk=self.kwargs["pk"])
         version = self.kwargs["version"]
         entry = get_object_or_404(DeviceHistory, device=device, version=version)
 
@@ -501,8 +501,8 @@ class VersionCreateView(RoleRequiredMixin, View):
         max_version = LibraryVersion.objects.aggregate(v=Max("version"))["v"] or 0
         new_version = max_version + 1
 
-        # Backfill: ensure every DeviceType has at least one DeviceHistory entry
-        devices_without_history = DeviceType.objects.filter(history__isnull=True)
+        # Backfill: ensure every VendorModel has at least one DeviceHistory entry
+        devices_without_history = VendorModel.objects.filter(history__isnull=True)
         for device in devices_without_history:
             record_history(device, DeviceHistory.Action.CREATED, user=None)
 
@@ -525,7 +525,7 @@ class VersionCreateView(RoleRequiredMixin, View):
 
         # Snapshot all current devices
         current_device_ids = set()
-        for device in DeviceType.objects.select_related("vendor"):
+        for device in VendorModel.objects.select_related("vendor"):
             current_device_ids.add(device.pk)
             # Get latest DeviceHistory version for this device
             latest_version = (

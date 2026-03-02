@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Map model class names to audit log categories
 _CATEGORY_MAP = {
-    "DeviceType": AuditLog.Category.DEVICE,
+    "VendorModel": AuditLog.Category.DEVICE,
     "Vendor": AuditLog.Category.VENDOR,
     "LibraryVersion": AuditLog.Category.VERSION,
     "APIKey": AuditLog.Category.APIKEY,

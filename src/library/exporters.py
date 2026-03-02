@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from .models import DeviceType, Vendor
+from .models import Vendor, VendorModel
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def export_to_yaml(output_dir: str | Path) -> dict:
         for device in devices:
             device_types.append(_export_device(device))
 
-        vendor_data = {"devices": device_types}
+        vendor_data = {"models": device_types}
 
         filename = f"{vendor.slug}.yaml"
         file_path = output_dir / filename
@@ -67,7 +67,7 @@ def export_to_yaml(output_dir: str | Path) -> dict:
     return stats
 
 
-def _export_device(device: DeviceType) -> dict:
+def _export_device(device: VendorModel) -> dict:
     """Export a single device type to a YAML-compatible dict."""
     data = {
         "vendor_name": device.vendor.name,
@@ -82,7 +82,7 @@ def _export_device(device: DeviceType) -> dict:
     return data
 
 
-def _export_tech_config(device: DeviceType) -> dict:
+def _export_tech_config(device: VendorModel) -> dict:
     """Export technology-specific config."""
     config = {"technology": device.technology}
 
@@ -110,7 +110,7 @@ def _export_tech_config(device: DeviceType) -> dict:
                 })
             if registers:
                 config["register_definitions"] = registers
-        except DeviceType.modbus_config.RelatedObjectDoesNotExist:
+        except VendorModel.modbus_config.RelatedObjectDoesNotExist:
             pass
 
     elif device.technology == "lorawan":
@@ -120,7 +120,7 @@ def _export_tech_config(device: DeviceType) -> dict:
                 config["device_class"] = lorawan.device_class
             if lorawan.downlink_f_port is not None:
                 config["downlink_f_port"] = lorawan.downlink_f_port
-        except DeviceType.lorawan_config.RelatedObjectDoesNotExist:
+        except VendorModel.lorawan_config.RelatedObjectDoesNotExist:
             pass
 
     elif device.technology == "wmbus":
@@ -132,13 +132,13 @@ def _export_tech_config(device: DeviceType) -> dict:
             config["encryption_required"] = wmbus.encryption_required
             if wmbus.shared_encryption_key:
                 config["shared_encryption_key"] = wmbus.shared_encryption_key
-        except DeviceType.wmbus_config.RelatedObjectDoesNotExist:
+        except VendorModel.wmbus_config.RelatedObjectDoesNotExist:
             pass
 
     return config
 
 
-def _export_control_config(device: DeviceType) -> dict:
+def _export_control_config(device: VendorModel) -> dict:
     """Export control config."""
     try:
         ctrl = device.control_config
@@ -146,17 +146,17 @@ def _export_control_config(device: DeviceType) -> dict:
             "capabilities": ctrl.capabilities,
             "controllable": ctrl.controllable,
         }
-    except DeviceType.control_config.RelatedObjectDoesNotExist:
+    except VendorModel.control_config.RelatedObjectDoesNotExist:
         return {}
 
 
-def _export_processor_config(device: DeviceType) -> dict:
+def _export_processor_config(device: VendorModel) -> dict:
     """Export processor config."""
     try:
         proc = device.processor_config
         if proc.decoder_type:
             return {"decoder_type": proc.decoder_type}
-    except DeviceType.processor_config.RelatedObjectDoesNotExist:
+    except VendorModel.processor_config.RelatedObjectDoesNotExist:
         pass
     return {}
 

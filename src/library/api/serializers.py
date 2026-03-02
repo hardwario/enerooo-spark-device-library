@@ -5,7 +5,6 @@ from rest_framework import serializers
 from library.models import (
     APIKey,
     ControlConfig,
-    DeviceType,
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
@@ -13,6 +12,7 @@ from library.models import (
     ProcessorConfig,
     RegisterDefinition,
     Vendor,
+    VendorModel,
     WMBusConfig,
 )
 
@@ -117,17 +117,17 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
         return data
 
 
-class DeviceTypeListSerializer(serializers.ModelSerializer):
+class VendorModelListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for device lists."""
 
     vendor_name = serializers.CharField(source="vendor.name", read_only=True)
 
     class Meta:
-        model = DeviceType
+        model = VendorModel
         fields = ["id", "vendor_name", "model_number", "name", "device_type", "technology"]
 
 
-class DeviceTypeDetailSerializer(serializers.ModelSerializer):
+class VendorModelDetailSerializer(serializers.ModelSerializer):
     """Full serializer matching the YAML schema structure."""
 
     vendor_name = serializers.CharField(source="vendor.name", read_only=True)
@@ -136,7 +136,7 @@ class DeviceTypeDetailSerializer(serializers.ModelSerializer):
     processor_config = serializers.SerializerMethodField()
 
     class Meta:
-        model = DeviceType
+        model = VendorModel
         fields = [
             "id",
             "vendor_name",
@@ -173,11 +173,11 @@ class VendorSerializer(serializers.ModelSerializer):
 class VendorWithDevicesSerializer(serializers.ModelSerializer):
     """Vendor with nested device types for sync endpoint."""
 
-    devices = DeviceTypeDetailSerializer(many=True, read_only=True, source="device_types")
+    models = VendorModelDetailSerializer(many=True, read_only=True, source="device_types")
 
     class Meta:
         model = Vendor
-        fields = ["name", "slug", "devices"]
+        fields = ["name", "slug", "models"]
 
 
 # === Manifest ===
@@ -224,9 +224,9 @@ class VendorAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created", "modified"]
 
 
-class DeviceTypeAdminSerializer(serializers.ModelSerializer):
+class VendorModelAdminSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DeviceType
+        model = VendorModel
         fields = ["id", "vendor", "model_number", "name", "device_type", "technology", "description", "created", "modified"]
         read_only_fields = ["id", "created", "modified"]
 

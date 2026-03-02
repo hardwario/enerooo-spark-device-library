@@ -10,12 +10,12 @@ from .history import record_history, snapshot_device
 from .models import (
     ControlConfig,
     DeviceHistory,
-    DeviceType,
     LoRaWANConfig,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
     Vendor,
+    VendorModel,
     WMBusConfig,
 )
 
@@ -47,7 +47,7 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
     }
 
     if clear:
-        DeviceType.objects.all().delete()
+        VendorModel.objects.all().delete()
         Vendor.objects.all().delete()
         logger.info("Cleared existing vendors and devices")
 
@@ -74,7 +74,7 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
         with open(file_path) as f:
             data = yaml.safe_load(f)
 
-        devices_key = "devices" if "devices" in (data or {}) else "device_types"
+        devices_key = "models" if "models" in (data or {}) else "device_types"
         if not data or devices_key not in data:
             logger.warning("No devices in %s", file_path)
             continue
@@ -90,16 +90,16 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
     return stats
 
 
-def _import_device(vendor: Vendor, data: dict, stats: dict) -> DeviceType:
+def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
     """Import a single device type from YAML data."""
     tech_config = data.get("technology_config", {})
     technology = tech_config.get("technology", "")
 
     # Check if device already exists so we can capture a pre-update snapshot
-    existing = DeviceType.objects.filter(vendor=vendor, model_number=data["model_number"]).first()
+    existing = VendorModel.objects.filter(vendor=vendor, model_number=data["model_number"]).first()
     old_snapshot = snapshot_device(existing) if existing else None
 
-    device, created = DeviceType.objects.update_or_create(
+    device, created = VendorModel.objects.update_or_create(
         vendor=vendor,
         model_number=data["model_number"],
         defaults={
@@ -155,7 +155,7 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> DeviceType:
     return device
 
 
-def _import_modbus_config(device: DeviceType, tech_config: dict):
+def _import_modbus_config(device: VendorModel, tech_config: dict):
     """Import Modbus-specific configuration."""
     modbus_config, _ = ModbusConfig.objects.update_or_create(
         device_type=device,
@@ -182,7 +182,7 @@ def _import_modbus_config(device: DeviceType, tech_config: dict):
         )
 
 
-def _import_lorawan_config(device: DeviceType, tech_config: dict):
+def _import_lorawan_config(device: VendorModel, tech_config: dict):
     """Import LoRaWAN-specific configuration."""
     LoRaWANConfig.objects.update_or_create(
         device_type=device,
@@ -193,7 +193,7 @@ def _import_lorawan_config(device: DeviceType, tech_config: dict):
     )
 
 
-def _import_wmbus_config(device: DeviceType, tech_config: dict):
+def _import_wmbus_config(device: VendorModel, tech_config: dict):
     """Import wM-Bus-specific configuration."""
     WMBusConfig.objects.update_or_create(
         device_type=device,
