@@ -5,7 +5,7 @@ services:
     ports:
       - "${PORT:-8002}:8000"
     env_file:
-      - src/.env
+      - .env
     depends_on:
       db:
         condition: service_healthy
