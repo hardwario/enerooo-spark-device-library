@@ -12,7 +12,7 @@ class Vendor(TimeStampedModel):
     """Device vendor / manufacturer."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    key = models.UUIDField(null=True, blank=True, unique=True)
+    key = models.UUIDField(default=uuid.uuid4, null=True, blank=True, unique=True)
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
 
@@ -40,7 +40,7 @@ class VendorModel(TimeStampedModel):
         WMBUS = "wmbus", "wM-Bus"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    key = models.UUIDField(null=True, blank=True, unique=True)
+    key = models.UUIDField(default=uuid.uuid4, null=True, blank=True, unique=True)
     vendor = models.ForeignKey(
         Vendor, on_delete=models.CASCADE, related_name="device_types"
     )
