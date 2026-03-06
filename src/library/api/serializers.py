@@ -178,7 +178,7 @@ class VendorWithDevicesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vendor
-        fields = ["key", "name", "slug", "models"]
+        fields = ["id", "key", "name", "slug", "models"]
 
 
 # === Manifest ===
