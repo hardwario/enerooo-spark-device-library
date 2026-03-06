@@ -58,6 +58,10 @@
             <div class="px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                    {% if snapshot.key %}
+                    <dt class="font-medium text-gray-600">Key</dt>
+                    <dd class="col-span-2"><code class="text-xs bg-gray-100 px-1 rounded font-mono">{{ snapshot.key }}</code></dd>
+                    {% endif %}
                     <dt class="font-medium text-gray-600">Vendor</dt>
                     <dd class="col-span-2">{{ snapshot.vendor }}</dd>
                     <dt class="font-medium text-gray-600">Model</dt>

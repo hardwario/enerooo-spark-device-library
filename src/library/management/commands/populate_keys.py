@@ -4,7 +4,8 @@ import uuid
 
 from django.core.management.base import BaseCommand
 
-from library.models import Vendor, VendorModel
+from library.history import record_history, snapshot_device
+from library.models import DeviceHistory, Vendor, VendorModel
 
 
 class Command(BaseCommand):
@@ -18,9 +19,14 @@ class Command(BaseCommand):
             vendor_count += 1
 
         model_count = 0
-        for model in VendorModel.objects.filter(key__isnull=True):
+        for model in VendorModel.objects.select_related(
+            "vendor", "modbus_config", "lorawan_config",
+            "wmbus_config", "control_config", "processor_config",
+        ).filter(key__isnull=True):
+            previous = snapshot_device(model)
             model.key = uuid.uuid4()
             model.save(update_fields=["key"])
+            record_history(model, DeviceHistory.Action.UPDATED, user=None, previous_snapshot=previous)
             model_count += 1
 
         self.stdout.write(self.style.SUCCESS(

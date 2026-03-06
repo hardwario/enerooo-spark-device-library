@@ -213,7 +213,7 @@
                             <input type="checkbox" class="history-check" value="{{ entry.version }}" data-version="{{ entry.version }}">
                         </td>
                         <td class="py-2 px-2">
-                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">v{{ entry.version }}</span>
+                            <a href="{% url 'library:model-history-snapshot' device.pk entry.version %}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">v{{ entry.version }}</a>
                         </td>
                         <td class="py-2 px-2 text-gray-600">{{ entry.created|timesince }} ago</td>
                         <td class="py-2 px-2">{% if entry.user %}{{ entry.user.get_full_name|default:entry.user.username }}{% else %}System{% endif %}</td>
