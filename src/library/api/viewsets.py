@@ -183,13 +183,14 @@ class LibraryContentViewSet(viewsets.ViewSet):
             if not snap:
                 continue
             vendor_name = snap.get("vendor", "Unknown")
+            vendor_key = snap.get("vendor_key", "")
             if vendor_name not in vendors:
-                vendors[vendor_name] = []
-            vendors[vendor_name].append(snapshot_to_schema(snap))
+                vendors[vendor_name] = {"key": vendor_key, "models": []}
+            vendors[vendor_name]["models"].append(snapshot_to_schema(snap))
 
         vendor_list = [
-            {"name": name, "models": vendors[name]}
-            for name in sorted(vendors)
+            {"key": info["key"], "name": name, "models": info["models"]}
+            for name, info in sorted(vendors.items())
         ]
 
         return Response({

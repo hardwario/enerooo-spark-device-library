@@ -124,7 +124,7 @@ class VendorModelListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VendorModel
-        fields = ["id", "vendor_name", "model_number", "name", "device_type", "technology"]
+        fields = ["id", "key", "vendor_name", "model_number", "name", "device_type", "technology"]
 
 
 class VendorModelDetailSerializer(serializers.ModelSerializer):
@@ -139,6 +139,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
         model = VendorModel
         fields = [
             "id",
+            "key",
             "vendor_name",
             "model_number",
             "name",
@@ -167,7 +168,7 @@ class VendorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vendor
-        fields = ["id", "name", "slug", "device_count"]
+        fields = ["id", "key", "name", "slug", "device_count"]
 
 
 class VendorWithDevicesSerializer(serializers.ModelSerializer):
@@ -177,7 +178,7 @@ class VendorWithDevicesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vendor
-        fields = ["name", "slug", "models"]
+        fields = ["key", "name", "slug", "models"]
 
 
 # === Manifest ===
@@ -220,14 +221,14 @@ class LibraryVersionSerializer(serializers.ModelSerializer):
 class VendorAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ["id", "name", "slug", "created", "modified"]
+        fields = ["id", "key", "name", "slug", "created", "modified"]
         read_only_fields = ["id", "created", "modified"]
 
 
 class VendorModelAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorModel
-        fields = ["id", "vendor", "model_number", "name", "device_type", "technology", "description", "created", "modified"]
+        fields = ["id", "key", "vendor", "model_number", "name", "device_type", "technology", "description", "created", "modified"]
         read_only_fields = ["id", "created", "modified"]
 
 
