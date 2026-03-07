@@ -12,7 +12,10 @@
 </nav>
 
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold">{{ device.name }}</h2>
+    <div>
+        <h2 class="text-2xl font-bold">{{ device.name }}</h2>
+        {% if device.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ device.key }}</p>{% endif %}
+    </div>
     <div class="flex gap-2">
         <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
             <i class="bi bi-pencil mr-1"></i>Edit
@@ -210,7 +213,7 @@
                             <input type="checkbox" class="history-check" value="{{ entry.version }}" data-version="{{ entry.version }}">
                         </td>
                         <td class="py-2 px-2">
-                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">v{{ entry.version }}</span>
+                            <a href="{% url 'library:model-history-snapshot' device.pk entry.version %}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">v{{ entry.version }}</a>
                         </td>
                         <td class="py-2 px-2 text-gray-600">{{ entry.created|timesince }} ago</td>
                         <td class="py-2 px-2">{% if entry.user %}{{ entry.user.get_full_name|default:entry.user.username }}{% else %}System{% endif %}</td>

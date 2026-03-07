@@ -9,7 +9,10 @@
     <span class="text-gray-800">{% if form.instance.pk %}Edit {{ form.instance.name }}{% else %}Create Model{% endif %}</span>
 </nav>
 
-<h2 class="text-2xl font-bold mb-6">{% if form.instance.pk %}Edit Model{% else %}Create Model{% endif %}</h2>
+<div class="mb-6">
+    <h2 class="text-2xl font-bold">{% if form.instance.pk %}Edit Model{% else %}Create Model{% endif %}</h2>
+    {% if form.instance.pk and form.instance.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ form.instance.key }}</p>{% endif %}
+</div>
 
 <div class="bg-white rounded-lg shadow">
     <div class="p-6">

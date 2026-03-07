@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 def snapshot_device(device):
     """Serialize a VendorModel and all related configs into a JSON-safe dict."""
     data = {
+        "key": str(device.key),
+        "vendor_key": str(device.vendor.key) if device.vendor else None,
         "vendor": device.vendor.name if device.vendor else None,
         "model_number": device.model_number,
         "name": device.name,

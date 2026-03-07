@@ -202,6 +202,7 @@ def snapshot_to_schema(snapshot: dict) -> dict:
             tech_config["shared_encryption_key"] = wc["shared_encryption_key"]
 
     device = {
+        "key": snapshot.get("key", ""),
         "vendor_name": snapshot.get("vendor", ""),
         "model_number": snapshot.get("model_number", ""),
         "name": snapshot.get("name", ""),
