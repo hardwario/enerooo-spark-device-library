@@ -60,6 +60,7 @@ htmlcov/
 .env.*.local
 .env.dev
 .envrc
+.direnv
 
 # OS
 .DS_Store
@@ -70,3 +71,5 @@ Thumbs.db
 
 # Database backups
 backups/
+
+
