@@ -54,24 +54,27 @@
 
     <div>
         <!-- Technology Config -->
-        {% if device.technology == "modbus" and modbus_config %}
+        {% if device.technology == "modbus" %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Modbus Configuration</h5></div>
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Modbus Configuration</h5>
+                <a href="{% url 'library:modbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
             <div class="p-6">
+                {% if modbus_config %}
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    {% if modbus_config.function %}
                     <dt class="font-medium text-gray-600">Function</dt>
-                    <dd class="col-span-2">{{ modbus_config.function }}</dd>
-                    {% endif %}
-                    {% if modbus_config.byte_order %}
+                    <dd class="col-span-2">{{ modbus_config.function|default:"—" }}</dd>
                     <dt class="font-medium text-gray-600">Byte Order</dt>
-                    <dd class="col-span-2">{{ modbus_config.byte_order }}</dd>
-                    {% endif %}
-                    {% if modbus_config.word_order %}
+                    <dd class="col-span-2">{{ modbus_config.byte_order|default:"—" }}</dd>
                     <dt class="font-medium text-gray-600">Word Order</dt>
-                    <dd class="col-span-2">{{ modbus_config.word_order }}</dd>
-                    {% endif %}
+                    <dd class="col-span-2">{{ modbus_config.word_order|default:"—" }}</dd>
                 </dl>
+                {% else %}
+                <p class="text-sm text-gray-400">Not configured yet. Click edit to set up.</p>
+                {% endif %}
             </div>
         </div>
         {% endif %}
