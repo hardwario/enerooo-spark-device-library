@@ -61,11 +61,23 @@ class VendorModel(TimeStampedModel):
 class ModbusConfig(TimeStampedModel):
     """Modbus-specific configuration for a device type."""
 
+    class Function(models.TextChoices):
+        INPUT = "input", "Input"
+        HOLDING = "holding", "Holding"
+
+    class ByteOrder(models.TextChoices):
+        BIG_ENDIAN = "big_endian", "Big Endian"
+        LITTLE_ENDIAN = "little_endian", "Little Endian"
+
+    class WordOrder(models.TextChoices):
+        HIGH_FIRST = "high_first", "High First"
+        LOW_FIRST = "low_first", "Low First"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="modbus_config")
-    function = models.CharField(max_length=50, blank=True, default="")
-    byte_order = models.CharField(max_length=50, blank=True, default="")
-    word_order = models.CharField(max_length=50, blank=True, default="")
+    function = models.CharField(max_length=50, choices=Function.choices, blank=True, default="")
+    byte_order = models.CharField(max_length=50, choices=ByteOrder.choices, blank=True, default="")
+    word_order = models.CharField(max_length=50, choices=WordOrder.choices, blank=True, default="")
 
     def __str__(self):
         return f"ModbusConfig for {self.device_type}"

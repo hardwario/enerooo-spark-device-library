@@ -22,6 +22,12 @@ urlpatterns = [
     path("models/<uuid:pk>/delete/", views.VendorModelDeleteView.as_view(), name="model-delete"),
     path("models/<uuid:pk>/history/<int:version>/", views.DeviceHistorySnapshotView.as_view(), name="model-history-snapshot"),
     path("models/<uuid:pk>/history/diff/", views.DeviceHistoryDiffView.as_view(), name="model-history-diff"),
+    # Modbus Config
+    path(
+        "models/<uuid:device_pk>/modbus-config/edit/",
+        views.ModbusConfigUpdateView.as_view(),
+        name="modbus-config-edit",
+    ),
     # Registers (for Modbus models)
     path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
     path(
