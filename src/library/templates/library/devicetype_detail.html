@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load json_filters %}
 
 {% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
 
@@ -116,16 +117,30 @@
         <!-- Control Config -->
         {% if control_config %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Control Configuration</h5></div>
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Control Configuration</h5>
+                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Controllable</dt>
                     <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
                     {% if control_config.capabilities %}
                     <dt class="font-medium text-gray-600">Capabilities</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded">{{ control_config.capabilities|pprint }}</pre></dd>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ control_config.capabilities|pretty_json }}</pre></dd>
                     {% endif %}
                 </dl>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Control Configuration</h5>
+                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
+                    <i class="bi bi-plus-lg mr-1"></i>Add
+                </a>
             </div>
         </div>
         {% endif %}
@@ -232,6 +247,8 @@
                                 {% for field, change in entry.changes.items %}
                                     {% if field == "registers" %}
                                         <span class="text-gray-500">registers changed</span>
+                                    {% elif ".capabilities" in field or ".data_record_mapping" in field %}
+                                        <span class="font-medium">{{ field }}</span>: <span class="text-gray-500">updated</span>
                                     {% else %}
                                         <span class="font-medium">{{ field }}</span>:
                                         <span class="text-red-500 line-through">{{ change.old|truncatechars:30 }}</span>

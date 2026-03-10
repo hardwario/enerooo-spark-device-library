@@ -60,10 +60,29 @@ class WMBusConfigForm(forms.ModelForm):
         ]
 
 
+class PrettyJSONWidget(forms.Textarea):
+    """Textarea widget that pretty-prints JSON content."""
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                value = json.dumps(json.loads(value), indent=2)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        elif value is not None:
+            value = json.dumps(value, indent=2)
+        return super().format_value(value)
+
+
 class ControlConfigForm(forms.ModelForm):
     class Meta:
         model = ControlConfig
         fields = ["controllable", "capabilities"]
+        widgets = {
+            "capabilities": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+        }
 
 
 class ProcessorConfigForm(forms.ModelForm):

@@ -99,6 +99,8 @@ def diff_snapshots(old, new):
     changes = {}
     all_keys = set(old.keys()) | set(new.keys())
 
+    _config_keys = {"modbus_config", "lorawan_config", "wmbus_config", "control_config", "processor_config"}
+
     for key in all_keys:
         old_val = old.get(key)
         new_val = new.get(key)
@@ -110,6 +112,15 @@ def diff_snapshots(old, new):
             reg_diff = _diff_registers(old_val or [], new_val or [])
             if reg_diff:
                 changes["registers"] = reg_diff
+        elif key in _config_keys and isinstance(old_val, dict) and isinstance(new_val, dict):
+            # Break nested config dicts into sub-field changes
+            sub_keys = set(old_val.keys()) | set(new_val.keys())
+            for sk in sub_keys:
+                ov = old_val.get(sk)
+                nv = new_val.get(sk)
+                if ov != nv:
+                    label = f"{key}.{sk}"
+                    changes[label] = {"old": ov, "new": nv}
         else:
             changes[key] = {"old": old_val, "new": new_val}
 
