@@ -28,6 +28,12 @@ urlpatterns = [
         views.ModbusConfigUpdateView.as_view(),
         name="modbus-config-edit",
     ),
+    # Control Config
+    path(
+        "models/<uuid:device_pk>/control-config/edit/",
+        views.ControlConfigUpdateView.as_view(),
+        name="control-config-edit",
+    ),
     # Registers (for Modbus models)
     path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
     path(

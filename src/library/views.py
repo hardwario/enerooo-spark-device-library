@@ -18,7 +18,7 @@ from core.models import User
 from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
-from .forms import APIKeyForm, ModbusConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, YAMLImportForm
+from .forms import APIKeyForm, ControlConfigForm, ModbusConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
@@ -26,6 +26,7 @@ from .models import (
     DeviceHistory,
     LibraryVersion,
     LibraryVersionDevice,
+    ControlConfig,
     ModbusConfig,
     RegisterDefinition,
     Vendor,
@@ -299,6 +300,36 @@ class ModbusConfigUpdateView(LoginRequiredMixin, UpdateView):
         response = super().form_valid(form)
         record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"Modbus config updated on {self._device}")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+
+
+# === Control Config ===
+
+
+class ControlConfigUpdateView(LoginRequiredMixin, UpdateView):
+    model = ControlConfig
+    form_class = ControlConfigForm
+    template_name = "library/control_config_form.html"
+
+    def get_object(self, queryset=None):
+        device = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
+        self._device = device
+        self._old_snapshot = snapshot_device(device)
+        obj, _ = ControlConfig.objects.get_or_create(device_type=device)
+        return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["device"] = self._device
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", form.instance, details=f"Control config updated on {self._device}")
         return response
 
     def get_success_url(self):

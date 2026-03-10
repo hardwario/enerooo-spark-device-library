@@ -145,7 +145,7 @@
                     <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
                     {% if control_config.capabilities %}
                     <dt class="font-medium text-gray-600">Capabilities</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded">{{ control_config.capabilities }}</pre></dd>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">{{ control_config.capabilities }}</pre></dd>
                     {% endif %}
                 </dl>
             </div>

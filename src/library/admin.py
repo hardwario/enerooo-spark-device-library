@@ -1,7 +1,9 @@
 """Library admin configuration."""
 
 from django.contrib import admin
+from django.db import models
 
+from .forms import PrettyJSONWidget
 from .models import (
     APIKey,
     ControlConfig,
@@ -50,6 +52,9 @@ class ControlConfigInline(admin.StackedInline):
     model = ControlConfig
     extra = 0
     max_num = 1
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 class ProcessorConfigInline(admin.StackedInline):
@@ -107,6 +112,9 @@ class WMBusConfigAdmin(admin.ModelAdmin):
 class ControlConfigAdmin(admin.ModelAdmin):
     list_display = ["device_type", "controllable"]
     raw_id_fields = ["device_type"]
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 @admin.register(ProcessorConfig)
