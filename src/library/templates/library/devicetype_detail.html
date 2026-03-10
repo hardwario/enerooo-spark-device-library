@@ -161,7 +161,7 @@
 </div>
 
 <!-- Register Definitions (Modbus) -->
-{% if device.technology == "modbus" and registers %}
+{% if device.technology == "modbus" %}
 <div class="bg-white rounded-lg shadow mt-4">
     <div class="px-6 py-4 border-b flex justify-between items-center">
         <h5 class="font-semibold">Register Definitions ({{ registers|length }})</h5>
@@ -170,6 +170,7 @@
         </a>
     </div>
     <div class="p-6">
+        {% if registers %}
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b">
@@ -199,6 +200,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% else %}
+        <p class="text-sm text-gray-500">No registers defined yet.</p>
+        {% endif %}
     </div>
 </div>
 {% endif %}
