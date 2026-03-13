@@ -120,6 +120,10 @@ def _export_tech_config(device: VendorModel) -> dict:
                 config["device_class"] = lorawan.device_class
             if lorawan.downlink_f_port is not None:
                 config["downlink_f_port"] = lorawan.downlink_f_port
+            if lorawan.payload_codec:
+                config["payload_codec"] = lorawan.payload_codec
+            if lorawan.field_map:
+                config["field_map"] = lorawan.field_map
         except VendorModel.lorawan_config.RelatedObjectDoesNotExist:
             pass
 
@@ -132,6 +136,10 @@ def _export_tech_config(device: VendorModel) -> dict:
             config["encryption_required"] = wmbus.encryption_required
             if wmbus.shared_encryption_key:
                 config["shared_encryption_key"] = wmbus.shared_encryption_key
+            if wmbus.wmbusmeters_driver:
+                config["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
+            if wmbus.field_map:
+                config["field_map"] = wmbus.field_map
         except VendorModel.wmbus_config.RelatedObjectDoesNotExist:
             pass
 
@@ -192,6 +200,10 @@ def snapshot_to_schema(snapshot: dict) -> dict:
             tech_config["device_class"] = lc["device_class"]
         if lc.get("downlink_f_port") is not None:
             tech_config["downlink_f_port"] = lc["downlink_f_port"]
+        if lc.get("payload_codec"):
+            tech_config["payload_codec"] = lc["payload_codec"]
+        if lc.get("field_map"):
+            tech_config["field_map"] = lc["field_map"]
     elif technology == "wmbus":
         wc = snapshot.get("wmbus_config", {})
         tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
@@ -200,6 +212,10 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         tech_config["encryption_required"] = wc.get("encryption_required", False)
         if wc.get("shared_encryption_key"):
             tech_config["shared_encryption_key"] = wc["shared_encryption_key"]
+        if wc.get("wmbusmeters_driver"):
+            tech_config["wmbusmeters_driver"] = wc["wmbusmeters_driver"]
+        if wc.get("field_map"):
+            tech_config["field_map"] = wc["field_map"]
 
     device = {
         "key": snapshot.get("key", ""),

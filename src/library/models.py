@@ -91,6 +91,8 @@ class RegisterDefinition(TimeStampedModel):
         UINT16 = "uint16", "uint16"
         INT32 = "int32", "int32"
         UINT32 = "uint32", "uint32"
+        INT64 = "int64", "int64"
+        UINT64 = "uint64", "uint64"
         FLOAT32 = "float32", "float32"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -121,6 +123,8 @@ class LoRaWANConfig(TimeStampedModel):
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
     downlink_f_port = models.IntegerField(null=True, blank=True)
+    payload_codec = models.JSONField(default=dict, blank=True)
+    field_map = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"LoRaWANConfig for {self.device_type}"
@@ -136,6 +140,9 @@ class WMBusConfig(TimeStampedModel):
     data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
     shared_encryption_key = models.CharField(max_length=255, blank=True, default="")
+
+    wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="")
+    field_map = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"WMBusConfig for {self.device_type}"
@@ -260,6 +267,22 @@ class LibraryVersionDevice(TimeStampedModel):
 
 def generate_api_key():
     return secrets.token_urlsafe(48)
+
+
+class GatewayAssignment(TimeStampedModel):
+    """Gateway-to-Spark-instance assignment for bootstrap discovery."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    serial_number = models.CharField(max_length=255, unique=True, db_index=True)
+    spark_url = models.URLField(max_length=500)
+    assigned_at = models.DateTimeField(auto_now=True)
+    assigned_by = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["-assigned_at"]
+
+    def __str__(self):
+        return f"{self.serial_number} -> {self.spark_url}"
 
 
 class APIKey(TimeStampedModel):

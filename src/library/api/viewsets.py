@@ -9,11 +9,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from library.exporters import snapshot_to_schema
-from library.models import APIKey, DeviceHistory, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
+from library.models import APIKey, DeviceHistory, GatewayAssignment, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
 
 from .permissions import HasAPIKey, HasHMACSignature, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
+    GatewayAssignmentSerializer,
     LibraryVersionSerializer,
     ManifestSerializer,
     VendorAdminSerializer,
@@ -198,6 +199,51 @@ class LibraryContentViewSet(viewsets.ViewSet):
             "schema_version": lib_version.schema_version,
             "vendors": vendor_list,
         })
+
+
+# === Gateway Bootstrap ===
+
+
+class GatewayBootstrapViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """GET /api/v1/bootstrap/<serial>/ — returns the Spark URL for a gateway."""
+
+    permission_classes = [IsAPIKeyOrSessionAuth]
+    serializer_class = GatewayAssignmentSerializer
+    lookup_field = "serial_number"
+    queryset = GatewayAssignment.objects.all()
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return Response({"spark_url": instance.spark_url})
+
+
+class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    """POST /api/v1/assignments/ — upsert a gateway assignment."""
+
+    permission_classes = [IsAPIKeyOrSessionAuth]
+    serializer_class = GatewayAssignmentSerializer
+    queryset = GatewayAssignment.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        serial = request.data.get("serial_number")
+        spark_url = request.data.get("spark_url")
+        assigned_by = request.data.get("assigned_by", "")
+
+        if not serial or not spark_url:
+            return Response(
+                {"detail": "serial_number and spark_url are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        obj, created = GatewayAssignment.objects.update_or_create(
+            serial_number=serial,
+            defaults={"spark_url": spark_url, "assigned_by": assigned_by},
+        )
+        serializer = self.get_serializer(obj)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
 # === Admin API viewsets (CRUD, session auth) ===

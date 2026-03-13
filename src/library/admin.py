@@ -7,6 +7,7 @@ from .forms import PrettyJSONWidget
 from .models import (
     APIKey,
     ControlConfig,
+    GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
@@ -40,12 +41,18 @@ class LoRaWANConfigInline(admin.StackedInline):
     model = LoRaWANConfig
     extra = 0
     max_num = 1
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 class WMBusConfigInline(admin.StackedInline):
     model = WMBusConfig
     extra = 0
     max_num = 1
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 class ControlConfigInline(admin.StackedInline):
@@ -100,12 +107,18 @@ class RegisterDefinitionAdmin(admin.ModelAdmin):
 class LoRaWANConfigAdmin(admin.ModelAdmin):
     list_display = ["device_type", "device_class", "downlink_f_port"]
     raw_id_fields = ["device_type"]
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 @admin.register(WMBusConfig)
 class WMBusConfigAdmin(admin.ModelAdmin):
-    list_display = ["device_type", "manufacturer_code", "wmbus_device_type", "encryption_required"]
+    list_display = ["device_type", "manufacturer_code", "wmbus_device_type", "wmbusmeters_driver", "encryption_required"]
     raw_id_fields = ["device_type"]
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 @admin.register(ControlConfig)
@@ -134,6 +147,12 @@ class LibraryVersionAdmin(admin.ModelAdmin):
     list_display = ["version", "schema_version", "is_current", "released_at", "published_by"]
     list_filter = ["is_current"]
     inlines = [LibraryVersionDeviceInline]
+
+
+@admin.register(GatewayAssignment)
+class GatewayAssignmentAdmin(admin.ModelAdmin):
+    list_display = ["serial_number", "spark_url", "assigned_at", "assigned_by"]
+    search_fields = ["serial_number", "spark_url", "assigned_by"]
 
 
 @admin.register(APIKey)

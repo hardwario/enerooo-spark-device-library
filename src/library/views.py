@@ -18,19 +18,22 @@ from core.models import User
 from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
-from .forms import APIKeyForm, ControlConfigForm, ModbusConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, YAMLImportForm
+from .forms import APIKeyForm, ControlConfigForm, LoRaWANConfigForm, ModbusConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, WMBusConfigForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
     APIKey,
     DeviceHistory,
+    GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
     ControlConfig,
+    LoRaWANConfig,
     ModbusConfig,
     RegisterDefinition,
     Vendor,
     VendorModel,
+    WMBusConfig,
 )
 
 
@@ -330,6 +333,66 @@ class ControlConfigUpdateView(LoginRequiredMixin, UpdateView):
         response = super().form_valid(form)
         record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"Control config updated on {self._device}")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+
+
+# === wM-Bus Config ===
+
+
+class WMBusConfigUpdateView(LoginRequiredMixin, UpdateView):
+    model = WMBusConfig
+    form_class = WMBusConfigForm
+    template_name = "library/wmbus_config_form.html"
+
+    def get_object(self, queryset=None):
+        device = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
+        self._device = device
+        self._old_snapshot = snapshot_device(device)
+        obj, _ = WMBusConfig.objects.get_or_create(device_type=device)
+        return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["device"] = self._device
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", form.instance, details=f"wM-Bus config updated on {self._device}")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+
+
+# === LoRaWAN Config ===
+
+
+class LoRaWANConfigUpdateView(LoginRequiredMixin, UpdateView):
+    model = LoRaWANConfig
+    form_class = LoRaWANConfigForm
+    template_name = "library/lorawan_config_form.html"
+
+    def get_object(self, queryset=None):
+        device = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
+        self._device = device
+        self._old_snapshot = snapshot_device(device)
+        obj, _ = LoRaWANConfig.objects.get_or_create(device_type=device)
+        return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["device"] = self._device
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", form.instance, details=f"LoRaWAN config updated on {self._device}")
         return response
 
     def get_success_url(self):
@@ -892,3 +955,37 @@ class APIKeyDeleteView(LoginRequiredMixin, View):
         apikey.delete()
         messages.success(request, f"API key '{name}' has been deleted.")
         return redirect("library:apikey-list")
+
+
+# === Gateway Assignments ===
+
+
+class GatewayAssignmentListView(LoginRequiredMixin, ListView):
+    template_name = "library/gateway_list.html"
+    context_object_name = "assignments"
+    queryset = GatewayAssignment.objects.all()
+
+
+class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
+    model = GatewayAssignment
+    fields = ["serial_number", "spark_url", "assigned_by"]
+    template_name = "library/gateway_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "created", self.object)
+        messages.success(self.request, f"Gateway assignment '{self.object.serial_number}' created.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:gateway-list")
+
+
+class GatewayAssignmentDeleteView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        assignment = get_object_or_404(GatewayAssignment, pk=pk)
+        serial = assignment.serial_number
+        log_action(request, "deleted", assignment)
+        assignment.delete()
+        messages.success(request, f"Gateway assignment '{serial}' has been deleted.")
+        return redirect("library:gateway-list")

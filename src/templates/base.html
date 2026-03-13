@@ -112,6 +112,11 @@
                             <i data-lucide="key-round" class="w-4 h-4 mr-2 shrink-0"></i>API Keys
                         </a>
                     </li>
+                    <li>
+                        <a class="nav-link {% if 'gateway' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:gateway-list' %}">
+                            <i data-lucide="router" class="w-4 h-4 mr-2 shrink-0"></i>Gateways
+                        </a>
+                    </li>
                     {% if user.is_superuser %}
                     <li>
                         <a class="nav-link {% if 'import' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:import' %}">
