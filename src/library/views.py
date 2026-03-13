@@ -968,10 +968,11 @@ class GatewayAssignmentListView(LoginRequiredMixin, ListView):
 
 class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
     model = GatewayAssignment
-    fields = ["serial_number", "spark_url", "assigned_by"]
+    fields = ["serial_number", "spark_url"]
     template_name = "library/gateway_form.html"
 
     def form_valid(self, form):
+        form.instance.assigned_by = self.request.user.get_full_name() or self.request.user.username
         response = super().form_valid(form)
         log_action(self.request, "created", self.object)
         messages.success(self.request, f"Gateway assignment '{self.object.serial_number}' created.")

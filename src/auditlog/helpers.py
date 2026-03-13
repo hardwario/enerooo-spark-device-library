@@ -15,6 +15,7 @@ _CATEGORY_MAP = {
     "User": AuditLog.Category.USER,
     "Invitation": AuditLog.Category.USER,
     "RegisterDefinition": AuditLog.Category.DEVICE,
+    "GatewayAssignment": AuditLog.Category.GATEWAY,
 }
 
 
