@@ -103,6 +103,11 @@
                         </a>
                     </li>
                     <li>
+                        <a class="nav-link {% if 'wmbus-mapping' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:wmbus-mappings' %}">
+                            <i data-lucide="table-2" class="w-4 h-4 mr-2 shrink-0"></i>wM-Bus Mappings
+                        </a>
+                    </li>
+                    <li>
                         <a class="nav-link {% if 'version' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:version-list' %}">
                             <i data-lucide="tag" class="w-4 h-4 mr-2 shrink-0"></i>Versions
                         </a>

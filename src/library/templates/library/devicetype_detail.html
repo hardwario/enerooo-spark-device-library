@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load json_filters %}
+{% load json_filters device_tags %}
 
 {% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
 
@@ -127,7 +127,12 @@
                     <dt class="font-medium text-gray-600">Manufacturer</dt>
                     <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
                     <dt class="font-medium text-gray-600">Device Type</dt>
-                    <dd class="col-span-2">{{ wmbus_config.wmbus_device_type }}</dd>
+                    <dd class="col-span-2">
+                        {{ wmbus_config.wmbus_device_type }}
+                        {% if wmbus_config.wmbus_device_type_label %}
+                        {% device_type_badge device.device_type wmbus_config.wmbus_device_type_label %}
+                        {% endif %}
+                    </dd>
                     <dt class="font-medium text-gray-600">Encryption</dt>
                     <dd class="col-span-2">{% if wmbus_config.encryption_required %}Required{% else %}Not required{% endif %}</dd>
                     <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>

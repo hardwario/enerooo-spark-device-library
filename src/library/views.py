@@ -963,6 +963,47 @@ class APIKeyDeleteView(LoginRequiredMixin, View):
         return redirect("library:apikey-list")
 
 
+# === wM-Bus Mapping Table ===
+
+
+class WMBusMappingView(LoginRequiredMixin, ListView):
+    template_name = "library/wmbus_mapping.html"
+    context_object_name = "mappings"
+    ALLOWED_SORT_FIELDS = {
+        "manufacturer_code": "manufacturer_code",
+        "wmbus_device_type": "wmbus_device_type",
+        "vendor": "device_type__vendor__name",
+        "model": "device_type__name",
+        "driver": "wmbusmeters_driver",
+    }
+
+    def get_queryset(self):
+        qs = WMBusConfig.objects.select_related("device_type__vendor")
+
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(manufacturer_code__icontains=q)
+                | Q(wmbusmeters_driver__icontains=q)
+                | Q(device_type__name__icontains=q)
+                | Q(device_type__vendor__name__icontains=q)
+                | Q(device_type__model_number__icontains=q)
+            )
+
+        sort = self.request.GET.get("sort", "manufacturer_code")
+        descending = sort.startswith("-")
+        field = sort.lstrip("-")
+        db_field = self.ALLOWED_SORT_FIELDS.get(field, "manufacturer_code")
+        order = f"-{db_field}" if descending else db_field
+        return qs.order_by(order, "wmbus_device_type")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["search_query"] = self.request.GET.get("q", "")
+        ctx["current_sort"] = self.request.GET.get("sort", "manufacturer_code")
+        return ctx
+
+
 # === Gateway Assignments ===
 
 
