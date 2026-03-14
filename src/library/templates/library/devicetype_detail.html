@@ -130,10 +130,8 @@
                     <dd class="col-span-2">{{ wmbus_config.wmbus_device_type }}</dd>
                     <dt class="font-medium text-gray-600">Encryption</dt>
                     <dd class="col-span-2">{% if wmbus_config.encryption_required %}Required{% else %}Not required{% endif %}</dd>
-                    {% if wmbus_config.wmbusmeters_driver %}
                     <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver }}</code></dd>
-                    {% endif %}
+                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
                     {% if wmbus_config.field_map %}
                     <dt class="font-medium text-gray-600">Field Map</dt>
                     <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ wmbus_config.field_map|pretty_json }}</pre></dd>

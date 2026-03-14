@@ -141,7 +141,7 @@ class WMBusConfig(TimeStampedModel):
     encryption_required = models.BooleanField(default=False)
     shared_encryption_key = models.CharField(max_length=255, blank=True, default="")
 
-    wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="")
+    wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
     field_map = models.JSONField(default=dict, blank=True)
 
     def __str__(self):

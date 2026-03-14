@@ -354,6 +354,12 @@ class WMBusConfigUpdateView(LoginRequiredMixin, UpdateView):
         obj, _ = WMBusConfig.objects.get_or_create(device_type=device)
         return obj
 
+    def get_initial(self):
+        initial = super().get_initial()
+        if not self.object.wmbusmeters_driver:
+            initial["wmbusmeters_driver"] = "auto"
+        return initial
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["device"] = self._device
