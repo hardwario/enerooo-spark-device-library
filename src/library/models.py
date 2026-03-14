@@ -91,6 +91,8 @@ class RegisterDefinition(TimeStampedModel):
         UINT16 = "uint16", "uint16"
         INT32 = "int32", "int32"
         UINT32 = "uint32", "uint32"
+        INT64 = "int64", "int64"
+        UINT64 = "uint64", "uint64"
         FLOAT32 = "float32", "float32"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -121,6 +123,8 @@ class LoRaWANConfig(TimeStampedModel):
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
     downlink_f_port = models.IntegerField(null=True, blank=True)
+    payload_codec = models.JSONField(default=dict, blank=True)
+    field_map = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"LoRaWANConfig for {self.device_type}"
@@ -129,6 +133,38 @@ class LoRaWANConfig(TimeStampedModel):
 class WMBusConfig(TimeStampedModel):
     """wM-Bus-specific configuration for a device type."""
 
+    WMBUS_DEVICE_TYPE_LABELS = {
+        0x00: "Other",
+        0x01: "Oil Meter",
+        0x02: "Electricity Meter",
+        0x03: "Gas Meter",
+        0x04: "Heat Meter",
+        0x05: "Steam Meter",
+        0x06: "Warm Water Meter",
+        0x07: "Water Meter",
+        0x08: "Heat Cost Allocator",
+        0x09: "Compressed Air",
+        0x0A: "Cooling Meter (outlet)",
+        0x0B: "Cooling Meter (inlet)",
+        0x0C: "Heat Meter (inlet)",
+        0x0D: "Combined Heat/Cooling",
+        0x0E: "Bus/System Component",
+        0x0F: "Unknown",
+        0x15: "Hot Water Meter",
+        0x16: "Cold Water Meter",
+        0x17: "Hot/Cold Water Meter",
+        0x1A: "Smoke Detector",
+        0x1B: "Room Sensor",
+        0x1C: "Gas Detector",
+        0x20: "Breaker (electricity)",
+        0x21: "Valve (gas or water)",
+        0x25: "Customer Unit (display)",
+        0x28: "Waste Water Meter",
+        0x29: "Garbage",
+        0x37: "Radio Converter (meter side)",
+        0x39: "Radio Converter (system side)",
+    }
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="wmbus_config")
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
@@ -136,6 +172,15 @@ class WMBusConfig(TimeStampedModel):
     data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
     shared_encryption_key = models.CharField(max_length=255, blank=True, default="")
+
+    wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
+    field_map = models.JSONField(default=dict, blank=True)
+
+    @property
+    def wmbus_device_type_label(self):
+        if self.wmbus_device_type is None:
+            return None
+        return self.WMBUS_DEVICE_TYPE_LABELS.get(self.wmbus_device_type, f"Unknown (0x{self.wmbus_device_type:02X})")
 
     def __str__(self):
         return f"WMBusConfig for {self.device_type}"
@@ -260,6 +305,22 @@ class LibraryVersionDevice(TimeStampedModel):
 
 def generate_api_key():
     return secrets.token_urlsafe(48)
+
+
+class GatewayAssignment(TimeStampedModel):
+    """Gateway-to-Spark-instance assignment for bootstrap discovery."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    serial_number = models.CharField(max_length=255, unique=True, db_index=True)
+    spark_url = models.URLField(max_length=500)
+    assigned_at = models.DateTimeField(auto_now=True)
+    assigned_by = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["-assigned_at"]
+
+    def __str__(self):
+        return f"{self.serial_number} -> {self.spark_url}"
 
 
 class APIKey(TimeStampedModel):

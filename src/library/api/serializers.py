@@ -5,6 +5,7 @@ from rest_framework import serializers
 from library.models import (
     APIKey,
     ControlConfig,
+    GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
@@ -42,7 +43,7 @@ class ModbusConfigSerializer(serializers.ModelSerializer):
 class LoRaWANConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port"]
+        fields = ["device_class", "downlink_f_port", "payload_codec", "field_map"]
 
 
 class WMBusConfigSerializer(serializers.ModelSerializer):
@@ -54,6 +55,8 @@ class WMBusConfigSerializer(serializers.ModelSerializer):
             "data_record_mapping",
             "encryption_required",
             "shared_encryption_key",
+            "wmbusmeters_driver",
+            "field_map",
         ]
 
 
@@ -99,6 +102,10 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                     data["device_class"] = lorawan.device_class
                 if lorawan.downlink_f_port is not None:
                     data["downlink_f_port"] = lorawan.downlink_f_port
+                if lorawan.payload_codec:
+                    data["payload_codec"] = lorawan.payload_codec
+                if lorawan.field_map:
+                    data["field_map"] = lorawan.field_map
             except LoRaWANConfig.DoesNotExist:
                 pass
 
@@ -111,6 +118,10 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 data["encryption_required"] = wmbus.encryption_required
                 if wmbus.shared_encryption_key:
                     data["shared_encryption_key"] = wmbus.shared_encryption_key
+                if wmbus.wmbusmeters_driver:
+                    data["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
+                if wmbus.field_map:
+                    data["field_map"] = wmbus.field_map
             except WMBusConfig.DoesNotExist:
                 pass
 
@@ -230,6 +241,13 @@ class VendorModelAdminSerializer(serializers.ModelSerializer):
         model = VendorModel
         fields = ["id", "key", "vendor", "model_number", "name", "device_type", "technology", "description", "created", "modified"]
         read_only_fields = ["id", "created", "modified"]
+
+
+class GatewayAssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GatewayAssignment
+        fields = ["serial_number", "spark_url", "assigned_at", "assigned_by"]
+        read_only_fields = ["assigned_at"]
 
 
 class APIKeySerializer(serializers.ModelSerializer):

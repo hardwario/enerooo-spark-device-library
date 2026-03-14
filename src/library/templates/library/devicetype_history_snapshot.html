@@ -115,6 +115,14 @@
                     <dt class="font-medium text-gray-600">Downlink F-Port</dt>
                     <dd class="col-span-2">{{ lorawan_config.downlink_f_port }}</dd>
                     {% endif %}
+                    {% if lorawan_config.payload_codec %}
+                    <dt class="font-medium text-gray-600">Payload Codec</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">{{ lorawan_config.payload_codec }}</pre></dd>
+                    {% endif %}
+                    {% if lorawan_config.field_map %}
+                    <dt class="font-medium text-gray-600">Field Map</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">{{ lorawan_config.field_map }}</pre></dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -131,6 +139,14 @@
                     <dd class="col-span-2">{{ wmbus_config.wmbus_device_type }}</dd>
                     <dt class="font-medium text-gray-600">Encryption</dt>
                     <dd class="col-span-2">{% if wmbus_config.encryption_required %}Required{% else %}Not required{% endif %}</dd>
+                    {% if wmbus_config.wmbusmeters_driver %}
+                    <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
+                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver }}</code></dd>
+                    {% endif %}
+                    {% if wmbus_config.field_map %}
+                    <dt class="font-medium text-gray-600">Field Map</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">{{ wmbus_config.field_map }}</pre></dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>

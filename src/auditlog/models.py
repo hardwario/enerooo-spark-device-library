@@ -15,6 +15,7 @@ class AuditLog(TimeStampedModel):
         VENDOR = "vendor", "Vendor"
         VERSION = "version", "Version"
         APIKEY = "apikey", "API Key"
+        GATEWAY = "gateway", "Gateway"
         IMPORT = "import", "Import"
         EXPORT = "export", "Export"
         USER = "user", "User"

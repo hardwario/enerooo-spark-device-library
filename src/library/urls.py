@@ -22,6 +22,8 @@ urlpatterns = [
     path("models/<uuid:pk>/delete/", views.VendorModelDeleteView.as_view(), name="model-delete"),
     path("models/<uuid:pk>/history/<int:version>/", views.DeviceHistorySnapshotView.as_view(), name="model-history-snapshot"),
     path("models/<uuid:pk>/history/diff/", views.DeviceHistoryDiffView.as_view(), name="model-history-diff"),
+    # wM-Bus Mapping Table
+    path("wmbus-mappings/", views.WMBusMappingView.as_view(), name="wmbus-mappings"),
     # Modbus Config
     path(
         "models/<uuid:device_pk>/modbus-config/edit/",
@@ -33,6 +35,18 @@ urlpatterns = [
         "models/<uuid:device_pk>/control-config/edit/",
         views.ControlConfigUpdateView.as_view(),
         name="control-config-edit",
+    ),
+    # wM-Bus Config
+    path(
+        "models/<uuid:device_pk>/wmbus-config/edit/",
+        views.WMBusConfigUpdateView.as_view(),
+        name="wmbus-config-edit",
+    ),
+    # LoRaWAN Config
+    path(
+        "models/<uuid:device_pk>/lorawan-config/edit/",
+        views.LoRaWANConfigUpdateView.as_view(),
+        name="lorawan-config-edit",
     ),
     # Registers (for Modbus models)
     path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
@@ -68,4 +82,8 @@ urlpatterns = [
     path("api-keys/<uuid:pk>/enable/", views.APIKeyEnableView.as_view(), name="apikey-enable"),
     path("api-keys/<uuid:pk>/regenerate/", views.APIKeyRegenerateView.as_view(), name="apikey-regenerate"),
     path("api-keys/<uuid:pk>/delete/", views.APIKeyDeleteView.as_view(), name="apikey-delete"),
+    # Gateway Assignments
+    path("gateways/", views.GatewayAssignmentListView.as_view(), name="gateway-list"),
+    path("gateways/create/", views.GatewayAssignmentCreateView.as_view(), name="gateway-create"),
+    path("gateways/<uuid:pk>/delete/", views.GatewayAssignmentDeleteView.as_view(), name="gateway-delete"),
 ]
