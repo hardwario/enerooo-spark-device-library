@@ -8,6 +8,8 @@ from .viewsets import (
     AdminVendorModelViewSet,
     AdminVendorViewSet,
     AdminVersionViewSet,
+    GatewayAssignmentViewSet,
+    GatewayBootstrapViewSet,
     LibraryContentViewSet,
     LibraryVersionSyncViewSet,
     ManifestViewSet,
@@ -23,6 +25,10 @@ router.register("manifest", ManifestViewSet, basename="manifest")
 router.register("vendors", SyncVendorViewSet, basename="vendor")
 router.register("devices", SyncDeviceViewSet, basename="device")
 router.register("sync", SyncViewSet, basename="sync")
+
+# Gateway bootstrap
+router.register("bootstrap", GatewayBootstrapViewSet, basename="bootstrap")
+router.register("assignments", GatewayAssignmentViewSet, basename="assignment")
 
 # HMAC-authenticated library sync
 router.register("library/version", LibraryVersionSyncViewSet, basename="library-version")

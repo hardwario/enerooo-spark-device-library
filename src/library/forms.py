@@ -15,6 +15,22 @@ from .models import (
 )
 
 
+class PrettyJSONWidget(forms.Textarea):
+    """Textarea widget that pretty-prints JSON content."""
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                value = json.dumps(json.loads(value), indent=2)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        elif value is not None:
+            value = json.dumps(value, indent=2)
+        return super().format_value(value)
+
+
 class VendorForm(forms.ModelForm):
     class Meta:
         model = Vendor
@@ -45,7 +61,11 @@ class RegisterDefinitionForm(forms.ModelForm):
 class LoRaWANConfigForm(forms.ModelForm):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port"]
+        fields = ["device_class", "downlink_f_port", "payload_codec", "field_map"]
+        widgets = {
+            "payload_codec": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+        }
 
 
 class WMBusConfigForm(forms.ModelForm):
@@ -57,23 +77,13 @@ class WMBusConfigForm(forms.ModelForm):
             "data_record_mapping",
             "encryption_required",
             "shared_encryption_key",
+            "wmbusmeters_driver",
+            "field_map",
         ]
-
-
-class PrettyJSONWidget(forms.Textarea):
-    """Textarea widget that pretty-prints JSON content."""
-
-    def format_value(self, value):
-        import json
-
-        if isinstance(value, str):
-            try:
-                value = json.dumps(json.loads(value), indent=2)
-            except (json.JSONDecodeError, TypeError):
-                pass
-        elif value is not None:
-            value = json.dumps(value, indent=2)
-        return super().format_value(value)
+        widgets = {
+            "data_record_mapping": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+        }
 
 
 class ControlConfigForm(forms.ModelForm):

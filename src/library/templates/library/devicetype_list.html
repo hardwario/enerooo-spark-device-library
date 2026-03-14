@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load sorting %}
+{% load sorting device_tags %}
 
 {% block title %}Models - {{ COMPANY_NAME }}{% endblock %}
 
@@ -70,7 +70,7 @@
                     <td class="py-3 px-2"><a href="{% url 'library:vendor-detail' model.vendor.slug %}" class="text-blue-600 hover:text-blue-800">{{ model.vendor.name }}</a></td>
                     <td class="py-3 px-2"><a href="{% url 'library:model-detail' model.pk %}" class="text-blue-600 hover:text-blue-800">{{ model.model_number }}</a></td>
                     <td class="py-3 px-2">{{ model.name }}</td>
-                    <td class="py-3 px-2">{{ model.get_device_type_display }}</td>
+                    <td class="py-3 px-2">{% device_type_badge model.device_type model.get_device_type_display %}</td>
                     <td class="py-3 px-2"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if model.technology == 'modbus' %}bg-[#0d6efd]{% elif model.technology == 'lorawan' %}bg-[#198754]{% elif model.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ model.get_technology_display }}</span></td>
                     <td class="py-3 px-2 text-gray-500">{% if model.current_version %}v{{ model.current_version }}{% else %}—{% endif %}</td>
                     <td class="py-3 px-2">

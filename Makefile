@@ -52,6 +52,8 @@ deploy:
 	$(eval DEPLOY_VERSION := $(TAG:v%=%))
 	@echo "Deploying $(DEPLOY_VERSION)..."
 	git push origin main --tags
+	@echo "Closing any existing release PR..."
+	-gh pr close main --base production --delete-branch=false 2>/dev/null
 	@echo "Creating release PR..."
 	gh pr create --base production --head main \
 		--title "Release $(DEPLOY_VERSION)" \
