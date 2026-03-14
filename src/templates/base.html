@@ -124,11 +124,6 @@
                     </li>
                     {% if user.is_superuser %}
                     <li>
-                        <a class="nav-link {% if 'import' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:import' %}">
-                            <i data-lucide="upload" class="w-4 h-4 mr-2 shrink-0"></i>Import
-                        </a>
-                    </li>
-                    <li>
                         <a class="nav-link {% if 'export' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:export' %}">
                             <i data-lucide="download" class="w-4 h-4 mr-2 shrink-0"></i>Export
                         </a>

@@ -600,20 +600,31 @@ class ImportView(SuperuserRequiredMixin, TemplateView):
 class ExportView(SuperuserRequiredMixin, TemplateView):
     template_name = "library/export.html"
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["default_output_dir"] = "/app/export/devices/"
-        return ctx
+
+class ExportDownloadView(SuperuserRequiredMixin, View):
+    """Export all device definitions as a downloadable ZIP archive."""
 
     def post(self, request):
-        output_dir = request.POST.get("output_dir", "/app/export/devices/")
-        try:
-            stats = export_to_yaml(output_dir=output_dir)
+        import tempfile
+        import zipfile
+        from io import BytesIO
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stats = export_to_yaml(output_dir=f"{tmpdir}/devices/")
             log_action(request, "exported", Vendor(), category=AuditLog.Category.EXPORT, details=stats)
-            return self.render_to_response(self.get_context_data(stats=stats, output_dir=output_dir))
-        except Exception as e:
-            messages.error(request, f"Export failed: {e}")
-            return self.render_to_response(self.get_context_data())
+
+            buf = BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                from pathlib import Path
+                base = Path(tmpdir)
+                for f in sorted(base.rglob("*")):
+                    if f.is_file():
+                        zf.write(f, f.relative_to(base))
+
+            buf.seek(0)
+            response = HttpResponse(buf.read(), content_type="application/zip")
+            response["Content-Disposition"] = 'attachment; filename="device-library-export.zip"'
+            return response
 
 
 # === Versions ===

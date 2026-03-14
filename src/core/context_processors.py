@@ -7,8 +7,12 @@ from django.conf import settings
 
 def app_version(request):
     """Add app version to template context."""
+    if settings.DEBUG:
+        app_ver = "dev"
+    else:
+        app_ver = version("spark-device-library")
     return {
-        "APP_VERSION": version("spark-device-library"),
+        "APP_VERSION": app_ver,
         "COMPANY_NAME": getattr(settings, "COMPANY_NAME", "Spark Device Library"),
     }
 

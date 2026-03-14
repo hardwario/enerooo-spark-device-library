@@ -68,6 +68,7 @@ urlpatterns = [
     # Import/Export
     path("import/", views.ImportView.as_view(), name="import"),
     path("export/", views.ExportView.as_view(), name="export"),
+    path("export/download/", views.ExportDownloadView.as_view(), name="export-download"),
     # Versions
     path("versions/", views.VersionListView.as_view(), name="version-list"),
     path("versions/compare/", views.VersionCompareView.as_view(), name="version-compare"),
