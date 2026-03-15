@@ -207,7 +207,7 @@ class LibraryContentViewSet(viewsets.ViewSet):
 class GatewayBootstrapViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """GET /api/v1/bootstrap/<serial>/ — returns the Spark URL for a gateway."""
 
-    permission_classes = [IsAPIKeyOrSessionAuth]
+    permission_classes = [HasHMACSignature]
     serializer_class = GatewayAssignmentSerializer
     lookup_field = "serial_number"
     queryset = GatewayAssignment.objects.all()
@@ -220,7 +220,7 @@ class GatewayBootstrapViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet
 class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """POST /api/v1/assignments/ — upsert a gateway assignment."""
 
-    permission_classes = [IsAPIKeyOrSessionAuth]
+    permission_classes = [HasHMACSignature]
     serializer_class = GatewayAssignmentSerializer
     queryset = GatewayAssignment.objects.all()
 
