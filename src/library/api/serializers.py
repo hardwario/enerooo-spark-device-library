@@ -246,8 +246,8 @@ class VendorModelAdminSerializer(serializers.ModelSerializer):
 class GatewayAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = GatewayAssignment
-        fields = ["serial_number", "spark_url", "is_assigned", "assigned_at", "assigned_by"]
-        read_only_fields = ["assigned_at"]
+        fields = ["serial_number", "spark_url", "is_registered", "registered_at", "is_assigned", "assigned_at", "assigned_by", "last_seen"]
+        read_only_fields = ["registered_at", "assigned_at", "last_seen"]
 
 
 class APIKeySerializer(serializers.ModelSerializer):

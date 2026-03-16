@@ -131,7 +131,16 @@ class SyncViewSet(viewsets.ViewSet):
         return response
 
 
-# === HMAC-authenticated library sync endpoints ===
+# === Token-authenticated library sync endpoints ===
+
+
+def _update_gateway_last_seen(request):
+    """Update last_seen for the gateway identified by X-Gateway-Serial header."""
+    serial = request.headers.get("X-Gateway-Serial", "")
+    if serial:
+        from django.utils import timezone as tz
+
+        GatewayAssignment.objects.filter(serial_number=serial).update(last_seen=tz.now())
 
 
 class LibraryVersionSyncViewSet(viewsets.ViewSet):
@@ -140,6 +149,7 @@ class LibraryVersionSyncViewSet(viewsets.ViewSet):
     permission_classes = [HasServiceToken]
 
     def list(self, request):
+        _update_gateway_last_seen(request)
         current = LibraryVersion.objects.filter(is_current=True).first()
         return Response({"version": current.version if current else 0})
 
@@ -150,6 +160,7 @@ class LibraryContentViewSet(viewsets.ViewSet):
     permission_classes = [HasServiceToken]
 
     def retrieve(self, request, pk=None):
+        _update_gateway_last_seen(request)
         try:
             lib_version = LibraryVersion.objects.get(version=int(pk))
         except (LibraryVersion.DoesNotExist, ValueError, TypeError):
@@ -222,13 +233,26 @@ class GatewayBootstrapViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from django.utils import timezone as tz
+
+        now = tz.now()
         obj, created = GatewayAssignment.objects.get_or_create(
             serial_number=serial,
-            defaults={"spark_url": "", "assigned_by": ""},
+            defaults={"spark_url": "", "assigned_by": "", "is_registered": True, "registered_at": now, "last_seen": now},
         )
+        if not created:
+            update_fields = ["last_seen"]
+            obj.last_seen = now
+            if not obj.is_registered:
+                obj.is_registered = True
+                obj.registered_at = now
+                update_fields += ["is_registered", "registered_at"]
+            obj.save(update_fields=update_fields)
+
         return Response({
             "serial_number": obj.serial_number,
             "spark_url": obj.spark_url,
+            "is_registered": obj.is_registered,
             "is_assigned": obj.is_assigned,
         })
 
@@ -254,9 +278,16 @@ class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from django.utils import timezone as tz
+
         obj, created = GatewayAssignment.objects.update_or_create(
             serial_number=serial,
-            defaults={"spark_url": spark_url, "assigned_by": assigned_by, "is_assigned": True},
+            defaults={
+                "spark_url": spark_url,
+                "assigned_by": assigned_by,
+                "is_assigned": True,
+                "assigned_at": tz.now(),
+            },
         )
         serializer = self.get_serializer(obj)
         return Response(

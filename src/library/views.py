@@ -1042,7 +1042,7 @@ class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
 
 class GatewayAssignmentUpdateView(LoginRequiredMixin, UpdateView):
     model = GatewayAssignment
-    fields = ["serial_number", "spark_url", "is_assigned"]
+    fields = ["serial_number", "spark_url", "is_registered", "is_assigned"]
     template_name = "library/gateway_form.html"
 
     def form_valid(self, form):
