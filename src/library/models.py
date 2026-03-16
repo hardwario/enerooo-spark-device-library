@@ -313,12 +313,15 @@ class GatewayAssignment(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     serial_number = models.CharField(max_length=255, unique=True, db_index=True)
     spark_url = models.URLField(max_length=500, blank=True, default="")
+    is_registered = models.BooleanField(default=False)
+    registered_at = models.DateTimeField(null=True, blank=True)
     is_assigned = models.BooleanField(default=False)
-    assigned_at = models.DateTimeField(auto_now=True)
+    assigned_at = models.DateTimeField(null=True, blank=True)
     assigned_by = models.CharField(max_length=255, blank=True, default="")
+    last_seen = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-assigned_at"]
+        ordering = ["-created"]
 
     def __str__(self):
         return f"{self.serial_number} -> {self.spark_url}"
