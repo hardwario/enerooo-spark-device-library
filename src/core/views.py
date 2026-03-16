@@ -31,6 +31,14 @@ def session_ping(request):
     return JsonResponse({"status": "ok"})
 
 
+def csrf_failure_view(request, reason=""):
+    """Redirect to login on CSRF failure (usually stale session)."""
+    login_url = reverse(settings.LOGIN_URL)
+    if request.path == login_url or request.path.startswith(login_url):
+        return redirect(settings.LOGIN_URL)
+    return redirect(f"{login_url}?timeout=1")
+
+
 # Profile view
 
 

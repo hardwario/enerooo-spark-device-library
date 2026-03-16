@@ -16,6 +16,7 @@
             <thead>
                 <tr class="border-b">
                     <th class="text-left py-3 px-2 font-semibold">Serial Number</th>
+                    <th class="text-left py-3 px-2 font-semibold">Status</th>
                     <th class="text-left py-3 px-2 font-semibold">Spark URL</th>
                     <th class="text-left py-3 px-2 font-semibold">Assigned By</th>
                     <th class="text-left py-3 px-2 font-semibold">Assigned At</th>
@@ -26,21 +27,31 @@
                 {% for assignment in assignments %}
                 <tr class="border-b hover:bg-gray-50">
                     <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ assignment.serial_number }}</code></td>
-                    <td class="py-3 px-2">{{ assignment.spark_url }}</td>
+                    <td class="py-3 px-2">
+                        {% if assignment.is_assigned %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Assigned</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Registered</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2">{{ assignment.spark_url|default:"—" }}</td>
                     <td class="py-3 px-2">{{ assignment.assigned_by|default:"—" }}</td>
                     <td class="py-3 px-2">{{ assignment.assigned_at|date:"Y-m-d H:i" }}</td>
-                    <td class="py-3 px-2">
-                        <form method="post" action="{% url 'library:gateway-delete' assignment.pk %}" class="inline">
-                            {% csrf_token %}
-                            <button type="submit" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" onclick="return confirm('Delete this gateway assignment?')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
+                    <td class="py-3 px-2 flex gap-1">
+                        <a href="{% url 'library:gateway-edit' assignment.pk %}" class="border border-gray-300 text-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button type="button"
+                                class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50"
+                                data-confirm-delete="{{ assignment.serial_number }}"
+                                data-delete-url="{% url 'library:gateway-delete' assignment.pk %}">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="py-3 px-2 text-gray-500">No gateway assignments yet.</td>
+                    <td colspan="6" class="py-3 px-2 text-gray-500">No gateway assignments yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -51,12 +62,16 @@
 <div class="bg-white rounded-lg shadow mt-4">
     <div class="px-6 py-4 border-b"><h5 class="font-semibold">API Usage</h5></div>
     <div class="p-6">
+        <p class="text-sm mb-2">Bootstrap (shared token):</p>
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto mb-4">curl -X POST -H "X-Service-Token: TOKEN" -H "X-Timestamp: $(date +%s)" \
+  -H "Content-Type: application/json" \
+  -d '{"serial_number": "GW-001"}' \
+  {{ request.scheme }}://{{ request.get_host }}/api/v1/bootstrap/</pre>
         <p class="text-sm mb-2">Assign a gateway:</p>
-        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto mb-4">curl -X POST -H "X-API-Key: YOUR_KEY" -H "Content-Type: application/json" \
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">curl -X POST -H "X-Service-Token: TOKEN" -H "X-Timestamp: $(date +%s)" \
+  -H "Content-Type: application/json" \
   -d '{"serial_number": "GW-001", "spark_url": "https://spark.example.com"}' \
   {{ request.scheme }}://{{ request.get_host }}/api/v1/assignments/</pre>
-        <p class="text-sm mb-2">Bootstrap lookup:</p>
-        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">curl -H "X-API-Key: YOUR_KEY" {{ request.scheme }}://{{ request.get_host }}/api/v1/bootstrap/GW-001/</pre>
     </div>
 </div>
 {% endblock %}

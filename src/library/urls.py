@@ -86,5 +86,6 @@ urlpatterns = [
     # Gateway Assignments
     path("gateways/", views.GatewayAssignmentListView.as_view(), name="gateway-list"),
     path("gateways/create/", views.GatewayAssignmentCreateView.as_view(), name="gateway-create"),
+    path("gateways/<uuid:pk>/edit/", views.GatewayAssignmentUpdateView.as_view(), name="gateway-edit"),
     path("gateways/<uuid:pk>/delete/", views.GatewayAssignmentDeleteView.as_view(), name="gateway-delete"),
 ]

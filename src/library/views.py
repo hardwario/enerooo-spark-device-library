@@ -1040,6 +1040,21 @@ class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:gateway-list")
 
 
+class GatewayAssignmentUpdateView(LoginRequiredMixin, UpdateView):
+    model = GatewayAssignment
+    fields = ["serial_number", "spark_url", "is_assigned"]
+    template_name = "library/gateway_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "updated", self.object)
+        messages.success(self.request, f"Gateway assignment '{self.object.serial_number}' updated.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:gateway-list")
+
+
 class GatewayAssignmentDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk):
         assignment = get_object_or_404(GatewayAssignment, pk=pk)

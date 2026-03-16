@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from library.exporters import snapshot_to_schema
 from library.models import APIKey, DeviceHistory, GatewayAssignment, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
 
-from .permissions import HasAPIKey, HasHMACSignature, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
+from .permissions import HasAPIKey, HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
     GatewayAssignmentSerializer,
@@ -137,7 +137,7 @@ class SyncViewSet(viewsets.ViewSet):
 class LibraryVersionSyncViewSet(viewsets.ViewSet):
     """Current library version for cheap polling."""
 
-    permission_classes = [HasHMACSignature]
+    permission_classes = [HasServiceToken]
 
     def list(self, request):
         current = LibraryVersion.objects.filter(is_current=True).first()
@@ -147,7 +147,7 @@ class LibraryVersionSyncViewSet(viewsets.ViewSet):
 class LibraryContentViewSet(viewsets.ViewSet):
     """Full library content for a specific version."""
 
-    permission_classes = [HasHMACSignature]
+    permission_classes = [HasServiceToken]
 
     def retrieve(self, request, pk=None):
         try:
@@ -209,9 +209,10 @@ class GatewayBootstrapViewSet(viewsets.ViewSet):
 
     Creates the GatewayAssignment if it doesn't exist (with empty spark_url).
     Returns {"serial_number": "...", "spark_url": "...", "assigned": true/false}.
+    Authenticated via shared service token (X-Service-Token header).
     """
 
-    permission_classes = [HasHMACSignature]
+    permission_classes = [HasServiceToken]
 
     def create(self, request, *args, **kwargs):
         serial = request.data.get("serial_number")
@@ -228,7 +229,7 @@ class GatewayBootstrapViewSet(viewsets.ViewSet):
         return Response({
             "serial_number": obj.serial_number,
             "spark_url": obj.spark_url,
-            "assigned": bool(obj.spark_url),
+            "is_assigned": obj.is_assigned,
         })
 
 
@@ -237,7 +238,7 @@ class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin
     DELETE /api/v1/assignments/<serial>/ — unassign a gateway.
     """
 
-    permission_classes = [HasHMACSignature]
+    permission_classes = [HasServiceToken]
     serializer_class = GatewayAssignmentSerializer
     lookup_field = "serial_number"
     queryset = GatewayAssignment.objects.all()
@@ -255,7 +256,7 @@ class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin
 
         obj, created = GatewayAssignment.objects.update_or_create(
             serial_number=serial,
-            defaults={"spark_url": spark_url, "assigned_by": assigned_by},
+            defaults={"spark_url": spark_url, "assigned_by": assigned_by, "is_assigned": True},
         )
         serializer = self.get_serializer(obj)
         return Response(

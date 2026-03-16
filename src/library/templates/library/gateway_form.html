@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Add Gateway Assignment - {{ COMPANY_NAME }}{% endblock %}
+{% block title %}{% if object %}Edit{% else %}Add{% endif %} Gateway Assignment - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
 <nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
     <a href="{% url 'library:gateway-list' %}" class="hover:text-gray-700">Gateways</a>
     <span class="mx-1">/</span>
-    <span class="text-gray-800">Add Assignment</span>
+    <span class="text-gray-800">{% if object %}Edit {{ object.serial_number }}{% else %}Add Assignment{% endif %}</span>
 </nav>
 
-<h2 class="text-2xl font-bold mb-6">Add Gateway Assignment</h2>
+<h2 class="text-2xl font-bold mb-6">{% if object %}Edit Gateway Assignment{% else %}Add Gateway Assignment{% endif %}</h2>
 
 <div class="bg-white rounded-lg shadow">
     <div class="p-6">
@@ -31,7 +31,7 @@
             </div>
             {% endfor %}
             <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">Create</button>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">{% if object %}Save{% else %}Create{% endif %}</button>
                 <a href="{% url 'library:gateway-list' %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
             </div>
         </form>

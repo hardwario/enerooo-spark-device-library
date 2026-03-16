@@ -138,6 +138,7 @@ SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="spark_device_library_s
 CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="spark_device_library_csrftoken")
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+CSRF_FAILURE_VIEW = "core.views.csrf_failure_view"
 SESSION_SAVE_EVERY_REQUEST = True
 
 # AUTO-LOGOUT
@@ -197,6 +198,10 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+# SERVICE TOKEN
+# ------------------------------------------------------------------------------
+SERVICE_TOKEN = env("SERVICE_TOKEN", default="")
 
 # DRF SPECTACULAR
 # ------------------------------------------------------------------------------
