@@ -204,17 +204,32 @@ class LibraryContentViewSet(viewsets.ViewSet):
 # === Gateway Bootstrap ===
 
 
-class GatewayBootstrapViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    """GET /api/v1/bootstrap/<serial>/ — returns the Spark URL for a gateway."""
+class GatewayBootstrapViewSet(viewsets.ViewSet):
+    """POST /api/v1/bootstrap/ — register a gateway and return its Spark URL.
+
+    Creates the GatewayAssignment if it doesn't exist (with empty spark_url).
+    Returns {"serial_number": "...", "spark_url": "...", "assigned": true/false}.
+    """
 
     permission_classes = [HasHMACSignature]
-    serializer_class = GatewayAssignmentSerializer
-    lookup_field = "serial_number"
-    queryset = GatewayAssignment.objects.all()
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        return Response({"spark_url": instance.spark_url})
+    def create(self, request, *args, **kwargs):
+        serial = request.data.get("serial_number")
+        if not serial:
+            return Response(
+                {"detail": "serial_number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        obj, created = GatewayAssignment.objects.get_or_create(
+            serial_number=serial,
+            defaults={"spark_url": "", "assigned_by": ""},
+        )
+        return Response({
+            "serial_number": obj.serial_number,
+            "spark_url": obj.spark_url,
+            "assigned": bool(obj.spark_url),
+        })
 
 
 class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
