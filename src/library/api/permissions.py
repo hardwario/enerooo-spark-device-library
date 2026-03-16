@@ -94,6 +94,20 @@ class HasHMACSignature(permissions.BasePermission):
         return True
 
 
+class HasBootstrapToken(permissions.BasePermission):
+    """Allow access via a shared bootstrap token in the X-Bootstrap-Token header."""
+
+    def has_permission(self, request, view):
+        from django.conf import settings
+
+        token = settings.GATEWAY_BOOTSTRAP_TOKEN
+        if not token:
+            return False
+
+        provided = request.headers.get("X-Bootstrap-Token", "")
+        return hmac.compare_digest(token, provided)
+
+
 class IsEditorOrAdmin(permissions.BasePermission):
     """Allow access only to users with editor or admin role."""
 

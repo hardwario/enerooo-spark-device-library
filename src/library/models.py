@@ -312,7 +312,8 @@ class GatewayAssignment(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     serial_number = models.CharField(max_length=255, unique=True, db_index=True)
-    spark_url = models.URLField(max_length=500)
+    spark_url = models.URLField(max_length=500, blank=True, default="")
+    is_assigned = models.BooleanField(default=False)
     assigned_at = models.DateTimeField(auto_now=True)
     assigned_by = models.CharField(max_length=255, blank=True, default="")
 
