@@ -1,6 +1,7 @@
 """API permissions for the device library."""
 
 import hmac
+import time
 
 from django.utils import timezone
 from rest_framework import permissions
@@ -45,7 +46,12 @@ class IsAPIKeyOrSessionAuth(permissions.BasePermission):
 
 
 class HasServiceToken(permissions.BasePermission):
-    """Allow access via a shared service token in the X-Service-Token header."""
+    """Allow access via X-Service-Token + X-Timestamp headers.
+
+    Validates the token matches and the timestamp is within ±5 minutes.
+    """
+
+    MAX_SKEW_SECONDS = 300  # ±5 minutes
 
     def has_permission(self, request, view):
         from django.conf import settings
@@ -55,7 +61,16 @@ class HasServiceToken(permissions.BasePermission):
             return False
 
         provided = request.headers.get("X-Service-Token", "")
-        return hmac.compare_digest(token, provided)
+        if not hmac.compare_digest(token, provided):
+            return False
+
+        timestamp = request.headers.get("X-Timestamp", "")
+        try:
+            ts = int(timestamp)
+        except (ValueError, TypeError):
+            return False
+
+        return abs(time.time() - ts) <= self.MAX_SKEW_SECONDS
 
 
 class IsEditorOrAdmin(permissions.BasePermission):

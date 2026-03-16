@@ -192,20 +192,9 @@
         {% block anonymous_content %}{% endblock %}
     {% endif %}
 
-    <!-- Session timeout warning modal -->
+    <!-- Session timeout logout form -->
     {% if user.is_authenticated %}
-    <div id="timeout-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
-            <h3 class="text-lg font-semibold mb-2">Session Expiring</h3>
-            <p class="text-gray-600 mb-4">You will be logged out in <span id="timeout-countdown" class="font-bold text-red-600"></span> seconds due to inactivity.</p>
-            <div class="flex gap-3">
-                <button id="timeout-stay" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium text-sm">Stay Logged In</button>
-                <a href="{% url 'logout' %}" class="flex-1 text-center border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 font-medium text-sm"
-                   onclick="event.preventDefault(); document.getElementById('timeout-logout-form').submit();">Log Out</a>
-            </div>
-            <form id="timeout-logout-form" method="post" action="{% url 'logout' %}" class="hidden">{% csrf_token %}</form>
-        </div>
-    </div>
+    <form id="timeout-logout-form" method="post" action="{% url 'logout' %}" class="hidden">{% csrf_token %}</form>
     {% endif %}
 
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -313,7 +302,7 @@
         const IDLE_TIME = {{ AUTO_LOGOUT_IDLE_TIME }} * 1000;
         const WARNING_TIME = {{ AUTO_LOGOUT_WARNING_TIME }} * 1000;
         const WARNING_AT = IDLE_TIME - WARNING_TIME;
-        const PING_INTERVAL = 5 * 60 * 1000;
+        const PING_INTERVAL = 60 * 1000;
         const PING_URL = '{% url "session-ping" %}';
         const LOGIN_URL = '{% url "login" %}?timeout=1';
         const CSRF_TOKEN = '{{ csrf_token }}';
@@ -321,45 +310,68 @@
         let lastActivity = Date.now();
         let warningTimer = null;
         let countdownInterval = null;
+        let warningShown = false;
 
-        const modal = document.getElementById('timeout-modal');
-        const countdown = document.getElementById('timeout-countdown');
-        const stayBtn = document.getElementById('timeout-stay');
-
-        function pingServer(force) {
-            if (force || Date.now() - lastActivity < PING_INTERVAL) {
-                return fetch(PING_URL, {
-                    method: 'POST',
-                    headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
-                    redirect: 'manual',
-                }).then(function(r) {
-                    if (r.type === 'opaqueredirect' || !r.ok) {
-                        window.location.href = LOGIN_URL;
-                    }
-                }).catch(function() {});
-            }
+        function checkSession() {
+            return fetch(PING_URL, {
+                method: 'POST',
+                headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+                redirect: 'manual',
+            }).then(function(r) {
+                if (r.type === 'opaqueredirect' || r.status === 403 || r.status === 401 || !r.ok) {
+                    window.location.href = LOGIN_URL;
+                }
+            }).catch(function() {});
         }
 
         function resetTimers() {
             lastActivity = Date.now();
             clearTimeout(warningTimer);
             clearInterval(countdownInterval);
-            modal.classList.add('hidden');
+            if (warningShown) {
+                Swal.close();
+                warningShown = false;
+            }
             warningTimer = setTimeout(showWarning, WARNING_AT);
         }
 
         function showWarning() {
-            // Ping first to check if session is still alive
-            pingServer(true);
+            // Check if session is still alive before warning
+            checkSession();
+
+            warningShown = true;
             let remaining = Math.ceil(WARNING_TIME / 1000);
-            countdown.textContent = remaining;
-            modal.classList.remove('hidden');
+
+            Swal.fire({
+                title: 'Session Expiring',
+                html: 'You will be logged out in <b id="swal-countdown">' + remaining + '</b> seconds due to inactivity.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Stay Logged In',
+                cancelButtonText: 'Log Out',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#6b7280',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+            }).then(function(result) {
+                clearInterval(countdownInterval);
+                warningShown = false;
+                if (result.isConfirmed) {
+                    resetTimers();
+                    checkSession();
+                } else {
+                    document.getElementById('timeout-logout-form').submit();
+                }
+            });
 
             countdownInterval = setInterval(function() {
                 remaining--;
-                countdown.textContent = remaining;
+                var el = document.getElementById('swal-countdown');
+                if (el) el.textContent = remaining;
                 if (remaining <= 0) {
                     clearInterval(countdownInterval);
+                    Swal.close();
+                    warningShown = false;
                     window.location.href = LOGIN_URL;
                 }
             }, 1000);
@@ -367,21 +379,16 @@
 
         ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function(evt) {
             document.addEventListener(evt, function() {
-                if (!modal.classList.contains('hidden')) return;
+                if (warningShown) return;
                 resetTimers();
             }, {passive: true});
         });
 
-        stayBtn.addEventListener('click', function() {
-            resetTimers();
-            pingServer(true);
-        });
-
         document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) pingServer(true);
+            if (!document.hidden) checkSession();
         });
 
-        setInterval(function() { pingServer(false); }, PING_INTERVAL);
+        setInterval(checkSession, PING_INTERVAL);
         resetTimers();
     })();
     </script>

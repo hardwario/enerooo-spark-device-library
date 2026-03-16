@@ -38,6 +38,7 @@ def api_get(path: str) -> dict:
     url = f"{BASE_URL}{path}"
     headers = {
         "X-Service-Token": SERVICE_TOKEN,
+        "X-Timestamp": str(int(time.time())),
         "Accept": "application/json",
     }
     req = Request(url, headers=headers, method="GET")

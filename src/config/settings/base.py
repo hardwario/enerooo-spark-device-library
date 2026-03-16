@@ -138,6 +138,7 @@ SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="spark_device_library_s
 CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="spark_device_library_csrftoken")
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+CSRF_FAILURE_VIEW = "core.views.csrf_failure_view"
 SESSION_SAVE_EVERY_REQUEST = True
 
 # AUTO-LOGOUT
