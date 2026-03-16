@@ -63,12 +63,11 @@
     <div class="px-6 py-4 border-b"><h5 class="font-semibold">API Usage</h5></div>
     <div class="p-6">
         <p class="text-sm mb-2">Bootstrap (shared token):</p>
-        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto mb-4">curl -X POST -H "X-Bootstrap-Token: TOKEN" -H "Content-Type: application/json" \
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto mb-4">curl -X POST -H "X-Service-Token: TOKEN" -H "Content-Type: application/json" \
   -d '{"serial_number": "GW-001"}' \
   {{ request.scheme }}://{{ request.get_host }}/api/v1/bootstrap/</pre>
-        <p class="text-sm mb-2">Assign a gateway (HMAC auth):</p>
-        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">curl -X POST -H "X-API-Key-Id: KEY_UUID" -H "X-Timestamp: TS" -H "X-Signature: SIG" \
-  -H "Content-Type: application/json" \
+        <p class="text-sm mb-2">Assign a gateway:</p>
+        <pre class="text-sm bg-gray-50 p-3 rounded overflow-x-auto">curl -X POST -H "X-Service-Token: TOKEN" -H "Content-Type: application/json" \
   -d '{"serial_number": "GW-001", "spark_url": "https://spark.example.com"}' \
   {{ request.scheme }}://{{ request.get_host }}/api/v1/assignments/</pre>
     </div>

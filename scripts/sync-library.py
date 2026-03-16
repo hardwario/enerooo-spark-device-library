@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 """Poll the device library for version changes and fetch content when updated.
 
-Requires three environment variables:
-  LIBRARY_BASE_URL  – e.g. https://library.example.com
-  LIBRARY_KEY_ID    – UUID of the API key
-  LIBRARY_KEY_SECRET – the API key secret (used as HMAC shared secret)
+Requires two environment variables:
+  LIBRARY_BASE_URL   – e.g. https://library.example.com
+  LIBRARY_SERVICE_TOKEN – shared service token for API authentication
 
 Optional:
   LIBRARY_POLL_INTERVAL – seconds between polls (default: 60)
   LIBRARY_OUTPUT_DIR    – directory to write fetched library JSON (default: ./library-sync)
 """
 
-import hashlib
-import hmac
 import json
 import os
 import sys
@@ -31,33 +28,18 @@ def get_env(name: str, default: str | None = None) -> str:
 
 
 BASE_URL = get_env("LIBRARY_BASE_URL").rstrip("/")
-KEY_ID = get_env("LIBRARY_KEY_ID")
-KEY_SECRET = get_env("LIBRARY_KEY_SECRET")
+SERVICE_TOKEN = get_env("LIBRARY_SERVICE_TOKEN")
 POLL_INTERVAL = int(get_env("LIBRARY_POLL_INTERVAL", "60"))
 OUTPUT_DIR = Path(get_env("LIBRARY_OUTPUT_DIR", "./library-sync"))
-
-
-def sign_request(method: str, path: str) -> dict[str, str]:
-    """Build HMAC authentication headers for a request."""
-    timestamp = str(int(time.time()))
-    message = f"{timestamp}.{method}.{path}"
-    signature = hmac.new(
-        KEY_SECRET.encode(),
-        message.encode(),
-        hashlib.sha256,
-    ).hexdigest()
-    return {
-        "X-API-Key-Id": KEY_ID,
-        "X-Timestamp": timestamp,
-        "X-Signature": signature,
-    }
 
 
 def api_get(path: str) -> dict:
     """Make an authenticated GET request and return parsed JSON."""
     url = f"{BASE_URL}{path}"
-    headers = sign_request("GET", path)
-    headers["Accept"] = "application/json"
+    headers = {
+        "X-Service-Token": SERVICE_TOKEN,
+        "Accept": "application/json",
+    }
     req = Request(url, headers=headers, method="GET")
     with urlopen(req, timeout=30) as resp:
         return json.loads(resp.read())

@@ -198,9 +198,9 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-# GATEWAY BOOTSTRAP
+# SERVICE TOKEN
 # ------------------------------------------------------------------------------
-GATEWAY_BOOTSTRAP_TOKEN = env("GATEWAY_BOOTSTRAP_TOKEN", default="")
+SERVICE_TOKEN = env("SERVICE_TOKEN", default="")
 
 # DRF SPECTACULAR
 # ------------------------------------------------------------------------------
