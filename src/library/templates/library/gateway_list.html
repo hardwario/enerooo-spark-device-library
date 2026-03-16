@@ -41,12 +41,12 @@
                         <a href="{% url 'library:gateway-edit' assignment.pk %}" class="border border-gray-300 text-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-50">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <form method="post" action="{% url 'library:gateway-delete' assignment.pk %}" class="inline">
-                            {% csrf_token %}
-                            <button type="submit" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" onclick="return confirm('Delete this gateway assignment?')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
+                        <button type="button"
+                                class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50"
+                                data-confirm-delete="{{ assignment.serial_number }}"
+                                data-delete-url="{% url 'library:gateway-delete' assignment.pk %}">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </td>
                 </tr>
                 {% empty %}
