@@ -114,7 +114,7 @@ class LoRaWANConfigAdmin(admin.ModelAdmin):
 
 @admin.register(WMBusConfig)
 class WMBusConfigAdmin(admin.ModelAdmin):
-    list_display = ["device_type", "manufacturer_code", "wmbus_device_type", "wmbusmeters_driver", "encryption_required"]
+    list_display = ["device_type", "manufacturer_code", "wmbus_device_type", "wmbusmeters_driver", "encryption_required", "is_mvt_default"]
     raw_id_fields = ["device_type"]
     formfield_overrides = {
         models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},

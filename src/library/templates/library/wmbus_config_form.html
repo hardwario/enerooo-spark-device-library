@@ -11,32 +11,108 @@
     <span class="text-gray-800">Edit wM-Bus Configuration</span>
 </nav>
 
-<h2 class="text-2xl font-bold mb-6">Edit wM-Bus Configuration</h2>
-
-<div class="bg-white rounded-lg shadow">
-    <div class="p-6">
-        <form method="post">
-            {% csrf_token %}
-            {% if form.non_field_errors %}
-            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                {% for error in form.non_field_errors %}
-                <p>{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% for field in form %}
-            <div class="mb-4">
-                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<div class="text-sm text-gray-500 mt-1">{{ field.help_text }}</div>{% endif %}
-                {% for error in field.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
-            </div>
-            {% endfor %}
-            <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">Save</button>
-                <a href="{% url 'library:model-detail' device.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
-            </div>
-        </form>
+<div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 rounded-lg bg-wmbus/10 flex items-center justify-center">
+        <i class="bi bi-broadcast text-wmbus text-lg"></i>
+    </div>
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">wM-Bus Configuration</h2>
+        <p class="text-sm text-gray-500">{{ device.vendor_name }} {{ device.model_number }}</p>
     </div>
 </div>
+
+<form method="post">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Identity Section -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Device Identity</h3>
+        </div>
+        <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+                <label for="{{ form.manufacturer_code.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.manufacturer_code.label }}</label>
+                {{ form.manufacturer_code }}
+                {% if form.manufacturer_code.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.manufacturer_code.help_text }}</div>{% endif %}
+                {% for error in form.manufacturer_code.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div>
+                <label for="{{ form.wmbus_device_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.wmbus_device_type.label }}</label>
+                {{ form.wmbus_device_type }}
+                {% if form.wmbus_device_type.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.wmbus_device_type.help_text }}</div>{% endif %}
+                {% for error in form.wmbus_device_type.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Encryption & Options Section -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Encryption & Options</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="max-w-md">
+                <label for="{{ form.shared_encryption_key.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.shared_encryption_key.label }}</label>
+                {{ form.shared_encryption_key }}
+                {% if form.shared_encryption_key.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.shared_encryption_key.help_text }}</div>{% endif %}
+                {% for error in form.shared_encryption_key.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="flex items-start gap-6">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    {{ form.encryption_required }}
+                    <span class="text-sm font-medium text-gray-700">{{ form.encryption_required.label }}</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    {{ form.is_mvt_default }}
+                    <span class="text-sm font-medium text-gray-700">{{ form.is_mvt_default.label }}</span>
+                </label>
+            </div>
+            {% for error in form.encryption_required.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            {% for error in form.is_mvt_default.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+        </div>
+    </div>
+
+    <!-- Driver & Mapping Section -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Driver & Mapping</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="max-w-sm">
+                <label for="{{ form.wmbusmeters_driver.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.wmbusmeters_driver.label }}</label>
+                {{ form.wmbusmeters_driver }}
+                {% if form.wmbusmeters_driver.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.wmbusmeters_driver.help_text }}</div>{% endif %}
+                {% for error in form.wmbusmeters_driver.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div>
+                <label for="{{ form.data_record_mapping.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.data_record_mapping.label }}</label>
+                {{ form.data_record_mapping }}
+                {% if form.data_record_mapping.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.data_record_mapping.help_text }}</div>{% endif %}
+                {% for error in form.data_record_mapping.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            <div>
+                <label for="{{ form.field_map.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.field_map.label }}</label>
+                {{ form.field_map }}
+                {% if form.field_map.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.field_map.help_text }}</div>{% endif %}
+                {% for error in form.field_map.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-2">
+        <button type="submit" class="bg-wmbus text-white px-5 py-2 rounded-lg hover:bg-wmbus/90 text-sm font-medium transition-colors">
+            <i class="bi bi-check-lg mr-1"></i> Save Configuration
+        </button>
+        <a href="{% url 'library:model-detail' device.pk %}" class="border border-gray-300 px-5 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors">Cancel</a>
+    </div>
+</form>
 {% endblock %}

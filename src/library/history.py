@@ -65,6 +65,7 @@ def snapshot_device(device):
             "shared_encryption_key": wc.shared_encryption_key,
             "wmbusmeters_driver": wc.wmbusmeters_driver,
             "field_map": wc.field_map,
+            "is_mvt_default": wc.is_mvt_default,
         }
     except Exception:
         pass

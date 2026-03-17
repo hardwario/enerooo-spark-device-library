@@ -57,6 +57,7 @@ class WMBusConfigSerializer(serializers.ModelSerializer):
             "shared_encryption_key",
             "wmbusmeters_driver",
             "field_map",
+            "is_mvt_default",
         ]
 
 
@@ -122,6 +123,8 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                     data["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
                 if wmbus.field_map:
                     data["field_map"] = wmbus.field_map
+                if wmbus.is_mvt_default:
+                    data["is_mvt_default"] = wmbus.is_mvt_default
             except WMBusConfig.DoesNotExist:
                 pass
 

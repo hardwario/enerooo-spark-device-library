@@ -34,6 +34,8 @@
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "vendor" "Vendor" %}</th>
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "model" "Model" %}</th>
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "driver" "Driver" %}</th>
+                    <th class="text-center py-3 px-2 font-semibold">{% sort_header "encryption" "Encrypted" %}</th>
+                    <th class="text-center py-3 px-2 font-semibold">{% sort_header "mvt_default" "MVT Default" %}</th>
                     <th class="py-3 px-2"></th>
                 </tr>
             </thead>
@@ -52,6 +54,20 @@
                         <a href="{% url 'library:model-detail' cfg.device_type.pk %}" class="text-blue-600 hover:text-blue-800">{{ cfg.device_type.name }}</a>
                     </td>
                     <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ cfg.wmbusmeters_driver|default:"—" }}</code></td>
+                    <td class="py-3 px-2 text-center">
+                        {% if cfg.encryption_required %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><i class="bi bi-lock-fill mr-1"></i>Yes</span>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2 text-center">
+                        {% if cfg.is_mvt_default %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-wmbus/10 text-wmbus"><i class="bi bi-check-circle-fill mr-1"></i>Default</span>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
                     <td class="py-3 px-2">
                         <a href="{% url 'library:wmbus-config-edit' cfg.device_type.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                             <i class="bi bi-pencil"></i>
@@ -60,7 +76,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="py-3 px-2 text-gray-500">No wM-Bus configurations found.</td>
+                    <td colspan="8" class="py-3 px-2 text-gray-500">No wM-Bus configurations found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

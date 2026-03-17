@@ -79,6 +79,7 @@ class WMBusConfigForm(forms.ModelForm):
             "shared_encryption_key",
             "wmbusmeters_driver",
             "field_map",
+            "is_mvt_default",
         ]
         widgets = {
             "data_record_mapping": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
