@@ -140,6 +140,8 @@ def _export_tech_config(device: VendorModel) -> dict:
                 config["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
             if wmbus.field_map:
                 config["field_map"] = wmbus.field_map
+            if wmbus.is_mvt_default:
+                config["is_mvt_default"] = wmbus.is_mvt_default
         except VendorModel.wmbus_config.RelatedObjectDoesNotExist:
             pass
 
@@ -216,6 +218,8 @@ def snapshot_to_schema(snapshot: dict) -> dict:
             tech_config["wmbusmeters_driver"] = wc["wmbusmeters_driver"]
         if wc.get("field_map"):
             tech_config["field_map"] = wc["field_map"]
+        if wc.get("is_mvt_default"):
+            tech_config["is_mvt_default"] = wc["is_mvt_default"]
 
     device = {
         "key": snapshot.get("key", ""),

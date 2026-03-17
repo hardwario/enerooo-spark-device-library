@@ -197,7 +197,7 @@ def _import_lorawan_config(device: VendorModel, tech_config: dict):
 
 def _import_wmbus_config(device: VendorModel, tech_config: dict):
     """Import wM-Bus-specific configuration."""
-    WMBusConfig.objects.update_or_create(
+    obj, _ = WMBusConfig.objects.update_or_create(
         device_type=device,
         defaults={
             "manufacturer_code": tech_config.get("manufacturer_code", ""),
@@ -207,5 +207,7 @@ def _import_wmbus_config(device: VendorModel, tech_config: dict):
             "shared_encryption_key": tech_config.get("shared_encryption_key", ""),
             "wmbusmeters_driver": tech_config.get("wmbusmeters_driver", ""),
             "field_map": tech_config.get("field_map", {}),
+            "is_mvt_default": tech_config.get("is_mvt_default", False),
         },
     )
+    obj.full_clean()

@@ -986,6 +986,8 @@ class WMBusMappingView(LoginRequiredMixin, ListView):
         "vendor": "device_type__vendor__name",
         "model": "device_type__name",
         "driver": "wmbusmeters_driver",
+        "encryption": "encryption_required",
+        "mvt_default": "is_mvt_default",
     }
 
     def get_queryset(self):

@@ -4,6 +4,7 @@ import secrets
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from model_utils.models import TimeStampedModel
 
@@ -175,12 +176,33 @@ class WMBusConfig(TimeStampedModel):
 
     wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
     field_map = models.JSONField(default=dict, blank=True)
+    is_mvt_default = models.BooleanField(default=False)
 
     @property
     def wmbus_device_type_label(self):
         if self.wmbus_device_type is None:
             return None
         return self.WMBUS_DEVICE_TYPE_LABELS.get(self.wmbus_device_type, f"Unknown (0x{self.wmbus_device_type:02X})")
+
+    def clean(self):
+        super().clean()
+        if self.is_mvt_default:
+            dup = (
+                WMBusConfig.objects.filter(
+                    manufacturer_code=self.manufacturer_code,
+                    wmbus_device_type=self.wmbus_device_type,
+                    is_mvt_default=True,
+                )
+                .exclude(pk=self.pk)
+            )
+            if dup.exists():
+                existing = dup.select_related("device_type").first()
+                raise ValidationError(
+                    f"Another device already has is_mvt_default set for "
+                    f"manufacturer_code={self.manufacturer_code!r}, "
+                    f"wmbus_device_type={self.wmbus_device_type}: "
+                    f"{existing.device_type}"
+                )
 
     def __str__(self):
         return f"WMBusConfig for {self.device_type}"

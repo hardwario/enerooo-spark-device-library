@@ -134,7 +134,21 @@
                         {% endif %}
                     </dd>
                     <dt class="font-medium text-gray-600">Encryption</dt>
-                    <dd class="col-span-2">{% if wmbus_config.encryption_required %}Required{% else %}Not required{% endif %}</dd>
+                    <dd class="col-span-2">
+                        {% if wmbus_config.encryption_required %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><i class="bi bi-lock-fill mr-1"></i>Required</span>
+                        {% else %}
+                        <span class="text-gray-500">Not required</span>
+                        {% endif %}
+                    </dd>
+                    <dt class="font-medium text-gray-600">MVT Default</dt>
+                    <dd class="col-span-2">
+                        {% if wmbus_config.is_mvt_default %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-wmbus/10 text-wmbus"><i class="bi bi-check-circle-fill mr-1"></i>Default</span>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </dd>
                     <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
                     <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
                     {% if wmbus_config.field_map %}
