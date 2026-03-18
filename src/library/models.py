@@ -172,7 +172,7 @@ class WMBusConfig(TimeStampedModel):
     wmbus_device_type = models.IntegerField(null=True, blank=True)
     data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
-    shared_encryption_key = models.CharField(max_length=255, blank=True, default="")
+    shared_encryption_key = models.CharField(max_length=32, blank=True, default="")
 
     wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
     field_map = models.JSONField(default=dict, blank=True)

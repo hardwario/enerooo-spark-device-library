@@ -141,6 +141,10 @@
                         <span class="text-gray-500">Not required</span>
                         {% endif %}
                     </dd>
+                    {% if wmbus_config.shared_encryption_key %}
+                    <dt class="font-medium text-gray-600">Shared Key</dt>
+                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.shared_encryption_key }}</code></dd>
+                    {% endif %}
                     <dt class="font-medium text-gray-600">MVT Default</dt>
                     <dd class="col-span-2">
                         {% if wmbus_config.is_mvt_default %}

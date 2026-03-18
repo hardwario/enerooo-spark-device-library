@@ -1,5 +1,7 @@
 """Library forms."""
 
+import re
+
 from django import forms
 
 from .models import (
@@ -84,7 +86,17 @@ class WMBusConfigForm(forms.ModelForm):
         widgets = {
             "data_record_mapping": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
             "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "shared_encryption_key": forms.TextInput(attrs={"placeholder": "e.g. BFBB1BB76A978E88F45EEE1260BF76E0", "style": "font-family: monospace;"}),
         }
+        help_texts = {
+            "shared_encryption_key": "32-character hex string (128-bit AES key).",
+        }
+
+    def clean_shared_encryption_key(self):
+        key = self.cleaned_data.get("shared_encryption_key", "").strip().upper()
+        if key and not re.fullmatch(r"[0-9A-F]{32}", key):
+            raise forms.ValidationError("Must be exactly 32 hex characters (0-9, A-F).")
+        return key
 
 
 class ControlConfigForm(forms.ModelForm):

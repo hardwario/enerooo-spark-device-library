@@ -1023,7 +1023,38 @@ class WMBusMappingView(LoginRequiredMixin, ListView):
 class GatewayAssignmentListView(LoginRequiredMixin, ListView):
     template_name = "library/gateway_list.html"
     context_object_name = "assignments"
-    queryset = GatewayAssignment.objects.all()
+    ALLOWED_SORT_FIELDS = {
+        "serial_number": "serial_number",
+        "is_registered": "is_registered",
+        "is_assigned": "is_assigned",
+        "spark_url": "spark_url",
+        "assigned_by": "assigned_by",
+        "last_seen": "last_seen",
+    }
+
+    def get_queryset(self):
+        qs = GatewayAssignment.objects.all()
+
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(serial_number__icontains=q)
+                | Q(spark_url__icontains=q)
+                | Q(assigned_by__icontains=q)
+            )
+
+        sort = self.request.GET.get("sort", "serial_number")
+        descending = sort.startswith("-")
+        field = sort.lstrip("-")
+        db_field = self.ALLOWED_SORT_FIELDS.get(field, "serial_number")
+        order = f"-{db_field}" if descending else db_field
+        return qs.order_by(order)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["search_query"] = self.request.GET.get("q", "")
+        ctx["current_sort"] = self.request.GET.get("sort", "serial_number")
+        return ctx
 
 
 class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
