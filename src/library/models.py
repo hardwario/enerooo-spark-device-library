@@ -169,6 +169,7 @@ class WMBusConfig(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="wmbus_config")
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
+    wmbus_version = models.CharField(max_length=4, blank=True, default="", help_text="Hex byte from telegram header, e.g. 1b")
     wmbus_device_type = models.IntegerField(null=True, blank=True)
     data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
@@ -190,6 +191,7 @@ class WMBusConfig(TimeStampedModel):
             dup = (
                 WMBusConfig.objects.filter(
                     manufacturer_code=self.manufacturer_code,
+                    wmbus_version=self.wmbus_version,
                     wmbus_device_type=self.wmbus_device_type,
                     is_mvt_default=True,
                 )
@@ -200,6 +202,7 @@ class WMBusConfig(TimeStampedModel):
                 raise ValidationError(
                     f"Another device already has is_mvt_default set for "
                     f"manufacturer_code={self.manufacturer_code!r}, "
+                    f"wmbus_version={self.wmbus_version!r}, "
                     f"wmbus_device_type={self.wmbus_device_type}: "
                     f"{existing.device_type}"
                 )

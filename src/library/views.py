@@ -982,6 +982,7 @@ class WMBusMappingView(LoginRequiredMixin, ListView):
     context_object_name = "mappings"
     ALLOWED_SORT_FIELDS = {
         "manufacturer_code": "manufacturer_code",
+        "wmbus_version": "wmbus_version",
         "wmbus_device_type": "wmbus_device_type",
         "vendor": "device_type__vendor__name",
         "model": "device_type__name",

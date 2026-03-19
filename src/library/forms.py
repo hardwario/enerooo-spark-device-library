@@ -75,6 +75,7 @@ class WMBusConfigForm(forms.ModelForm):
         model = WMBusConfig
         fields = [
             "manufacturer_code",
+            "wmbus_version",
             "wmbus_device_type",
             "data_record_mapping",
             "encryption_required",

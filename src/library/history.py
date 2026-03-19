@@ -59,6 +59,7 @@ def snapshot_device(device):
         wc = device.wmbus_config
         data["wmbus_config"] = {
             "manufacturer_code": wc.manufacturer_code,
+            "wmbus_version": wc.wmbus_version,
             "wmbus_device_type": wc.wmbus_device_type,
             "data_record_mapping": wc.data_record_mapping,
             "encryption_required": wc.encryption_required,

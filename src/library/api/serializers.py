@@ -51,6 +51,7 @@ class WMBusConfigSerializer(serializers.ModelSerializer):
         model = WMBusConfig
         fields = [
             "manufacturer_code",
+            "wmbus_version",
             "wmbus_device_type",
             "data_record_mapping",
             "encryption_required",
@@ -114,6 +115,8 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
             try:
                 wmbus = device.wmbus_config
                 data["manufacturer_code"] = wmbus.manufacturer_code
+                if wmbus.wmbus_version:
+                    data["wmbus_version"] = wmbus.wmbus_version
                 data["wmbus_device_type"] = wmbus.wmbus_device_type
                 data["data_record_mapping"] = wmbus.data_record_mapping
                 data["encryption_required"] = wmbus.encryption_required

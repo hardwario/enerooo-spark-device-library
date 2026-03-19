@@ -201,6 +201,7 @@ def _import_wmbus_config(device: VendorModel, tech_config: dict):
         device_type=device,
         defaults={
             "manufacturer_code": tech_config.get("manufacturer_code", ""),
+            "wmbus_version": tech_config.get("wmbus_version", ""),
             "wmbus_device_type": tech_config.get("wmbus_device_type"),
             "data_record_mapping": tech_config.get("data_record_mapping", []),
             "encryption_required": tech_config.get("encryption_required", False),

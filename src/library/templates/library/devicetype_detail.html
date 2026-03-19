@@ -126,6 +126,8 @@
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Manufacturer</dt>
                     <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
+                    <dt class="font-medium text-gray-600">Version</dt>
+                    <dd class="col-span-2">{% if wmbus_config.wmbus_version %}<code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbus_version }}</code>{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
                     <dt class="font-medium text-gray-600">Device Type</dt>
                     <dd class="col-span-2">
                         {{ wmbus_config.wmbus_device_type }}

@@ -42,7 +42,7 @@ device_types:
 - `device_class` (A/B/C), `downlink_f_port`, plus optional `control_config.capabilities` for relay commands
 
 **wM-Bus** (`technology_config`):
-- `manufacturer_code`, `wmbus_device_type` (numeric), `data_record_mapping[]`, `encryption_required`, optional `shared_encryption_key`
+- `manufacturer_code`, `wmbus_version` (hex byte, e.g. "1b"), `wmbus_device_type` (numeric), `data_record_mapping[]`, `encryption_required`, optional `shared_encryption_key`
 
 ## Conventions
 

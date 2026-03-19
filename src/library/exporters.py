@@ -131,6 +131,8 @@ def _export_tech_config(device: VendorModel) -> dict:
         try:
             wmbus = device.wmbus_config
             config["manufacturer_code"] = wmbus.manufacturer_code
+            if wmbus.wmbus_version:
+                config["wmbus_version"] = wmbus.wmbus_version
             config["wmbus_device_type"] = wmbus.wmbus_device_type
             config["data_record_mapping"] = wmbus.data_record_mapping
             config["encryption_required"] = wmbus.encryption_required
@@ -209,6 +211,8 @@ def snapshot_to_schema(snapshot: dict) -> dict:
     elif technology == "wmbus":
         wc = snapshot.get("wmbus_config", {})
         tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
+        if wc.get("wmbus_version"):
+            tech_config["wmbus_version"] = wc["wmbus_version"]
         tech_config["wmbus_device_type"] = wc.get("wmbus_device_type")
         tech_config["data_record_mapping"] = wc.get("data_record_mapping", [])
         tech_config["encryption_required"] = wc.get("encryption_required", False)
