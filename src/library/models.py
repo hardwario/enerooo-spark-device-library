@@ -120,11 +120,26 @@ class LoRaWANConfig(TimeStampedModel):
         B = "B", "Class B"
         C = "C", "Class C"
 
+    class CodecFormat(models.TextChoices):
+        TTN_V3 = "ttn_v3", "TTN v3 (decodeUplink / encodeDownlink)"
+        TTN_V2 = "ttn_v2", "TTN v2 Legacy (Decoder / Encoder)"
+        CHIRPSTACK = "chirpstack", "ChirpStack v4"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
     downlink_f_port = models.IntegerField(null=True, blank=True)
-    payload_codec = models.JSONField(default=dict, blank=True)
+    codec_format = models.CharField(
+        max_length=16,
+        choices=CodecFormat.choices,
+        default=CodecFormat.TTN_V3,
+        blank=True,
+    )
+    payload_codec = models.TextField(
+        blank=True,
+        default="",
+        help_text="JavaScript source implementing decodeUplink/encodeDownlink (TTN v3/ChirpStack) or Decoder/Encoder (TTN v2).",
+    )
     field_map = models.JSONField(default=dict, blank=True)
 
     def __str__(self):

@@ -184,12 +184,22 @@ def _import_modbus_config(device: VendorModel, tech_config: dict):
 
 def _import_lorawan_config(device: VendorModel, tech_config: dict):
     """Import LoRaWAN-specific configuration."""
+    # payload_codec can be a structured dict {format, script} or a plain string (legacy)
+    raw_codec = tech_config.get("payload_codec", "")
+    if isinstance(raw_codec, dict):
+        codec_format = raw_codec.get("format", "ttn_v3")
+        codec_script = raw_codec.get("script", "")
+    else:
+        codec_format = "ttn_v3"
+        codec_script = str(raw_codec) if raw_codec else ""
+
     LoRaWANConfig.objects.update_or_create(
         device_type=device,
         defaults={
             "device_class": tech_config.get("device_class", ""),
             "downlink_f_port": tech_config.get("downlink_f_port"),
-            "payload_codec": tech_config.get("payload_codec", {}),
+            "codec_format": codec_format,
+            "payload_codec": codec_script,
             "field_map": tech_config.get("field_map", {}),
         },
     )

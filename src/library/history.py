@@ -48,6 +48,7 @@ def snapshot_device(device):
         data["lorawan_config"] = {
             "device_class": lc.device_class,
             "downlink_f_port": lc.downlink_f_port,
+            "codec_format": lc.codec_format,
             "payload_codec": lc.payload_codec,
             "field_map": lc.field_map,
         }

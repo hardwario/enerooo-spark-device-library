@@ -43,7 +43,7 @@ class ModbusConfigSerializer(serializers.ModelSerializer):
 class LoRaWANConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "payload_codec", "field_map"]
+        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
 
 
 class WMBusConfigSerializer(serializers.ModelSerializer):
@@ -105,7 +105,10 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 if lorawan.downlink_f_port is not None:
                     data["downlink_f_port"] = lorawan.downlink_f_port
                 if lorawan.payload_codec:
-                    data["payload_codec"] = lorawan.payload_codec
+                    data["payload_codec"] = {
+                        "format": lorawan.codec_format or "ttn_v3",
+                        "script": lorawan.payload_codec,
+                    }
                 if lorawan.field_map:
                     data["field_map"] = lorawan.field_map
             except LoRaWANConfig.DoesNotExist:

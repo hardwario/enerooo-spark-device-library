@@ -63,9 +63,14 @@ class RegisterDefinitionForm(forms.ModelForm):
 class LoRaWANConfigForm(forms.ModelForm):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "payload_codec", "field_map"]
+        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
         widgets = {
-            "payload_codec": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "payload_codec": forms.Textarea(attrs={
+                "id": "script-textarea",
+                "rows": 25,
+                "style": "font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; width: 100%; tab-size: 2;",
+                "spellcheck": "false",
+            }),
             "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
 

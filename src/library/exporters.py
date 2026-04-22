@@ -121,7 +121,10 @@ def _export_tech_config(device: VendorModel) -> dict:
             if lorawan.downlink_f_port is not None:
                 config["downlink_f_port"] = lorawan.downlink_f_port
             if lorawan.payload_codec:
-                config["payload_codec"] = lorawan.payload_codec
+                config["payload_codec"] = {
+                    "format": lorawan.codec_format or "ttn_v3",
+                    "script": lorawan.payload_codec,
+                }
             if lorawan.field_map:
                 config["field_map"] = lorawan.field_map
         except VendorModel.lorawan_config.RelatedObjectDoesNotExist:
@@ -205,7 +208,10 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         if lc.get("downlink_f_port") is not None:
             tech_config["downlink_f_port"] = lc["downlink_f_port"]
         if lc.get("payload_codec"):
-            tech_config["payload_codec"] = lc["payload_codec"]
+            tech_config["payload_codec"] = {
+                "format": lc.get("codec_format", "ttn_v3"),
+                "script": lc["payload_codec"],
+            }
         if lc.get("field_map"):
             tech_config["field_map"] = lc["field_map"]
     elif technology == "wmbus":

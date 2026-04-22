@@ -301,7 +301,9 @@ class ModbusConfigUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        # Re-fetch device so snapshot picks up saved config (cached reverse relation is stale)
+        device = VendorModel.objects.get(pk=self._device.pk)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"Modbus config updated on {self._device}")
         return response
 
@@ -331,7 +333,8 @@ class ControlConfigUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        device = VendorModel.objects.get(pk=self._device.pk)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"Control config updated on {self._device}")
         return response
 
@@ -367,7 +370,8 @@ class WMBusConfigUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        device = VendorModel.objects.get(pk=self._device.pk)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"wM-Bus config updated on {self._device}")
         return response
 
@@ -397,7 +401,8 @@ class LoRaWANConfigUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        record_history(self._device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        device = VendorModel.objects.get(pk=self._device.pk)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"LoRaWAN config updated on {self._device}")
         return response
 
