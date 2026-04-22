@@ -121,7 +121,10 @@ def _export_tech_config(device: VendorModel) -> dict:
             if lorawan.downlink_f_port is not None:
                 config["downlink_f_port"] = lorawan.downlink_f_port
             if lorawan.payload_codec:
-                config["payload_codec"] = lorawan.payload_codec
+                config["payload_codec"] = {
+                    "format": lorawan.codec_format or "ttn_v3",
+                    "script": lorawan.payload_codec,
+                }
             if lorawan.field_map:
                 config["field_map"] = lorawan.field_map
         except VendorModel.lorawan_config.RelatedObjectDoesNotExist:
@@ -131,6 +134,8 @@ def _export_tech_config(device: VendorModel) -> dict:
         try:
             wmbus = device.wmbus_config
             config["manufacturer_code"] = wmbus.manufacturer_code
+            if wmbus.wmbus_version:
+                config["wmbus_version"] = wmbus.wmbus_version
             config["wmbus_device_type"] = wmbus.wmbus_device_type
             config["data_record_mapping"] = wmbus.data_record_mapping
             config["encryption_required"] = wmbus.encryption_required
@@ -203,12 +208,17 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         if lc.get("downlink_f_port") is not None:
             tech_config["downlink_f_port"] = lc["downlink_f_port"]
         if lc.get("payload_codec"):
-            tech_config["payload_codec"] = lc["payload_codec"]
+            tech_config["payload_codec"] = {
+                "format": lc.get("codec_format", "ttn_v3"),
+                "script": lc["payload_codec"],
+            }
         if lc.get("field_map"):
             tech_config["field_map"] = lc["field_map"]
     elif technology == "wmbus":
         wc = snapshot.get("wmbus_config", {})
         tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
+        if wc.get("wmbus_version"):
+            tech_config["wmbus_version"] = wc["wmbus_version"]
         tech_config["wmbus_device_type"] = wc.get("wmbus_device_type")
         tech_config["data_record_mapping"] = wc.get("data_record_mapping", [])
         tech_config["encryption_required"] = wc.get("encryption_required", False)

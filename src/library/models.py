@@ -120,11 +120,26 @@ class LoRaWANConfig(TimeStampedModel):
         B = "B", "Class B"
         C = "C", "Class C"
 
+    class CodecFormat(models.TextChoices):
+        TTN_V3 = "ttn_v3", "TTN v3 (decodeUplink / encodeDownlink)"
+        TTN_V2 = "ttn_v2", "TTN v2 Legacy (Decoder / Encoder)"
+        CHIRPSTACK = "chirpstack", "ChirpStack v4"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
     downlink_f_port = models.IntegerField(null=True, blank=True)
-    payload_codec = models.JSONField(default=dict, blank=True)
+    codec_format = models.CharField(
+        max_length=16,
+        choices=CodecFormat.choices,
+        default=CodecFormat.TTN_V3,
+        blank=True,
+    )
+    payload_codec = models.TextField(
+        blank=True,
+        default="",
+        help_text="JavaScript source implementing decodeUplink/encodeDownlink (TTN v3/ChirpStack) or Decoder/Encoder (TTN v2).",
+    )
     field_map = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
@@ -169,6 +184,7 @@ class WMBusConfig(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="wmbus_config")
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
+    wmbus_version = models.CharField(max_length=4, blank=True, default="", help_text="Hex byte from telegram header, e.g. 1b")
     wmbus_device_type = models.IntegerField(null=True, blank=True)
     data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
@@ -190,6 +206,7 @@ class WMBusConfig(TimeStampedModel):
             dup = (
                 WMBusConfig.objects.filter(
                     manufacturer_code=self.manufacturer_code,
+                    wmbus_version=self.wmbus_version,
                     wmbus_device_type=self.wmbus_device_type,
                     is_mvt_default=True,
                 )
@@ -200,6 +217,7 @@ class WMBusConfig(TimeStampedModel):
                 raise ValidationError(
                     f"Another device already has is_mvt_default set for "
                     f"manufacturer_code={self.manufacturer_code!r}, "
+                    f"wmbus_version={self.wmbus_version!r}, "
                     f"wmbus_device_type={self.wmbus_device_type}: "
                     f"{existing.device_type}"
                 )

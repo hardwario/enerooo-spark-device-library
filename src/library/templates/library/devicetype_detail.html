@@ -101,7 +101,10 @@
                     {% endif %}
                     {% if lorawan_config.payload_codec %}
                     <dt class="font-medium text-gray-600">Payload Codec</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ lorawan_config.payload_codec|pretty_json }}</pre></dd>
+                    <dd class="col-span-2">
+                        <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded mb-2">{{ lorawan_config.get_codec_format_display }}</span>
+                        <pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ lorawan_config.payload_codec }}</pre>
+                    </dd>
                     {% endif %}
                     {% if lorawan_config.field_map %}
                     <dt class="font-medium text-gray-600">Field Map</dt>
@@ -126,6 +129,8 @@
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Manufacturer</dt>
                     <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
+                    <dt class="font-medium text-gray-600">Version</dt>
+                    <dd class="col-span-2">{% if wmbus_config.wmbus_version %}<code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbus_version }}</code>{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
                     <dt class="font-medium text-gray-600">Device Type</dt>
                     <dd class="col-span-2">
                         {{ wmbus_config.wmbus_device_type }}

@@ -43,7 +43,7 @@ class ModbusConfigSerializer(serializers.ModelSerializer):
 class LoRaWANConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "payload_codec", "field_map"]
+        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
 
 
 class WMBusConfigSerializer(serializers.ModelSerializer):
@@ -51,6 +51,7 @@ class WMBusConfigSerializer(serializers.ModelSerializer):
         model = WMBusConfig
         fields = [
             "manufacturer_code",
+            "wmbus_version",
             "wmbus_device_type",
             "data_record_mapping",
             "encryption_required",
@@ -104,7 +105,10 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 if lorawan.downlink_f_port is not None:
                     data["downlink_f_port"] = lorawan.downlink_f_port
                 if lorawan.payload_codec:
-                    data["payload_codec"] = lorawan.payload_codec
+                    data["payload_codec"] = {
+                        "format": lorawan.codec_format or "ttn_v3",
+                        "script": lorawan.payload_codec,
+                    }
                 if lorawan.field_map:
                     data["field_map"] = lorawan.field_map
             except LoRaWANConfig.DoesNotExist:
@@ -114,6 +118,8 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
             try:
                 wmbus = device.wmbus_config
                 data["manufacturer_code"] = wmbus.manufacturer_code
+                if wmbus.wmbus_version:
+                    data["wmbus_version"] = wmbus.wmbus_version
                 data["wmbus_device_type"] = wmbus.wmbus_device_type
                 data["data_record_mapping"] = wmbus.data_record_mapping
                 data["encryption_required"] = wmbus.encryption_required

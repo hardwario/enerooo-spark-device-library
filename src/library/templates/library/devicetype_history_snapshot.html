@@ -116,8 +116,8 @@
                     <dd class="col-span-2">{{ lorawan_config.downlink_f_port }}</dd>
                     {% endif %}
                     {% if lorawan_config.payload_codec %}
-                    <dt class="font-medium text-gray-600">Payload Codec</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">{{ lorawan_config.payload_codec }}</pre></dd>
+                    <dt class="font-medium text-gray-600">Payload Codec ({{ lorawan_config.codec_format|default:"ttn_v3" }})</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;">{{ lorawan_config.payload_codec }}</pre></dd>
                     {% endif %}
                     {% if lorawan_config.field_map %}
                     <dt class="font-medium text-gray-600">Field Map</dt>
@@ -135,6 +135,8 @@
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Manufacturer</dt>
                     <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
+                    <dt class="font-medium text-gray-600">Version</dt>
+                    <dd class="col-span-2">{{ wmbus_config.wmbus_version|default:"—" }}</dd>
                     <dt class="font-medium text-gray-600">Device Type</dt>
                     <dd class="col-span-2">{{ wmbus_config.wmbus_device_type }}</dd>
                     <dt class="font-medium text-gray-600">Encryption</dt>
