@@ -97,6 +97,10 @@ var DeviceTypeValues = []string{
 	"environment_sensor",
 	"water_meter",
 	"heat_meter",
+	"gas_meter",
+	"heat_cost_allocator",
+	"thermostat_head",
+	"smart_plug",
 }
 
 // TechnologyValues for dropdown selections

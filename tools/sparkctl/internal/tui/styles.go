@@ -199,6 +199,14 @@ func deviceTypeIcon(deviceType string) string {
 		return "💧"
 	case "heat_meter":
 		return "🔥"
+	case "gas_meter":
+		return "⛽"
+	case "heat_cost_allocator":
+		return "♨"
+	case "thermostat_head":
+		return "🎛"
+	case "smart_plug":
+		return "🔌"
 	default:
 		return "📦"
 	}
