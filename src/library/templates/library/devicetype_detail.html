@@ -198,11 +198,24 @@
         <!-- Processor Config -->
         {% if processor_config and processor_config.decoder_type %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">Processor Configuration</h5></div>
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Processor Configuration</h5>
+                <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Decoder Type</dt>
                     <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ processor_config.decoder_type }}</code></dd>
+                    {% if processor_config.extra_config %}
+                    <dt class="font-medium text-gray-600">Extra Config</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ processor_config.extra_config|pretty_json }}</pre></dd>
+                    {% endif %}
+                    {% if processor_config.field_mappings %}
+                    <dt class="font-medium text-gray-600">Field Mappings</dt>
+                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ processor_config.field_mappings|pretty_json }}</pre></dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>

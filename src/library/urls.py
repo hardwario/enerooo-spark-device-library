@@ -48,6 +48,12 @@ urlpatterns = [
         views.LoRaWANConfigUpdateView.as_view(),
         name="lorawan-config-edit",
     ),
+    # Processor Config
+    path(
+        "models/<uuid:device_pk>/processor-config/edit/",
+        views.ProcessorConfigUpdateView.as_view(),
+        name="processor-config-edit",
+    ),
     # Registers (for Modbus models)
     path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
     path(
