@@ -138,11 +138,17 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
 
     # Import processor config (only if meaningful data present)
     processor_data = data.get("processor_config", {})
-    if processor_data and processor_data.get("decoder_type"):
+    if processor_data and (
+        processor_data.get("decoder_type")
+        or processor_data.get("field_mappings")
+        or processor_data.get("extra_config")
+    ):
         ProcessorConfig.objects.update_or_create(
             device_type=device,
             defaults={
                 "decoder_type": processor_data.get("decoder_type", ""),
+                "extra_config": processor_data.get("extra_config", {}),
+                "field_mappings": processor_data.get("field_mappings", []),
             },
         )
 

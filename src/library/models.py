@@ -244,6 +244,16 @@ class ProcessorConfig(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
     decoder_type = models.CharField(max_length=255, blank=True, default="")
+    extra_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Extra config (e.g. measurement_type) passed to Spark processor",
+    )
+    field_mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Field mappings from codec output to Spark normalized format",
+    )
 
     def __str__(self):
         return f"ProcessorConfig for {self.device_type}"

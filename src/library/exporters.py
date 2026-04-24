@@ -169,8 +169,14 @@ def _export_processor_config(device: VendorModel) -> dict:
     """Export processor config."""
     try:
         proc = device.processor_config
+        config = {}
         if proc.decoder_type:
-            return {"decoder_type": proc.decoder_type}
+            config["decoder_type"] = proc.decoder_type
+        if proc.extra_config:
+            config["extra_config"] = proc.extra_config
+        if proc.field_mappings:
+            config["field_mappings"] = proc.field_mappings
+        return config
     except VendorModel.processor_config.RelatedObjectDoesNotExist:
         pass
     return {}
