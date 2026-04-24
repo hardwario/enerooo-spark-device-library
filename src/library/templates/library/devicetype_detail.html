@@ -81,6 +81,7 @@
         {% endif %}
 
         {% if device.technology == "lorawan" %}
+        {# LoRaWAN basic settings (device class, f-port) in the right column #}
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">LoRaWAN Configuration</h5>
@@ -98,13 +99,6 @@
                     {% if lorawan_config.downlink_f_port %}
                     <dt class="font-medium text-gray-600">Downlink F-Port</dt>
                     <dd class="col-span-2">{{ lorawan_config.downlink_f_port }}</dd>
-                    {% endif %}
-                    {% if lorawan_config.payload_codec %}
-                    <dt class="font-medium text-gray-600">Payload Codec</dt>
-                    <dd class="col-span-2">
-                        <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded mb-2">{{ lorawan_config.get_codec_format_display }}</span>
-                        <pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ lorawan_config.payload_codec }}</pre>
-                    </dd>
                     {% endif %}
                     {% if lorawan_config.field_map %}
                     <dt class="font-medium text-gray-600">Field Map</dt>
@@ -215,6 +209,25 @@
         {% endif %}
     </div>
 </div>
+
+{# Payload Codec — full-width second row with CodeMirror read-only viewer #}
+{% if device.technology == "lorawan" and lorawan_config.payload_codec %}
+<div class="bg-white rounded-lg shadow mt-6" style="min-width: 0;">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <h5 class="font-semibold">Payload Codec</h5>
+            <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ lorawan_config.get_codec_format_display }}</span>
+        </div>
+        <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+            <i class="bi bi-pencil"></i>
+        </a>
+    </div>
+    <div class="overflow-hidden rounded-b-lg">
+        <script type="text/plain" id="codec-source">{{ lorawan_config.payload_codec }}</script>
+        <div id="codec-viewer"></div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Register Definitions (Modbus) -->
 {% if device.technology == "modbus" %}
@@ -375,6 +388,37 @@
         form.appendChild(toInput);
     });
 })();
+</script>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if device.technology == "lorawan" and lorawan_config.payload_codec %}
+<script type="module">
+  import {EditorView, basicSetup} from 'https://esm.sh/codemirror@6.0.1';
+  import {javascript} from 'https://esm.sh/@codemirror/lang-javascript@6.2.3';
+
+  const source = document.getElementById('codec-source').textContent;
+  const container = document.getElementById('codec-viewer');
+
+  const theme = EditorView.theme({
+    '&': { maxHeight: '600px' },
+    '.cm-scroller': { overflow: 'auto' },
+    '.cm-gutters': { backgroundColor: '#f9fafb', borderRight: '1px solid #e5e7eb' },
+  });
+
+  new EditorView({
+    doc: source,
+    extensions: [
+      basicSetup,
+      javascript(),
+      EditorView.lineWrapping,
+      EditorView.editable.of(false),
+      theme,
+    ],
+    parent: container,
+  });
 </script>
 {% endif %}
 {% endblock %}
