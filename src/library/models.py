@@ -241,9 +241,15 @@ class ControlConfig(TimeStampedModel):
 class ProcessorConfig(TimeStampedModel):
     """Processor/decoder configuration for a device type."""
 
+    class DecoderType(models.TextChoices):
+        WMBUS_FIELD_MAP = "wmbus_field_map", "wM-Bus Field Map"
+        LORAWAN_FIELD_MAP = "lorawan_field_map", "LoRaWAN Field Map"
+        JS_CODEC = "js_codec", "JS Codec (QuickJS)"
+        CONFIGURABLE = "configurable", "Configurable"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
-    decoder_type = models.CharField(max_length=255, blank=True, default="")
+    decoder_type = models.CharField(max_length=255, choices=DecoderType.choices, blank=True, default="")
     extra_config = models.JSONField(
         default=dict,
         blank=True,
