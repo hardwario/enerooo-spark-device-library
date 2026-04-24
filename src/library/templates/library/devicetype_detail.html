@@ -30,30 +30,40 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+    <div class="md:col-span-4">
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
             <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    <dt class="font-medium text-gray-600">Vendor</dt>
-                    <dd class="col-span-2">{{ device.vendor.name }}</dd>
-                    <dt class="font-medium text-gray-600">Model</dt>
-                    <dd class="col-span-2">{{ device.model_number }}</dd>
-                    <dt class="font-medium text-gray-600">Device Type</dt>
-                    <dd class="col-span-2">{{ device.get_device_type_display }}</dd>
-                    <dt class="font-medium text-gray-600">Technology</dt>
-                    <dd class="col-span-2"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-[#0d6efd]{% elif device.technology == 'lorawan' %}bg-[#198754]{% elif device.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ device.get_technology_display }}</span></dd>
+                <dl class="space-y-3 text-sm">
+                    <div>
+                        <dt class="font-medium text-gray-600">Vendor</dt>
+                        <dd>{{ device.vendor.name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="font-medium text-gray-600">Model</dt>
+                        <dd>{{ device.model_number }}</dd>
+                    </div>
+                    <div>
+                        <dt class="font-medium text-gray-600">Device Type</dt>
+                        <dd>{{ device.get_device_type_display }}</dd>
+                    </div>
+                    <div>
+                        <dt class="font-medium text-gray-600">Technology</dt>
+                        <dd><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-[#0d6efd]{% elif device.technology == 'lorawan' %}bg-[#198754]{% elif device.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ device.get_technology_display }}</span></dd>
+                    </div>
                     {% if device.description %}
-                    <dt class="font-medium text-gray-600">Description</dt>
-                    <dd class="col-span-2">{{ device.description }}</dd>
+                    <div>
+                        <dt class="font-medium text-gray-600">Description</dt>
+                        <dd>{{ device.description }}</dd>
+                    </div>
                     {% endif %}
                 </dl>
             </div>
         </div>
     </div>
 
-    <div>
+    <div class="md:col-span-8">
         <!-- Technology Config -->
         {% if device.technology == "modbus" %}
         <div class="bg-white rounded-lg shadow mb-4">
@@ -81,7 +91,6 @@
         {% endif %}
 
         {% if device.technology == "lorawan" %}
-        {# LoRaWAN basic settings (device class, f-port) in the right column #}
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">LoRaWAN Configuration</h5>
@@ -89,24 +98,26 @@
                     {% if lorawan_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
             </div>
-            {% if lorawan_config %}
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    {% if lorawan_config.device_class %}
                     <dt class="font-medium text-gray-600">Device Class</dt>
-                    <dd class="col-span-2">{{ lorawan_config.get_device_class_display }}</dd>
-                    {% endif %}
-                    {% if lorawan_config.downlink_f_port %}
+                    <dd class="col-span-2">{% if lorawan_config and lorawan_config.device_class %}{{ lorawan_config.get_device_class_display }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
                     <dt class="font-medium text-gray-600">Downlink F-Port</dt>
-                    <dd class="col-span-2">{{ lorawan_config.downlink_f_port }}</dd>
-                    {% endif %}
-                    {% if lorawan_config.field_map %}
+                    <dd class="col-span-2">{% if lorawan_config and lorawan_config.downlink_f_port %}{{ lorawan_config.downlink_f_port }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                    <dt class="font-medium text-gray-600">Payload Codec</dt>
+                    <dd class="col-span-2">
+                        {% if lorawan_config and lorawan_config.payload_codec %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="bi bi-check-circle-fill mr-1"></i>{{ lorawan_config.get_codec_format_display }}</span>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </dd>
+                    {% if lorawan_config and lorawan_config.field_map %}
                     <dt class="font-medium text-gray-600">Field Map</dt>
                     <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ lorawan_config.field_map|pretty_json }}</pre></dd>
                     {% endif %}
                 </dl>
             </div>
-            {% endif %}
         </div>
         {% endif %}
 
