@@ -18,7 +18,7 @@ from core.models import User
 from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
-from .forms import APIKeyForm, ControlConfigForm, LoRaWANConfigForm, ModbusConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, WMBusConfigForm, YAMLImportForm
+from .forms import APIKeyForm, ControlConfigForm, LoRaWANConfigForm, ModbusConfigForm, ProcessorConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, WMBusConfigForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
@@ -30,6 +30,7 @@ from .models import (
     ControlConfig,
     LoRaWANConfig,
     ModbusConfig,
+    ProcessorConfig,
     RegisterDefinition,
     Vendor,
     VendorModel,
@@ -404,6 +405,37 @@ class LoRaWANConfigUpdateView(LoginRequiredMixin, UpdateView):
         device = VendorModel.objects.get(pk=self._device.pk)
         record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"LoRaWAN config updated on {self._device}")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+
+
+# === Processor Config ===
+
+
+class ProcessorConfigUpdateView(LoginRequiredMixin, UpdateView):
+    model = ProcessorConfig
+    form_class = ProcessorConfigForm
+    template_name = "library/processor_config_form.html"
+
+    def get_object(self, queryset=None):
+        device = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
+        self._device = device
+        self._old_snapshot = snapshot_device(device)
+        obj, _ = ProcessorConfig.objects.get_or_create(device_type=device)
+        return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["device"] = self._device
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        device = VendorModel.objects.get(pk=self._device.pk)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", form.instance, details=f"Processor config updated on {self._device}")
         return response
 
     def get_success_url(self):

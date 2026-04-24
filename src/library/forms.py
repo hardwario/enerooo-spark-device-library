@@ -117,7 +117,11 @@ class ControlConfigForm(forms.ModelForm):
 class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type"]
+        fields = ["decoder_type", "extra_config", "field_mappings"]
+        widgets = {
+            "extra_config": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "field_mappings": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+        }
 
 
 class APIKeyForm(forms.ModelForm):
