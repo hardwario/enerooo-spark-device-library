@@ -3,11 +3,11 @@
 {% block title %}Export - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">Export YAML Definitions</h2>
+<h2 class="text-2xl font-bold mb-6">Export Library</h2>
 
 <div class="bg-white rounded-lg shadow">
     <div class="p-6">
-        <p class="text-sm text-gray-600 mb-4">Export all device definitions as a ZIP archive containing YAML files and a manifest.</p>
+        <p class="text-sm text-gray-600 mb-4">Export all device definitions from the database as a ZIP archive containing YAML files and a manifest.</p>
         <form method="post" action="{% url 'library:export-download' %}">
             {% csrf_token %}
             <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
