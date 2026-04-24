@@ -7,8 +7,6 @@ services:
       - src/.env.dev
     volumes:
       - ./src:/app/src
-      - ./devices:/app/devices
-      - ./manifest.yaml:/app/manifest.yaml
     depends_on:
       db:
         condition: service_healthy
