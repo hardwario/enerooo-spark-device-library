@@ -600,8 +600,8 @@ class ImportView(SuperuserRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         if "form" not in ctx:
             ctx["form"] = YAMLImportForm(initial={
-                "devices_path": "/app/devices/",
-                "manifest_path": "/app/manifest.yaml",
+                "devices_path": "",
+                "manifest_path": "",
             })
         return ctx
 

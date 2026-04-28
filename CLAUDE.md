@@ -4,12 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A **YAML-based device library** for IoT device definitions used by the ENEROOO Spark platform, with a Django web application for managing the library.
+A **device library** for IoT device definitions used by the ENEROOO Spark platform, with a Django web application for managing the library. The database is the source of truth; YAML export is available for backup/sync.
 
 ## Repository Structure
 
-- `manifest.yaml` - Central registry of all vendors with version, schema version, and file references
-- `devices/*.yaml` - Device definitions organized by vendor (16 vendor files)
 - `src/` - Django web application for library management
 
 ## Device Schema (v2)
