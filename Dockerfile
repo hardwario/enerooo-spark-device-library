@@ -10,8 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python dependencies
 COPY pyproject.toml README.md ./
 COPY src/ src/
-COPY devices/ devices/
-COPY manifest.yaml manifest.yaml
 RUN pip install --no-cache-dir "."
 
 # Set environment variables
