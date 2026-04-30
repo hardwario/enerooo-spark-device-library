@@ -12,6 +12,9 @@ DEVICE_TYPE_COLORS = {
     "water_meter": "bg-cyan-100 text-cyan-700",
     "heat_meter": "bg-orange-100 text-orange-700",
     "heat_cost_allocator": "bg-red-100 text-red-700",
+    "gas_meter": "bg-yellow-100 text-yellow-700",
+    "thermostat_head": "bg-purple-100 text-purple-700",
+    "smart_plug": "bg-indigo-100 text-indigo-700",
 }
 
 

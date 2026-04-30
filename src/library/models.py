@@ -34,6 +34,9 @@ class VendorModel(TimeStampedModel):
         WATER_METER = "water_meter", "Water Meter"
         HEAT_METER = "heat_meter", "Heat Meter"
         HEAT_COST_ALLOCATOR = "heat_cost_allocator", "Heat Cost Allocator"
+        GAS_METER = "gas_meter", "Gas Meter"
+        THERMOSTAT_HEAD = "thermostat_head", "Thermostat Head"
+        SMART_PLUG = "smart_plug", "Smart Plug"
 
     class Technology(models.TextChoices):
         MODBUS = "modbus", "Modbus"
