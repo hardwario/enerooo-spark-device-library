@@ -9,11 +9,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from library.exporters import snapshot_to_schema
-from library.models import APIKey, DeviceHistory, GatewayAssignment, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
+from library.models import APIKey, DeviceHistory, DeviceType, GatewayAssignment, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
 
 from .permissions import HasAPIKey, HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
+    DeviceTypeSerializer,
     GatewayAssignmentSerializer,
     LibraryVersionSerializer,
     ManifestSerializer,
@@ -24,6 +25,12 @@ from .serializers import (
     VendorSerializer,
     VendorWithDevicesSerializer,
 )
+
+
+# Schema_version that this build of the library serves. Used as the fallback
+# when no LibraryVersion row has been published yet — keeping it on a single
+# constant prevents drift between Manifest, Sync and LibraryContent endpoints.
+DEFAULT_SCHEMA_VERSION = 3
 
 
 # === Sync API viewsets (read-only, API key auth) ===
@@ -38,9 +45,10 @@ class ManifestViewSet(viewsets.ViewSet):
         current = LibraryVersion.objects.filter(is_current=True).first()
         data = {
             "version": current.version if current else "0.0.0",
-            "schema_version": current.schema_version if current else 2,
+            "schema_version": current.schema_version if current else DEFAULT_SCHEMA_VERSION,
             "vendor_count": Vendor.objects.count(),
             "device_count": VendorModel.objects.count(),
+            "device_type_count": DeviceType.objects.count(),
         }
         serializer = ManifestSerializer(data)
 
@@ -120,7 +128,8 @@ class SyncViewSet(viewsets.ViewSet):
 
         data = {
             "version": current.version if current else "0.0.0",
-            "schema_version": current.schema_version if current else 2,
+            "schema_version": current.schema_version if current else DEFAULT_SCHEMA_VERSION,
+            "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
             "vendors": VendorWithDevicesSerializer(vendors, many=True).data,
         }
 
@@ -208,8 +217,18 @@ class LibraryContentViewSet(viewsets.ViewSet):
         return Response({
             "version": lib_version.version,
             "schema_version": lib_version.schema_version,
+            "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
             "vendors": vendor_list,
         })
+
+
+class SyncDeviceTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    """Schema-v3 device type catalogue (read-only, sync-auth)."""
+
+    permission_classes = [IsAPIKeyOrSessionAuth]
+    serializer_class = DeviceTypeSerializer
+    queryset = DeviceType.objects.all()
+    lookup_field = "code"
 
 
 # === Gateway Bootstrap ===

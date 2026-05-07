@@ -18,16 +18,17 @@ from core.models import User
 from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
-from .forms import APIKeyForm, ControlConfigForm, LoRaWANConfigForm, ModbusConfigForm, ProcessorConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, WMBusConfigForm, YAMLImportForm
+from .forms import APIKeyForm, ControlConfigForm, DeviceTypeForm, LoRaWANConfigForm, ModbusConfigForm, ProcessorConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, WMBusConfigForm, YAMLImportForm
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
     APIKey,
+    ControlConfig,
     DeviceHistory,
+    DeviceType,
     GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
-    ControlConfig,
     LoRaWANConfig,
     ModbusConfig,
     ProcessorConfig,
@@ -122,6 +123,78 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["models"] = self.object.device_types.select_related("vendor").all()
         return ctx
+
+
+# === Device Types ===
+
+
+class DeviceTypeListView(LoginRequiredMixin, ListView):
+    model = DeviceType
+    template_name = "library/device_type/list.html"
+    context_object_name = "device_types"
+
+    def get_queryset(self):
+        return DeviceType.objects.annotate(
+            vendor_model_count=Count("vendor_models"),
+        ).order_by("label")
+
+
+class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
+    model = DeviceType
+    template_name = "library/device_type/detail.html"
+    context_object_name = "device_type"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["vendor_models"] = self.object.vendor_models.select_related("vendor").order_by(
+            "vendor__name", "model_number",
+        )
+        return ctx
+
+
+class DeviceTypeCreateView(SuperuserRequiredMixin, CreateView):
+    model = DeviceType
+    form_class = DeviceTypeForm
+    template_name = "library/device_type/form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "created", self.object)
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
+
+
+class DeviceTypeUpdateView(SuperuserRequiredMixin, UpdateView):
+    model = DeviceType
+    form_class = DeviceTypeForm
+    template_name = "library/device_type/form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "updated", self.object)
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
+
+
+class DeviceTypeDeleteView(SuperuserRequiredMixin, View):
+    def post(self, request, pk):
+        dt = get_object_or_404(DeviceType, pk=pk)
+        if dt.vendor_models.exists():
+            messages.error(
+                request,
+                f"Cannot delete {dt.label} — {dt.vendor_models.count()} VendorModel(s) "
+                "still point at it. Re-assign them first.",
+            )
+            return redirect("library:devicetype-detail", pk=dt.pk)
+        label = dt.label
+        log_action(request, "deleted", dt)
+        dt.delete()
+        messages.success(request, f"Device type \"{label}\" deleted.")
+        return redirect("library:devicetype-list")
 
 
 # === Devices ===

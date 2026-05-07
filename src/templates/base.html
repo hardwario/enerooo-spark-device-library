@@ -93,12 +93,17 @@
                         </a>
                     </li>
                     <li>
+                        <a class="nav-link {% if 'devicetype' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:devicetype-list' %}">
+                            <i data-lucide="shapes" class="w-4 h-4 mr-2 shrink-0"></i>Device Types
+                        </a>
+                    </li>
+                    <li>
                         <a class="nav-link {% if 'vendor' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:vendor-list' %}">
                             <i data-lucide="building-2" class="w-4 h-4 mr-2 shrink-0"></i>Vendors
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'model' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:model-list' %}">
+                        <a class="nav-link {% if 'model' in request.resolver_match.url_name and 'devicetype' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:model-list' %}">
                             <i data-lucide="cpu" class="w-4 h-4 mr-2 shrink-0"></i>Models
                         </a>
                     </li>
