@@ -4,8 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
-from library.models import DeviceType, Vendor, VendorModel
-
+from library.models import Vendor, VendorModel
 
 pytestmark = pytest.mark.django_db
 User = get_user_model()

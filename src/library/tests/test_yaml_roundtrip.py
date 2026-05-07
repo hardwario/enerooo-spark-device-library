@@ -5,8 +5,7 @@ import yaml
 
 from library.exporters import export_to_yaml
 from library.importers import import_from_yaml
-from library.models import DeviceType, ProcessorConfig, Vendor, VendorModel
-
+from library.models import ProcessorConfig, Vendor, VendorModel
 
 pytestmark = pytest.mark.django_db
 

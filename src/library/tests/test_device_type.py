@@ -2,8 +2,7 @@
 
 import pytest
 
-from library.models import DeviceType, ProcessorConfig, Vendor, VendorModel
-
+from library.models import ProcessorConfig, Vendor, VendorModel
 
 pytestmark = pytest.mark.django_db
 

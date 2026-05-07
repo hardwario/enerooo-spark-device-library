@@ -9,6 +9,12 @@ from django.db import models
 from model_utils.models import TimeStampedModel
 
 
+# Wire-format version emitted in /api/v1/sync/, /api/v1/manifest/,
+# /api/v1/library/content/<v>/ and manifest.yaml exports. Bump when the
+# payload shape changes in a way clients must opt into.
+DEFAULT_SCHEMA_VERSION = 3
+
+
 class Vendor(TimeStampedModel):
     """Device vendor / manufacturer."""
 
@@ -435,7 +441,7 @@ class LibraryVersion(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     version = models.PositiveIntegerField(unique=True)
-    schema_version = models.IntegerField(default=3)
+    schema_version = models.IntegerField(default=DEFAULT_SCHEMA_VERSION)
     released_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, default="")
     is_current = models.BooleanField(default=False)

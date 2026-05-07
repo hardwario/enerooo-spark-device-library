@@ -4,7 +4,6 @@ import pytest
 
 from library.models import DeviceType
 
-
 # Migration 0021 seeds the standard device types, so fixtures use
 # ``get_or_create`` to stay idempotent against that seeding.
 

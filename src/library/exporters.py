@@ -5,15 +5,9 @@ from pathlib import Path
 
 import yaml
 
-from .models import DeviceType, Vendor, VendorModel
+from .models import DEFAULT_SCHEMA_VERSION, DeviceType, Vendor, VendorModel
 
 logger = logging.getLogger(__name__)
-
-
-# Schema version this exporter writes. Kept in sync with the API default
-# (see api/viewsets.py::DEFAULT_SCHEMA_VERSION) so a fresh DB without any
-# LibraryVersion row still produces a valid v3 export.
-DEFAULT_SCHEMA_VERSION = 3
 
 
 def export_to_yaml(output_dir: str | Path) -> dict:
