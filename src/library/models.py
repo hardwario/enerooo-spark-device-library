@@ -9,6 +9,12 @@ from django.db import models
 from model_utils.models import TimeStampedModel
 
 
+# Wire-format version emitted in /api/v1/sync/, /api/v1/manifest/,
+# /api/v1/library/content/<v>/ and manifest.yaml exports. Bump when the
+# payload shape changes in a way clients must opt into.
+DEFAULT_SCHEMA_VERSION = 3
+
+
 class Vendor(TimeStampedModel):
     """Device vendor / manufacturer."""
 
@@ -22,6 +28,56 @@ class Vendor(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+
+class DeviceType(TimeStampedModel):
+    """A first-class device type — water_meter, gas_meter, heat_meter, …
+
+    Carries the shared *default field mappings* that VendorModels of this
+    type inherit when their own override list is empty. A mapping entry
+    has the shape ``{source, target, transform, primary?}`` — ``primary``
+    is a per-entry boolean (default false ⇒ secondary), so display tier
+    travels with the mapping itself instead of being maintained as a
+    separate ``primary_field_names`` list.
+
+    Per-meter knobs that genuinely vary between instances of the same
+    type — offline window, controllability — live on ``VendorModel`` and
+    ``ControlConfig`` instead.
+
+    Identity is the ``code`` slug (matches the historical ``DeviceCategory``
+    enum values used on ``VendorModel.device_type``); ``key`` is the UUID
+    used by sync clients (Spark) to refer to this row across instances.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    key = models.UUIDField(default=uuid.uuid4, null=True, blank=True, unique=True)
+    code = models.SlugField(max_length=64, unique=True)
+    label = models.CharField(max_length=128)
+    description = models.TextField(blank=True, default="")
+    icon = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="Lucide icon name used by clients to render this type (e.g. 'droplet', 'zap').",
+    )
+    default_field_mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Default codec → canonical-metric mappings shared by every "
+            "VendorModel of this type. Each entry is "
+            "{source, target, transform, primary?} — primary defaults to false "
+            "(⇒ secondary). VendorModels can replace the whole list via "
+            "ProcessorConfig.field_mappings or extend it via "
+            "ProcessorConfig.extra_field_mappings."
+        ),
+    )
+
+    class Meta:
+        ordering = ["label"]
+
+    def __str__(self):
+        return self.label or self.code
 
 
 class VendorModel(TimeStampedModel):
@@ -50,9 +106,31 @@ class VendorModel(TimeStampedModel):
     )
     model_number = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
+    # ``device_type`` (CharField enum) is kept for backward compat with sync
+    # clients that read schema_v2 payloads. ``device_type_fk`` is the new
+    # canonical pointer carrying the per-type metadata; new clients should
+    # prefer it. The two stay in sync via a model.save() guard below.
     device_type = models.CharField(max_length=30, choices=DeviceCategory.choices)
+    device_type_fk = models.ForeignKey(
+        DeviceType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="vendor_models",
+    )
     technology = models.CharField(max_length=20, choices=Technology.choices)
     description = models.TextField(blank=True, default="")
+
+    # Per-meter knob — overrides any DeviceType-level guidance. Null = caller
+    # picks its own fallback (Spark currently uses ``Vendor.online_threshold_minutes``).
+    offline_window_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Per-model expected reporting interval in seconds. Null means "
+            "clients should fall back to their own default."
+        ),
+    )
 
     class Meta:
         ordering = ["vendor__name", "model_number"]
@@ -60,6 +138,43 @@ class VendorModel(TimeStampedModel):
 
     def __str__(self):
         return f"{self.vendor.name} {self.model_number}"
+
+    @property
+    def effective_field_mappings(self) -> list[dict]:
+        """Resolve the effective list of codec→metric mappings for this model.
+
+        ``ProcessorConfig.field_mappings`` (per-model) replaces the
+        ``DeviceType.default_field_mappings`` when non-empty, otherwise the
+        type defaults are used. ``ProcessorConfig.extra_field_mappings``
+        (vendor-specific extras) is always concatenated on top.
+        """
+        proc = getattr(self, "processor_config", None)
+        base: list[dict] = []
+        if proc and proc.field_mappings:
+            base = list(proc.field_mappings)
+        elif self.device_type_fk_id:
+            base = list(self.device_type_fk.default_field_mappings or [])
+        if proc and proc.extra_field_mappings:
+            base.extend(proc.extra_field_mappings)
+        return base
+
+    @property
+    def primary_targets(self) -> list[str]:
+        """Targets from ``effective_field_mappings`` flagged as primary."""
+        return [m.get("target") for m in self.effective_field_mappings if m.get("primary")]
+
+    @property
+    def secondary_targets(self) -> list[str]:
+        """Targets from ``effective_field_mappings`` not flagged as primary."""
+        return [m.get("target") for m in self.effective_field_mappings if not m.get("primary")]
+
+    def save(self, *args, **kwargs):
+        """Keep ``device_type`` (charfield) aligned with ``device_type_fk.code``
+        when an FK is set. Ensures schema_v2 clients see the right enum value
+        even when an editor wired up the FK."""
+        if self.device_type_fk_id and self.device_type_fk.code and self.device_type != self.device_type_fk.code:
+            self.device_type = self.device_type_fk.code
+        super().save(*args, **kwargs)
 
 
 class ModbusConfig(TimeStampedModel):
@@ -261,7 +376,20 @@ class ProcessorConfig(TimeStampedModel):
     field_mappings = models.JSONField(
         default=list,
         blank=True,
-        help_text="Field mappings from codec output to Spark normalized format",
+        help_text=(
+            "Per-model codec → canonical-metric mappings. When non-empty this "
+            "list REPLACES the DeviceType.default_field_mappings entirely. "
+            "Leave empty to inherit the type defaults."
+        ),
+    )
+    extra_field_mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Vendor-specific extras always concatenated on top of the "
+            "effective base list (override or default). Use for telemetry "
+            "unique to this model — e.g. battery, signal strength."
+        ),
     )
 
     def __str__(self):
@@ -313,7 +441,7 @@ class LibraryVersion(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     version = models.PositiveIntegerField(unique=True)
-    schema_version = models.IntegerField(default=2)
+    schema_version = models.IntegerField(default=DEFAULT_SCHEMA_VERSION)
     released_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, default="")
     is_current = models.BooleanField(default=False)

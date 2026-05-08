@@ -42,9 +42,35 @@ class VendorForm(forms.ModelForm):
 class VendorModelForm(forms.ModelForm):
     class Meta:
         model = VendorModel
-        fields = ["vendor", "model_number", "name", "device_type", "technology", "description"]
+        fields = [
+            "vendor",
+            "model_number",
+            "name",
+            "device_type",
+            "device_type_fk",
+            "technology",
+            "description",
+            "offline_window_seconds",
+        ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class DeviceTypeForm(forms.ModelForm):
+    class Meta:
+        from .models import DeviceType
+        model = DeviceType
+        fields = [
+            "code",
+            "label",
+            "description",
+            "icon",
+            "default_field_mappings",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "default_field_mappings": PrettyJSONWidget(attrs={"rows": 12, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
 
 
@@ -117,10 +143,11 @@ class ControlConfigForm(forms.ModelForm):
 class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "extra_config", "field_mappings"]
+        fields = ["decoder_type", "extra_config", "field_mappings", "extra_field_mappings"]
         widgets = {
             "extra_config": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
             "field_mappings": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "extra_field_mappings": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
 
 

@@ -7,6 +7,7 @@ from .forms import PrettyJSONWidget
 from .models import (
     APIKey,
     ControlConfig,
+    DeviceType,
     GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
@@ -18,6 +19,38 @@ from .models import (
     VendorModel,
     WMBusConfig,
 )
+
+
+@admin.register(DeviceType)
+class DeviceTypeAdmin(admin.ModelAdmin):
+    list_display = ["code", "label", "icon", "vendor_model_count"]
+    search_fields = ["code", "label", "description"]
+    readonly_fields = ["id", "key", "vendor_model_count", "created", "modified"]
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 6, "cols": 60, "style": "font-family: monospace; width: 100%;"})},
+    }
+    fieldsets = [
+        (None, {
+            "fields": ["code", "label", "description", "icon"],
+        }),
+        ("Default field mappings (inherited by VendorModels of this type)", {
+            "fields": ["default_field_mappings"],
+            "description": (
+                "Each entry: {source, target, transform, primary?}. ``primary`` "
+                "missing or false ⇒ secondary. VendorModels can replace the whole "
+                "list via ProcessorConfig.field_mappings or extend it via "
+                "ProcessorConfig.extra_field_mappings."
+            ),
+        }),
+        ("Identity", {
+            "fields": ["id", "key", "vendor_model_count", "created", "modified"],
+            "classes": ["collapse"],
+        }),
+    ]
+
+    @admin.display(description="VendorModels")
+    def vendor_model_count(self, obj):
+        return obj.vendor_models.count()
 
 
 @admin.register(Vendor)
@@ -68,15 +101,45 @@ class ProcessorConfigInline(admin.StackedInline):
     model = ProcessorConfig
     extra = 0
     max_num = 1
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 12, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 @admin.register(VendorModel)
 class VendorModelAdmin(admin.ModelAdmin):
-    list_display = ["name", "vendor", "model_number", "device_type", "technology", "created"]
-    list_filter = ["device_type", "technology", "vendor"]
+    list_display = ["name", "vendor", "model_number", "device_type_fk", "technology", "offline_window_seconds", "created"]
+    list_filter = ["device_type_fk", "technology", "vendor"]
     search_fields = ["name", "model_number", "vendor__name"]
     raw_id_fields = ["vendor"]
     inlines = [ModbusConfigInline, LoRaWANConfigInline, WMBusConfigInline, ControlConfigInline, ProcessorConfigInline]
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 5, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
+    fieldsets = [
+        (None, {
+            "fields": ["vendor", "model_number", "name", "description"],
+        }),
+        ("Type & technology", {
+            "fields": ["device_type_fk", "device_type", "technology"],
+            "description": (
+                "Pick the canonical Device Type — the matching enum value is "
+                "mirrored into ``device_type`` automatically for schema-v2 sync clients."
+            ),
+        }),
+        ("Per-model behaviour", {
+            "fields": ["offline_window_seconds"],
+            "description": (
+                "Override the DeviceType defaults for this specific meter. "
+                "Field mappings live on ProcessorConfig (override list "
+                "field_mappings, extras list extra_field_mappings)."
+            ),
+        }),
+        ("Identity", {
+            "fields": ["key"],
+            "classes": ["collapse"],
+        }),
+    ]
 
 
 class RegisterDefinitionInline(admin.TabularInline):
@@ -134,6 +197,9 @@ class ControlConfigAdmin(admin.ModelAdmin):
 class ProcessorConfigAdmin(admin.ModelAdmin):
     list_display = ["device_type", "decoder_type"]
     raw_id_fields = ["device_type"]
+    formfield_overrides = {
+        models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 12, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
+    }
 
 
 class LibraryVersionDeviceInline(admin.TabularInline):

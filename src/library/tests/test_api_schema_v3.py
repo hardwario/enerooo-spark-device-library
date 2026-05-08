@@ -1,0 +1,136 @@
+"""Tests for the REST API surface."""
+
+import pytest
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+
+from library.models import Vendor, VendorModel
+
+pytestmark = pytest.mark.django_db
+User = get_user_model()
+
+
+@pytest.fixture
+def staff_client(db):
+    user = User.objects.create_user(
+        username="staff", password="x", is_staff=True, is_superuser=True,
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.fixture
+def water_vendor_model(db, water_meter_type):
+    vendor = Vendor.objects.create(name="Acme Water", slug="acme-water")
+    return VendorModel.objects.create(
+        vendor=vendor,
+        model_number="W-100",
+        name="Acme Water 100",
+        device_type="water_meter",
+        device_type_fk=water_meter_type,
+        technology=VendorModel.Technology.WMBUS,
+    )
+
+
+class TestManifestEndpoint:
+    def test_schema_version_is_3(self, staff_client):
+        response = staff_client.get("/api/v1/manifest/")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["schema_version"] == 3
+
+    def test_device_type_count_present(self, staff_client, water_meter_type):
+        response = staff_client.get("/api/v1/manifest/")
+        body = response.json()
+        assert body["device_type_count"] >= 1
+
+
+class TestSyncEndpoint:
+    def test_includes_device_types_section(self, staff_client, water_vendor_model):
+        response = staff_client.get("/api/v1/sync/")
+        assert response.status_code == 200
+        body = response.json()
+        assert "device_types" in body
+        codes = {dt["code"] for dt in body["device_types"]}
+        assert "water_meter" in codes
+
+    def test_each_device_type_carries_metadata(self, staff_client, water_meter_type):
+        response = staff_client.get("/api/v1/sync/")
+        body = response.json()
+        water = next(dt for dt in body["device_types"] if dt["code"] == "water_meter")
+        assert water["icon"] == "droplet"
+        # Default field mappings list carries per-type display tier + decoder
+        # mapping. Empty by default (operator populates).
+        assert "default_field_mappings" in water
+        # offline_window now lives on each VendorModel, not on the type itself
+        assert "default_offline_window_seconds" not in water
+        assert "primary_field_names" not in water
+
+    def test_vendor_model_carries_per_meter_offline_window(self, staff_client, water_vendor_model):
+        response = staff_client.get("/api/v1/sync/")
+        body = response.json()
+        vendor_block = next(v for v in body["vendors"] if v["name"] == "Acme Water")
+        model = vendor_block["models"][0]
+        # Backfilled from the seeded DeviceType default during migration 0022
+        assert model["offline_window_seconds"] is None or isinstance(
+            model["offline_window_seconds"], int,
+        )
+        # The merged effective list is exposed for clients that want a
+        # one-shot read; processor_config carries the override/extra split.
+        assert "effective_field_mappings" in model
+        assert "processor_config" in model
+
+    def test_vendor_model_carries_device_type_key(self, staff_client, water_vendor_model):
+        response = staff_client.get("/api/v1/sync/")
+        body = response.json()
+        vendor_block = next(
+            v for v in body["vendors"] if v["name"] == "Acme Water"
+        )
+        model = vendor_block["models"][0]
+        # Both the legacy enum string and the FK pointer are exposed — older
+        # clients read ``device_type``; newer ones prefer ``device_type_key``.
+        assert model["device_type"] == "water_meter"
+        assert model["device_type_key"] is not None
+
+
+class TestDeviceTypesEndpoint:
+    def test_lists_existing_types(self, staff_client, water_meter_type, heat_meter_type, gas_meter_type):
+        response = staff_client.get("/api/v1/device_types/")
+        assert response.status_code == 200
+        body = response.json()
+        # DRF default pagination wraps in a dict; ReadOnlyModelViewSet might
+        # also return a bare list when pagination disabled. Handle both.
+        results = body if isinstance(body, list) else body.get("results", [])
+        codes = {dt["code"] for dt in results}
+        assert {"water_meter", "heat_meter", "gas_meter"}.issubset(codes)
+
+    def test_lookup_by_code(self, staff_client, water_meter_type):
+        response = staff_client.get("/api/v1/device_types/water_meter/")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["code"] == "water_meter"
+        assert body["icon"] == "droplet"
+        # Type carries the *default* mapping list; per-meter overrides live
+        # on each VendorModel via ProcessorConfig.field_mappings.
+        assert "default_field_mappings" in body
+
+
+class TestLibraryContentEndpoint:
+    """``/api/v1/library/content/<version>/`` is service-token authenticated;
+    we hit it via the underlying viewset to keep the test focused on the
+    payload shape without re-implementing the HMAC check."""
+
+    def test_includes_device_types_for_a_published_version(self, db, rf, water_meter_type):
+        from library.api.viewsets import LibraryContentViewSet
+        from library.models import LibraryVersion
+
+        lv = LibraryVersion.objects.create(version=1, schema_version=3, is_current=True)
+        view = LibraryContentViewSet()
+        view.request = rf.get(f"/api/v1/library/content/{lv.version}/")
+        response = view.retrieve(view.request, pk=str(lv.version))
+
+        assert response.status_code == 200
+        assert response.data["schema_version"] == 3
+        assert "device_types" in response.data
+        assert any(dt["code"] == "water_meter" for dt in response.data["device_types"])

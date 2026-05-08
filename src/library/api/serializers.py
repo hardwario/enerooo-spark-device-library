@@ -5,6 +5,7 @@ from rest_framework import serializers
 from library.models import (
     APIKey,
     ControlConfig,
+    DeviceType,
     GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
@@ -71,7 +72,7 @@ class ControlConfigSerializer(serializers.ModelSerializer):
 class ProcessorConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "extra_config", "field_mappings"]
+        fields = ["decoder_type", "extra_config", "field_mappings", "extra_field_mappings"]
 
 
 class DeviceTechnologyConfigSerializer(serializers.Serializer):
@@ -137,23 +138,27 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
         return data
 
 
+class DeviceTypeSerializer(serializers.ModelSerializer):
+    """Schema-v3 device type metadata exposed to sync clients."""
+
+    class Meta:
+        model = DeviceType
+        fields = [
+            "id",
+            "key",
+            "code",
+            "label",
+            "description",
+            "icon",
+            "default_field_mappings",
+        ]
+
+
 class VendorModelListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for device lists."""
 
     vendor_name = serializers.CharField(source="vendor.name", read_only=True)
-
-    class Meta:
-        model = VendorModel
-        fields = ["id", "key", "vendor_name", "model_number", "name", "device_type", "technology"]
-
-
-class VendorModelDetailSerializer(serializers.ModelSerializer):
-    """Full serializer matching the YAML schema structure."""
-
-    vendor_name = serializers.CharField(source="vendor.name", read_only=True)
-    technology_config = DeviceTechnologyConfigSerializer(source="*", read_only=True)
-    control_config = serializers.SerializerMethodField()
-    processor_config = serializers.SerializerMethodField()
+    device_type_key = serializers.UUIDField(source="device_type_fk.key", read_only=True, allow_null=True)
 
     class Meta:
         model = VendorModel
@@ -164,10 +169,47 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "model_number",
             "name",
             "device_type",
+            "device_type_key",
+            "technology",
+        ]
+
+
+class VendorModelDetailSerializer(serializers.ModelSerializer):
+    """Full serializer matching the YAML schema structure.
+
+    Schema-v3 adds ``device_type_key`` (UUID pointer into the new DeviceType
+    table) alongside the legacy ``device_type`` enum string, the per-meter
+    ``offline_window_seconds`` knob, and ``processor_config`` now exposes
+    ``extra_field_mappings`` for vendor-specific extras concatenated on top
+    of the type defaults. Clients on schema_v2 keep working — they read
+    ``device_type`` — v3-aware clients prefer the explicit fields and use
+    ``effective_field_mappings`` (provided at the type → model layer they
+    resolve themselves) to pick up the merged list.
+    """
+
+    vendor_name = serializers.CharField(source="vendor.name", read_only=True)
+    device_type_key = serializers.UUIDField(source="device_type_fk.key", read_only=True, allow_null=True)
+    technology_config = DeviceTechnologyConfigSerializer(source="*", read_only=True)
+    control_config = serializers.SerializerMethodField()
+    processor_config = serializers.SerializerMethodField()
+    effective_field_mappings = serializers.ListField(read_only=True)
+
+    class Meta:
+        model = VendorModel
+        fields = [
+            "id",
+            "key",
+            "vendor_name",
+            "model_number",
+            "name",
+            "device_type",
+            "device_type_key",
             "description",
+            "offline_window_seconds",
             "technology_config",
             "control_config",
             "processor_config",
+            "effective_field_mappings",
         ]
 
     def get_control_config(self, obj):
@@ -209,6 +251,7 @@ class ManifestSerializer(serializers.Serializer):
     schema_version = serializers.IntegerField()
     vendor_count = serializers.IntegerField()
     device_count = serializers.IntegerField()
+    device_type_count = serializers.IntegerField(required=False)
 
 
 # === Version serializers ===
@@ -248,7 +291,20 @@ class VendorAdminSerializer(serializers.ModelSerializer):
 class VendorModelAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorModel
-        fields = ["id", "key", "vendor", "model_number", "name", "device_type", "technology", "description", "created", "modified"]
+        fields = [
+            "id",
+            "key",
+            "vendor",
+            "model_number",
+            "name",
+            "device_type",
+            "device_type_fk",
+            "technology",
+            "description",
+            "offline_window_seconds",
+            "created",
+            "modified",
+        ]
         read_only_fields = ["id", "created", "modified"]
 
 

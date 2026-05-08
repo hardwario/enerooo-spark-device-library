@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from .models import Vendor, VendorModel
+from .models import DEFAULT_SCHEMA_VERSION, DeviceType, Vendor, VendorModel
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ def export_to_yaml(output_dir: str | Path) -> dict:
     stats = {
         "vendors_exported": 0,
         "devices_exported": 0,
+        "device_types_exported": 0,
     }
 
     manifest_vendors = []
@@ -50,13 +51,20 @@ def export_to_yaml(output_dir: str | Path) -> dict:
         stats["devices_exported"] += len(device_types)
         logger.info("Exported %d devices for %s", len(device_types), vendor.name)
 
+    # Schema-v3: device_types section carries shared per-type metadata
+    # (offline window, primary / secondary fields, icon). Importers without
+    # v3 awareness ignore the section.
+    device_type_entries = [_export_device_type(dt) for dt in DeviceType.objects.all()]
+    stats["device_types_exported"] = len(device_type_entries)
+
     # Export manifest
     from .models import LibraryVersion
 
     current_version = LibraryVersion.objects.filter(is_current=True).first()
     manifest = {
         "version": current_version.version if current_version else "0.0.0",
-        "schema_version": current_version.schema_version if current_version else 2,
+        "schema_version": current_version.schema_version if current_version else DEFAULT_SCHEMA_VERSION,
+        "device_types": device_type_entries,
         "vendors": manifest_vendors,
     }
 
@@ -65,6 +73,18 @@ def export_to_yaml(output_dir: str | Path) -> dict:
         yaml.dump(manifest, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     return stats
+
+
+def _export_device_type(dt: DeviceType) -> dict:
+    """Export a single DeviceType row to a YAML-compatible dict."""
+    return {
+        "code": dt.code,
+        "key": str(dt.key) if dt.key else "",
+        "label": dt.label,
+        "description": dt.description or "",
+        "icon": dt.icon or "",
+        "default_field_mappings": list(dt.default_field_mappings or []),
+    }
 
 
 def _export_device(device: VendorModel) -> dict:
@@ -79,6 +99,16 @@ def _export_device(device: VendorModel) -> dict:
         "control_config": _export_control_config(device),
         "processor_config": _export_processor_config(device),
     }
+    # Schema-v3: device_type_key points into the manifest's device_types
+    # section. Old importers that ignore the field still see ``device_type``
+    # (the enum string) and resolve type metadata via that.
+    if device.device_type_fk_id and device.device_type_fk.key:
+        data["device_type_key"] = str(device.device_type_fk.key)
+
+    # Schema-v3 per-meter knob. Only emitted when set so the YAML stays
+    # tidy for the common "inherit from the type" case.
+    if device.offline_window_seconds is not None:
+        data["offline_window_seconds"] = device.offline_window_seconds
     return data
 
 
@@ -176,6 +206,8 @@ def _export_processor_config(device: VendorModel) -> dict:
             config["extra_config"] = proc.extra_config
         if proc.field_mappings:
             config["field_mappings"] = proc.field_mappings
+        if proc.extra_field_mappings:
+            config["extra_field_mappings"] = proc.extra_field_mappings
         return config
     except VendorModel.processor_config.RelatedObjectDoesNotExist:
         pass
