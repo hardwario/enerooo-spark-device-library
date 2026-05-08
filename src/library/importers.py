@@ -10,6 +10,7 @@ from .history import record_history, snapshot_device
 from .models import (
     ControlConfig,
     DeviceHistory,
+    DeviceType,
     LoRaWANConfig,
     ModbusConfig,
     ProcessorConfig,
@@ -43,6 +44,8 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
         "vendors_updated": 0,
         "devices_created": 0,
         "devices_updated": 0,
+        "device_types_created": 0,
+        "device_types_updated": 0,
         "errors": [],
     }
 
@@ -50,6 +53,17 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
         VendorModel.objects.all().delete()
         Vendor.objects.all().delete()
         logger.info("Cleared existing vendors and devices")
+
+    # Schema-v3: import top-level device_types section first so VendorModel
+    # imports below can resolve device_type_fk by key/code. Older manifests
+    # without the section just rely on the seeded defaults from the migration.
+    for dt_data in manifest.get("device_types", []) or []:
+        try:
+            _import_device_type(dt_data, stats)
+        except Exception as e:
+            error_msg = f"Error importing device_type {dt_data.get('code', '?')}: {e}"
+            stats["errors"].append(error_msg)
+            logger.error(error_msg)
 
     for vendor_entry in manifest.get("vendors", []):
         vendor_name = vendor_entry["name"]
@@ -90,10 +104,54 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
     return stats
 
 
+def _import_device_type(data: dict, stats: dict) -> DeviceType:
+    code = data.get("code", "").strip()
+    if not code:
+        raise ValueError("device_type entry is missing 'code'")
+
+    defaults = {
+        "label": data.get("label", code.replace("_", " ").title()),
+        "description": data.get("description", "") or "",
+        "icon": data.get("icon", "") or "",
+        "default_field_mappings": data.get("default_field_mappings", []) or [],
+    }
+    if data.get("key"):
+        defaults["key"] = data["key"]
+
+    obj, created = DeviceType.objects.update_or_create(code=code, defaults=defaults)
+    stats["device_types_created" if created else "device_types_updated"] += 1
+    logger.info("%s device_type %s", "Created" if created else "Updated", code)
+    return obj
+
+
+def _resolve_device_type_fk(data: dict) -> DeviceType | None:
+    """Look up the DeviceType row referenced by a VendorModel YAML entry.
+
+    Prefers ``device_type_key`` (UUID — direct identity); falls back to
+    matching the legacy ``device_type`` enum string against ``DeviceType.code``.
+    Returns ``None`` when no match is found; the FK column then stays null
+    until an operator wires it up manually.
+    """
+    key = data.get("device_type_key")
+    if key:
+        match = DeviceType.objects.filter(key=key).first()
+        if match:
+            return match
+
+    code = data.get("device_type", "").strip()
+    if code:
+        match = DeviceType.objects.filter(code=code).first()
+        if match:
+            return match
+
+    return None
+
+
 def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
     """Import a single device type from YAML data."""
     tech_config = data.get("technology_config", {})
     technology = tech_config.get("technology", "")
+    device_type_fk = _resolve_device_type_fk(data)
 
     # Check if device already exists so we can capture a pre-update snapshot
     existing = VendorModel.objects.filter(vendor=vendor, model_number=data["model_number"]).first()
@@ -105,8 +163,11 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
         defaults={
             "name": data.get("name", ""),
             "device_type": data.get("device_type", ""),
+            "device_type_fk": device_type_fk,
             "technology": technology,
             "description": data.get("description", "") or "",
+            # Per-meter knob — absent in YAML means "no per-meter override".
+            "offline_window_seconds": data.get("offline_window_seconds"),
         },
     )
 
@@ -141,6 +202,7 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
     if processor_data and (
         processor_data.get("decoder_type")
         or processor_data.get("field_mappings")
+        or processor_data.get("extra_field_mappings")
         or processor_data.get("extra_config")
     ):
         ProcessorConfig.objects.update_or_create(
@@ -149,6 +211,7 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
                 "decoder_type": processor_data.get("decoder_type", ""),
                 "extra_config": processor_data.get("extra_config", {}),
                 "field_mappings": processor_data.get("field_mappings", []),
+                "extra_field_mappings": processor_data.get("extra_field_mappings", []),
             },
         )
 

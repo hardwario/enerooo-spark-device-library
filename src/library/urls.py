@@ -14,6 +14,12 @@ urlpatterns = [
     path("vendors/create/", views.VendorCreateView.as_view(), name="vendor-create"),
     path("vendors/<slug:slug>/", views.VendorDetailView.as_view(), name="vendor-detail"),
     path("vendors/<slug:slug>/delete/", views.VendorDeleteView.as_view(), name="vendor-delete"),
+    # Device Types
+    path("device-types/", views.DeviceTypeListView.as_view(), name="devicetype-list"),
+    path("device-types/create/", views.DeviceTypeCreateView.as_view(), name="devicetype-create"),
+    path("device-types/<uuid:pk>/", views.DeviceTypeDetailView.as_view(), name="devicetype-detail"),
+    path("device-types/<uuid:pk>/edit/", views.DeviceTypeUpdateView.as_view(), name="devicetype-edit"),
+    path("device-types/<uuid:pk>/delete/", views.DeviceTypeDeleteView.as_view(), name="devicetype-delete"),
     # Models
     path("models/", views.VendorModelListView.as_view(), name="model-list"),
     path("models/create/", views.VendorModelCreateView.as_view(), name="model-create"),

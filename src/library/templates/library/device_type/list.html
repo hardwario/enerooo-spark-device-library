@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Device Types - {{ COMPANY_NAME }}{% endblock %}
+{% block content %}
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold">Device Types</h2>
+            <p class="text-sm text-gray-600 mt-1">
+                Catalogue holding the <strong>default field mappings</strong> shared across VendorModels of the same type. Per-meter knobs (offline window, controllability, overrides) live on each VendorModel.
+            </p>
+        </div>
+        {% if user.is_superuser %}
+            <a href="{% url 'library:devicetype-create' %}"
+               class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                <i class="bi bi-plus-lg mr-1"></i>Add Device Type
+            </a>
+        {% endif %}
+    </div>
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b">
+                        <th class="text-left py-3 px-2 font-semibold">Label</th>
+                        <th class="text-left py-3 px-2 font-semibold">Code</th>
+                        <th class="text-left py-3 px-2 font-semibold">Icon</th>
+                        <th class="text-right py-3 px-2 font-semibold">Mappings</th>
+                        <th class="text-right py-3 px-2 font-semibold">Models</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dt in device_types %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="py-3 px-2">
+                                <a href="{% url 'library:devicetype-detail' dt.pk %}"
+                                   class="text-blue-600 hover:text-blue-800 font-medium">{{ dt.label }}</a>
+                            </td>
+                            <td class="py-3 px-2">
+                                <code class="text-sm bg-gray-100 px-1 rounded">{{ dt.code }}</code>
+                            </td>
+                            <td class="py-3 px-2 text-gray-600">
+                                {% if dt.icon %}
+                                    <code class="text-xs bg-gray-100 px-1 rounded">{{ dt.icon }}</code>
+                                {% else %}
+                                    <span class="text-gray-300">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-2 text-right text-gray-600">{{ dt.default_field_mappings|length }}</td>
+                            <td class="py-3 px-2 text-right font-medium">{{ dt.vendor_model_count }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-3 px-2 text-gray-500">No device types yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

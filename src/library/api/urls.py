@@ -13,6 +13,7 @@ from .viewsets import (
     LibraryContentViewSet,
     LibraryVersionSyncViewSet,
     ManifestViewSet,
+    SyncDeviceTypeViewSet,
     SyncDeviceViewSet,
     SyncVendorViewSet,
     SyncViewSet,
@@ -24,6 +25,7 @@ router = DefaultRouter()
 router.register("manifest", ManifestViewSet, basename="manifest")
 router.register("vendors", SyncVendorViewSet, basename="vendor")
 router.register("devices", SyncDeviceViewSet, basename="device")
+router.register("device_types", SyncDeviceTypeViewSet, basename="device-type")
 router.register("sync", SyncViewSet, basename="sync")
 
 # Gateway bootstrap
