@@ -23,7 +23,7 @@
                         <th class="text-left py-3 px-2 font-semibold">Label</th>
                         <th class="text-left py-3 px-2 font-semibold">Code</th>
                         <th class="text-left py-3 px-2 font-semibold">Icon</th>
-                        <th class="text-right py-3 px-2 font-semibold">Mappings</th>
+                        <th class="text-right py-3 px-2 font-semibold">Metrics</th>
                         <th class="text-right py-3 px-2 font-semibold">Models</th>
                     </tr>
                 </thead>
@@ -44,7 +44,7 @@
                                     <span class="text-gray-300">—</span>
                                 {% endif %}
                             </td>
-                            <td class="py-3 px-2 text-right text-gray-600">{{ dt.default_field_mappings|length }}</td>
+                            <td class="py-3 px-2 text-right text-gray-600">{{ dt.metrics|length }}</td>
                             <td class="py-3 px-2 text-right font-medium">{{ dt.vendor_model_count }}</td>
                         </tr>
                     {% empty %}

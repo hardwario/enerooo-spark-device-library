@@ -34,11 +34,11 @@ def water_vendor_model(db, water_meter_type):
 
 
 class TestManifestEndpoint:
-    def test_schema_version_is_3(self, staff_client):
+    def test_schema_version_is_4(self, staff_client):
         response = staff_client.get("/api/v1/manifest/")
         assert response.status_code == 200
         body = response.json()
-        assert body["schema_version"] == 3
+        assert body["schema_version"] == 4
 
     def test_device_type_count_present(self, staff_client, water_meter_type):
         response = staff_client.get("/api/v1/manifest/")
@@ -60,10 +60,10 @@ class TestSyncEndpoint:
         body = response.json()
         water = next(dt for dt in body["device_types"] if dt["code"] == "water_meter")
         assert water["icon"] == "droplet"
-        # Default field mappings list carries per-type display tier + decoder
-        # mapping. Empty by default (operator populates).
-        assert "default_field_mappings" in water
-        # offline_window now lives on each VendorModel, not on the type itself
+        # L2 semantic profile lives under ``metrics``
+        assert "metrics" in water
+        # Legacy fields are gone
+        assert "default_field_mappings" not in water
         assert "default_offline_window_seconds" not in water
         assert "primary_field_names" not in water
 
@@ -111,9 +111,9 @@ class TestDeviceTypesEndpoint:
         body = response.json()
         assert body["code"] == "water_meter"
         assert body["icon"] == "droplet"
-        # Type carries the *default* mapping list; per-meter overrides live
-        # on each VendorModel via ProcessorConfig.field_mappings.
-        assert "default_field_mappings" in body
+        # L2 semantic profile (metric/tier list) is on the type
+        assert "metrics" in body
+        assert "default_field_mappings" not in body
 
 
 class TestLibraryContentEndpoint:
@@ -125,12 +125,12 @@ class TestLibraryContentEndpoint:
         from library.api.viewsets import LibraryContentViewSet
         from library.models import LibraryVersion
 
-        lv = LibraryVersion.objects.create(version=1, schema_version=3, is_current=True)
+        lv = LibraryVersion.objects.create(version=1, schema_version=4, is_current=True)
         view = LibraryContentViewSet()
         view.request = rf.get(f"/api/v1/library/content/{lv.version}/")
         response = view.retrieve(view.request, pk=str(lv.version))
 
         assert response.status_code == 200
-        assert response.data["schema_version"] == 3
+        assert response.data["schema_version"] == 4
         assert "device_types" in response.data
         assert any(dt["code"] == "water_meter" for dt in response.data["device_types"])
