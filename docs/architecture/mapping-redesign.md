@@ -7,11 +7,13 @@ Four layers, split by responsibility. L3 and L4 already exist implicitly; L1 and
 | **L1 Metric** | Global catalogue of metrics (label, unit, data_type) | Platform |
 | **L2 DeviceType profile** | Which metrics this device type tracks + tier | Per type |
 | **L3 Decoder** | Bytes → named dict | Per model (Modbus / wM-Bus / LoRaWAN) |
-| **L4 Mapping** | Decoded field → metric, optional `scale` + `offset` + `tags` | Per model |
+| **L4 Mapping** | Decoded field → target metric, optional `scale` + `offset` + `tags` | Per model |
+
+L4 entries use the key name **`target`** for the pointer at an L1 `Metric.key` — kept so existing decoders (Spark) reading `entry["target"]` keep working without code change. L2 entries use **`metric`** because they're a declaration (this type tracks this metric), not a decoder mapping.
 
 L3 emits canonical units wherever we own the decoder config (Modbus `scale`/`offset`, wmbusmeters driver). For vendor LoRaWAN codecs we pull from upstream and don't fork, L4 carries `scale` (default 1) and `offset` (default 0) for a generic linear conversion `value * scale + offset` — covers Wh→kWh, dWh→kWh, °F→°C, %→ratio without enumerating each.
 
-Model entries referencing a metric not yet in the L1 catalogue **auto-create** the row on save (tolerant pattern — operator tidies label/unit in admin afterwards). Lets vendors land custom metrics like `temp:temperature_boiler` without blocking on catalogue maintenance.
+Model entries referencing a target key not yet in the L1 catalogue **auto-create** the row on save (tolerant pattern — operator tidies label/unit in admin afterwards). Lets vendors land custom metrics like `temp:temperature_boiler` without blocking on catalogue maintenance.
 
 ---
 
@@ -64,7 +66,7 @@ register_definitions:
 
 **L4:**
 ```yaml
-- {source: energy_kwh, metric: heat:total_energy}
+- {source: energy_kwh, target: heat:total_energy}
 ```
 
 ### wM-Bus
@@ -81,8 +83,8 @@ wmbus_config:
 
 **L4:**
 ```yaml
-- {source: consumption_hca, metric: heat:total_consumption}
-- {source: target_hca,      metric: heat:consumption_at_set_date}
+- {source: consumption_hca, target: heat:total_consumption}
+- {source: target_hca,      target: heat:consumption_at_set_date}
 ```
 
 `WMBusConfig.data_record_mapping` exists as an escape hatch for manually defining DR-level decoding when wmbusmeters isn't enough — rare in practice.
@@ -99,10 +101,10 @@ function decodeUplink(input) {
 
 **L4** — `scale` compensates for the non-canonical unit (we don't fork the vendor codec):
 ```yaml
-- {source: energy_wh, metric: heat:total_energy, scale: 0.001}
+- {source: energy_wh, target: heat:total_energy, scale: 0.001}
 ```
 
-For an `°F → °C` device the same shape covers offset too: `{source: temp_f, metric: env:temperature, scale: 0.5556, offset: -17.78}`.
+For an `°F → °C` device the same shape covers offset too: `{source: temp_f, target: env:temperature, scale: 0.5556, offset: -17.78}`.
 
 ---
 
@@ -115,12 +117,12 @@ The catalogue declares each metric once; instances are distinguished by structur
 - {key: elec:voltage, label: "Voltage", unit: V, data_type: decimal}
 
 # L4 — instances via tags
-- {source: voltage_l1, metric: elec:voltage, tags: {phase: L1}}
-- {source: voltage_l2, metric: elec:voltage, tags: {phase: L2}}
-- {source: voltage_l3, metric: elec:voltage, tags: {phase: L3}}
+- {source: voltage_l1, target: elec:voltage, tags: {phase: L1}}
+- {source: voltage_l2, target: elec:voltage, tags: {phase: L2}}
+- {source: voltage_l3, target: elec:voltage, tags: {phase: L3}}
 ```
 
-Consumers query `metric=elec:voltage, tags.phase=L1`. Same pattern for multi-tariff (`tags: {tariff: T1}`), multi-zone, multi-channel HCAs.
+Consumers query `target=elec:voltage, tags.phase=L1`. Same pattern for multi-tariff (`tags: {tariff: T1}`), multi-zone, multi-channel HCAs.
 
 ---
 
@@ -129,7 +131,7 @@ Consumers query `metric=elec:voltage, tags.phase=L1`. Same pattern for multi-tar
 ```json
 {
   "source": "energy_wh",
-  "metric": "heat:total_energy",
+  "target": "heat:total_energy",
   "label": "Total Energy",
   "unit": "kWh",
   "tier": "primary",
@@ -145,7 +147,7 @@ Consumers query `metric=elec:voltage, tags.phase=L1`. Same pattern for multi-tar
 
 - Seed L1 from unique `target` values across existing mappings; manual dedup pass (today's targets are free-text — expect `total_energy` vs `Total Energy` vs `total energy`).
 - Aggregate per type → seed L2 (default `tier: secondary`, manually promote primaries).
-- Drop `unit` from L4 entries (now resolved from L1).
-- Translate any legacy `transform` strings (`wh_to_kwh`, `c_to_k`, …) into `scale`/`offset` pairs; drop type-coercion transforms (`to_float`, `identity`) — type handling moves to L1 `data_type`.
+- Drop `unit` from L4 entries (now resolved from L1). Keep `target` as the per-entry key (Spark continues to read `entry["target"]`).
+- Drop legacy `transform` strings — type-coercion (`to_float`/`identity`) moves to L1 `data_type`; unit conversion lives in `scale`/`offset` going forward.
 - Validate every L4 entry against L1 (with tolerant auto-create for vendor-specific metrics).
-- ~4–5 days. Spark and Mobile untouched (API shape stays a flat list).
+- ~4–5 days. Spark and Mobile untouched (API shape stays a flat list with the same `target` key).

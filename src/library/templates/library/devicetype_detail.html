@@ -255,7 +255,7 @@
                             <thead class="bg-gray-50 border-b text-left text-gray-500">
                                 <tr>
                                     <th class="py-1.5 px-2 font-medium">Source</th>
-                                    <th class="py-1.5 px-2 font-medium">Metric</th>
+                                    <th class="py-1.5 px-2 font-medium">Target (L1 key)</th>
                                     <th class="py-1.5 px-2 font-medium">Label</th>
                                     <th class="py-1.5 px-2 font-medium">Unit</th>
                                     <th class="py-1.5 px-2 font-medium">Tier</th>
@@ -268,7 +268,7 @@
                                 {% for entry in device.effective_field_mappings %}
                                 <tr class="border-b last:border-b-0">
                                     <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"—" }}</td>
-                                    <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.metric|default:"—" }}</td>
+                                    <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.target|default:"—" }}</td>
                                     <td class="py-1.5 px-2 text-gray-700">{{ entry.label|default:"—" }}</td>
                                     <td class="py-1.5 px-2">
                                         {% if entry.unit %}<code class="bg-gray-100 px-1 rounded">{{ entry.unit }}</code>{% else %}<span class="text-gray-300">—</span>{% endif %}

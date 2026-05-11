@@ -137,7 +137,7 @@ def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list
 
     - Concatenates ``base`` + ``extras`` (extras win on same-source collision,
       preserving the historical effective-list order).
-    - Renames ``target`` → ``metric`` per entry.
+    - Keeps per-entry ``target`` (now points at an L1 Metric.key).
     - Drops per-entry ``unit`` (resolved from L1) and ``primary`` (resolved
       from L2).
     - Drops per-entry ``transform`` — production data only carried type
@@ -153,22 +153,18 @@ def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list
 
     out: list[dict] = []
     for entry in merged:
-        # Schema-v4 entries are already in the new shape — pass through.
-        if "metric" in entry and "target" not in entry:
-            new_entry = {"source": entry.get("source"), "metric": entry["metric"]}
-        else:
-            target = entry.get("target")
-            if not target:
-                continue
-            new_entry = {"source": entry.get("source"), "metric": target}
-            Metric.objects.get_or_create(
-                key=target,
-                defaults={
-                    "label": target.split(":", 1)[-1].replace("_", " ").title(),
-                    "unit": entry.get("unit", "") or "",
-                    "data_type": "decimal",
-                },
-            )
+        target = entry.get("target") or entry.get("metric")
+        if not target:
+            continue
+        new_entry = {"source": entry.get("source"), "target": target}
+        Metric.objects.get_or_create(
+            key=target,
+            defaults={
+                "label": target.split(":", 1)[-1].replace("_", " ").title(),
+                "unit": entry.get("unit", "") or "",
+                "data_type": "decimal",
+            },
+        )
         if entry.get("scale") not in (None, 1):
             new_entry["scale"] = entry["scale"]
         if entry.get("offset") not in (None, 0):

@@ -178,7 +178,7 @@ class MetricListView(LoginRequiredMixin, ListView):
         for pc in ProcessorConfig.objects.exclude(field_mappings=[]):
             seen_in_this_model = set()
             for entry in (pc.field_mappings or []):
-                key = entry.get("metric")
+                key = entry.get("target")
                 if key and key not in seen_in_this_model:
                     seen_in_this_model.add(key)
                     model_counts[key] = model_counts.get(key, 0) + 1
@@ -205,12 +205,12 @@ class MetricListView(LoginRequiredMixin, ListView):
 
 
 def _count_metric_references(metric_key: str) -> int:
-    """Return the number of ProcessorConfig.field_mappings entries that
-    reference this metric. Used to warn the operator before delete."""
+    """Return the number of ProcessorConfig.field_mappings entries whose
+    ``target`` points at this metric. Used to warn the operator before delete."""
     count = 0
     for pc in ProcessorConfig.objects.exclude(field_mappings=[]):
         for entry in pc.field_mappings or []:
-            if entry.get("metric") == metric_key:
+            if entry.get("target") == metric_key:
                 count += 1
     return count
 

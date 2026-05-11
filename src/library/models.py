@@ -200,14 +200,18 @@ class VendorModel(TimeStampedModel):
     def effective_field_mappings(self) -> list[dict]:
         """Resolved L4 mappings annotated with metadata from L1 + L2.
 
-        Each entry carries the raw L4 fields (``source``, ``metric``,
-        optional ``transform``, optional ``tags``) plus three derived
+        Each entry carries the raw L4 fields (``source``, ``target``,
+        optional ``scale``, ``offset``, ``tags``) plus three derived
         fields the consumer needs to render without further lookups:
 
         - ``label`` (from L1 ``Metric.label``)
         - ``unit``  (from L1 ``Metric.unit``)
-        - ``tier``  (from L2 ``DeviceType.metrics[metric].tier``; entries
-          whose metric isn't declared on the type default to ``diagnostic``)
+        - ``tier``  (from L2 ``DeviceType.metrics[].tier``; entries
+          whose target isn't declared on the type default to ``diagnostic``)
+
+        ``target`` is the L4 entry's pointer at an L1 ``Metric.key`` — kept
+        named ``target`` so existing decoder/Spark code that reads
+        ``entry["target"]`` keeps working.
 
         L1/L2 lookups are batched once per call to avoid N+1.
         """
@@ -217,26 +221,27 @@ class VendorModel(TimeStampedModel):
             return []
 
         # Batch L1 lookup
-        metric_keys = {e.get("metric") for e in raw_entries if e.get("metric")}
-        metrics_by_key = {m.key: m for m in Metric.objects.filter(key__in=metric_keys)}
+        target_keys = {e.get("target") for e in raw_entries if e.get("target")}
+        metrics_by_key = {m.key: m for m in Metric.objects.filter(key__in=target_keys)}
 
-        # L2 tier resolution
-        tier_by_metric: dict[str, str] = {}
+        # L2 tier resolution — DeviceType profile entries use ``metric`` (an
+        # L2 declaration, not a decoder mapping) so we match by metric key.
+        tier_by_target: dict[str, str] = {}
         if self.device_type_fk_id:
             for entry in (self.device_type_fk.metrics or []):
                 if entry.get("metric") and entry.get("tier"):
-                    tier_by_metric[entry["metric"]] = entry["tier"]
+                    tier_by_target[entry["metric"]] = entry["tier"]
 
         result: list[dict] = []
         for entry in raw_entries:
-            metric_key = entry.get("metric")
-            m = metrics_by_key.get(metric_key)
+            target_key = entry.get("target")
+            m = metrics_by_key.get(target_key)
             annotated = {
                 "source": entry.get("source"),
-                "metric": metric_key,
-                "label": m.label if m else metric_key,
+                "target": target_key,
+                "label": m.label if m else target_key,
                 "unit": m.unit if m else "",
-                "tier": tier_by_metric.get(metric_key, "diagnostic"),
+                "tier": tier_by_target.get(target_key, "diagnostic"),
             }
             if entry.get("scale") is not None and entry["scale"] != 1:
                 annotated["scale"] = entry["scale"]
@@ -467,14 +472,15 @@ class ProcessorConfig(TimeStampedModel):
         default=list,
         blank=True,
         help_text=(
-            "L4 — list of {source, metric, scale?, offset?, tags?} entries "
+            "L4 — list of {source, target, scale?, offset?, tags?} entries "
             "mapping this model's decoded fields onto canonical L1 Metric "
-            "keys. ``scale`` (default 1) and ``offset`` (default 0) apply "
+            "keys (``target`` is the Metric.key being pointed at). "
+            "``scale`` (default 1) and ``offset`` (default 0) apply "
             "a linear conversion ``value * scale + offset`` — used when "
             "the decoder can't emit canonical units (typically vendor "
             "LoRaWAN codecs we don't fork). ``tags`` distinguishes instances "
             "of the same metric on multi-channel devices (e.g. "
-            "{phase: L1} on a 3-phase meter). Entries referencing a metric "
+            "{phase: L1} on a 3-phase meter). Entries referencing a target "
             "key not yet in the L1 catalogue auto-create the Metric row "
             "on save (operators tidy label/unit in admin afterwards)."
         ),
@@ -490,13 +496,13 @@ class ProcessorConfig(TimeStampedModel):
         admin once the metric earns its place in the catalogue.
         """
         for entry in (self.field_mappings or []):
-            metric_key = entry.get("metric")
-            if not metric_key:
+            target_key = entry.get("target")
+            if not target_key:
                 continue
             Metric.objects.get_or_create(
-                key=metric_key,
+                key=target_key,
                 defaults={
-                    "label": metric_key.split(":", 1)[-1].replace("_", " ").title(),
+                    "label": target_key.split(":", 1)[-1].replace("_", " ").title(),
                     "data_type": Metric.DataType.DECIMAL,
                 },
             )

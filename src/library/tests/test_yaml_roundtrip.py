@@ -88,8 +88,8 @@ def test_round_trip_preserves_processor_field_mappings(tmp_path, water_meter_typ
         device_type=vm,
         decoder_type="js_codec",
         field_mappings=[
-            {"source": "volume_m3", "metric": "water:total_volume"},
-            {"source": "battery_mv", "metric": "device:battery", "transform": "identity"},
+            {"source": "volume_m3", "target": "water:total_volume"},
+            {"source": "battery_mv", "target": "device:battery"},
         ],
     )
 
@@ -99,7 +99,7 @@ def test_round_trip_preserves_processor_field_mappings(tmp_path, water_meter_typ
 
     proc = ProcessorConfig.objects.get(device_type=vm)
     assert len(proc.field_mappings) == 2
-    keys = {m["metric"] for m in proc.field_mappings}
+    keys = {m["target"] for m in proc.field_mappings}
     assert keys == {"water:total_volume", "device:battery"}
 
 
@@ -175,13 +175,13 @@ def test_import_translates_legacy_processor_field_mappings(tmp_path, water_meter
     vm = VendorModel.objects.get(vendor__slug="legacy", model_number="LG-1")
     proc = ProcessorConfig.objects.get(device_type=vm)
     by_source = {m["source"]: m for m in proc.field_mappings}
-    assert by_source["volume_m3"]["metric"] == "water:total_volume"
-    assert by_source["battery_pct"]["metric"] == "device:battery"
-    # Per-entry unit / primary / target / transform are all dropped
-    # (resolved from L1 / L2 in the new model)
+    assert by_source["volume_m3"]["target"] == "water:total_volume"
+    assert by_source["battery_pct"]["target"] == "device:battery"
+    # Per-entry unit / primary / transform are all dropped
+    # (resolved from L1 / L2 in the new model). ``target`` is kept
+    # (it's the pointer at an L1 Metric.key).
     assert "unit" not in by_source["volume_m3"]
     assert "primary" not in by_source["volume_m3"]
-    assert "target" not in by_source["volume_m3"]
     assert "transform" not in by_source["volume_m3"]
 
 

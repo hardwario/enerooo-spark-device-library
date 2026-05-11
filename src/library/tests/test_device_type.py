@@ -138,14 +138,14 @@ class TestEffectiveFieldMappings:
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "energy_kwh", "metric": "heat:total_energy"},
-                {"source": "temp_c", "metric": "heat:flow_temperature"},
+                {"source": "energy_kwh", "target": "heat:total_energy"},
+                {"source": "temp_c", "target": "heat:flow_temperature"},
             ],
         )
         result = vm.effective_field_mappings
         by_source = {m["source"]: m for m in result}
 
-        assert by_source["energy_kwh"]["metric"] == "heat:total_energy"
+        assert by_source["energy_kwh"]["target"] == "heat:total_energy"
         assert by_source["energy_kwh"]["label"] == "Total Energy"
         assert by_source["energy_kwh"]["unit"] == "kWh"
         assert by_source["energy_kwh"]["tier"] == "primary"
@@ -157,7 +157,7 @@ class TestEffectiveFieldMappings:
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "rssi_dbm", "metric": "device:rssi"},
+                {"source": "rssi_dbm", "target": "device:rssi"},
             ],
         )
         result = vm.effective_field_mappings
@@ -171,7 +171,7 @@ class TestEffectiveFieldMappings:
             field_mappings=[
                 {
                     "source": "energy_wh",
-                    "metric": "heat:total_energy",
+                    "target": "heat:total_energy",
                     "scale": 0.001,
                     "tags": {"channel": "1"},
                 },
@@ -192,7 +192,7 @@ class TestEffectiveFieldMappings:
             field_mappings=[
                 {
                     "source": "temp_f",
-                    "metric": "env:temperature",
+                    "target": "env:temperature",
                     "scale": 0.5556,
                     "offset": -17.78,
                 },
@@ -207,7 +207,7 @@ class TestEffectiveFieldMappings:
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "energy_kwh", "metric": "heat:total_energy", "scale": 1, "offset": 0},
+                {"source": "energy_kwh", "target": "heat:total_energy", "scale": 1, "offset": 0},
             ],
         )
         entry = vm.effective_field_mappings[0]
@@ -215,7 +215,7 @@ class TestEffectiveFieldMappings:
         assert "scale" not in entry
         assert "offset" not in entry
 
-    def test_unknown_metric_auto_creates_l1_row(self, heat_with_profile):
+    def test_unknown_target_auto_creates_l1_row(self, heat_with_profile):
         """Tolerant pattern: a model can reference a metric not in the
         catalogue, and saving the ProcessorConfig auto-creates the L1
         Metric row with sane defaults."""
@@ -225,7 +225,7 @@ class TestEffectiveFieldMappings:
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "boiler_temp_c", "metric": "temp:temperature_boiler"},
+                {"source": "boiler_temp_c", "target": "temp:temperature_boiler"},
             ],
         )
 
@@ -243,9 +243,9 @@ class TestEffectiveFieldMappings:
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "voltage_l1", "metric": "elec:voltage", "tags": {"phase": "L1"}},
-                {"source": "voltage_l2", "metric": "elec:voltage", "tags": {"phase": "L2"}},
-                {"source": "voltage_l3", "metric": "elec:voltage", "tags": {"phase": "L3"}},
+                {"source": "voltage_l1", "target": "elec:voltage", "tags": {"phase": "L1"}},
+                {"source": "voltage_l2", "target": "elec:voltage", "tags": {"phase": "L2"}},
+                {"source": "voltage_l3", "target": "elec:voltage", "tags": {"phase": "L3"}},
             ],
         )
         result = vm.effective_field_mappings

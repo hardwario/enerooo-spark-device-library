@@ -92,9 +92,9 @@
         const rows = Array.from(rowsContainer.children);
         const data = rows.map(row => {
             const source = row.querySelector('[data-source]').value.trim();
-            const metric = row.querySelector('[data-metric]').value.trim();
-            if (!source && !metric) return null;
-            const entry = {source, metric};
+            const target = row.querySelector('[data-metric]').value.trim();
+            if (!source && !target) return null;
+            const entry = {source, target};
             const scale = parseNumber(row.querySelector('[data-scale]').value);
             if (scale !== null && scale !== 1) entry.scale = scale;
             const offset = parseNumber(row.querySelector('[data-offset]').value);
@@ -254,7 +254,7 @@
             <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
                 <div class="relative">
                     <input data-metric type="text" autocomplete="off"
-                           placeholder="select or type new key…"
+                           placeholder="select or type new metric key…"
                            class="!w-full !py-1 !pr-7 !text-sm font-mono">
                     <button type="button" data-metric-toggle
                             class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
@@ -291,7 +291,7 @@
         ['data-source', 'data-scale', 'data-offset', 'data-tags'].forEach(sel => {
             tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
         });
-        attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.metric || '');
+        attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.target || '');
 
         tr.querySelector('[data-remove]').addEventListener('click', () => {
             tr.remove();

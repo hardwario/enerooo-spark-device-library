@@ -1,16 +1,17 @@
 """Schema-v4 step 3: collapse the two ProcessorConfig mapping slots into one
-and reshape entries to ``{source, metric, scale?, offset?, tags?}``.
+and reshape entries to ``{source, target, scale?, offset?, tags?}``.
 
 - Concatenate legacy ``extra_field_mappings`` into ``field_mappings``
   (extras win on same-source collision — preserves the historical effective
   order where extras came after the base).
-- Rename per-entry ``target`` → ``metric``.
+- Keep per-entry ``target`` (now references an L1 Metric.key — Spark and
+  other consumers continue to read ``entry["target"]`` unchanged).
 - Drop per-entry ``unit`` (now resolved from the L1 Metric row).
 - Drop per-entry ``primary`` flag (tier now derived from L2 DeviceType.metrics).
 - Drop per-entry ``transform`` (production data only ever carried type-coercion
   values like ``to_float``; unit conversion is now expressed via ``scale``/``offset``).
 - Drop the ``extra_field_mappings`` column from the schema.
-- Auto-create any missing L1 Metric rows for ``metric`` values that aren't
+- Auto-create any missing L1 Metric rows for ``target`` values that aren't
   in the seeded catalogue (tolerant migration — operators tidy labels/units
   in admin afterwards).
 """
@@ -19,14 +20,15 @@ import django.db.models
 from django.db import migrations
 
 FIELD_MAPPINGS_HELP = (
-    "L4 — list of {source, metric, scale?, offset?, tags?} entries "
+    "L4 — list of {source, target, scale?, offset?, tags?} entries "
     "mapping this model's decoded fields onto canonical L1 Metric "
-    "keys. ``scale`` (default 1) and ``offset`` (default 0) apply "
+    "keys (``target`` is the Metric.key being pointed at). "
+    "``scale`` (default 1) and ``offset`` (default 0) apply "
     "a linear conversion ``value * scale + offset`` — used when "
     "the decoder can't emit canonical units (typically vendor "
     "LoRaWAN codecs we don't fork). ``tags`` distinguishes instances "
     "of the same metric on multi-channel devices (e.g. "
-    "{phase: L1} on a 3-phase meter). Entries referencing a metric "
+    "{phase: L1} on a 3-phase meter). Entries referencing a target "
     "key not yet in the L1 catalogue auto-create the Metric row "
     "on save (operators tidy label/unit in admin afterwards)."
 )
@@ -36,7 +38,7 @@ def _reshape_entry(entry: dict, Metric) -> dict:
     """Rewrite one legacy entry into the new shape.
 
     Legacy: {source, target, transform?, unit?, primary?, ...}
-    New:    {source, metric, scale?, offset?, tags?}
+    New:    {source, target, scale?, offset?, tags?}
     """
     target = entry.get("target") or entry.get("metric")
     if not target:
@@ -49,7 +51,7 @@ def _reshape_entry(entry: dict, Metric) -> dict:
             "data_type": "decimal",
         },
     )
-    new_entry = {"source": entry.get("source"), "metric": target}
+    new_entry = {"source": entry.get("source"), "target": target}
     if entry.get("scale") not in (None, 1):
         new_entry["scale"] = entry["scale"]
     if entry.get("offset") not in (None, 0):
@@ -76,23 +78,11 @@ def reshape_processor_field_mappings(apps, schema_editor):
 
 
 def revert_reshape(apps, schema_editor):
-    """Reverse: rebuild legacy {target} entries from {metric}.
-
-    We can't recover the original split between field_mappings and
-    extra_field_mappings, or the original transform strings (lossy on
-    re-derive) — everything lands back in field_mappings as plain
-    target entries.
-    """
-    ProcessorConfig = apps.get_model("library", "ProcessorConfig")
-    for pc in ProcessorConfig.objects.all():
-        rebuilt = []
-        for entry in pc.field_mappings or []:
-            rebuilt.append({
-                "source": entry.get("source"),
-                "target": entry.get("metric"),
-            })
-        pc.field_mappings = rebuilt
-        pc.save(update_fields=["field_mappings"])
+    """Reverse: shape barely changes (target stays target). The split between
+    field_mappings and extra_field_mappings and the original transform
+    strings can't be recovered lossless — everything lands back in
+    field_mappings."""
+    return
 
 
 class Migration(migrations.Migration):
