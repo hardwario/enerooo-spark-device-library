@@ -60,7 +60,7 @@
             <tbody>
                 {% for m in metrics %}
                 <tr class="border-b hover:bg-gray-50">
-                    <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ m.key }}</code></td>
+                    <td class="py-3 px-2"><a href="{% url 'library:metric-detail' m.pk %}" class="text-sm bg-gray-100 hover:bg-blue-100 hover:text-blue-700 px-1 rounded font-mono">{{ m.key }}</a></td>
                     <td class="py-3 px-2">{{ m.label }}</td>
                     <td class="py-3 px-2">
                         {% if m.unit %}

@@ -17,6 +17,7 @@ urlpatterns = [
     # Metrics (L1 catalogue)
     path("metrics/", views.MetricListView.as_view(), name="metric-list"),
     path("metrics/create/", views.MetricCreateView.as_view(), name="metric-create"),
+    path("metrics/<uuid:pk>/", views.MetricDetailView.as_view(), name="metric-detail"),
     path("metrics/<uuid:pk>/edit/", views.MetricUpdateView.as_view(), name="metric-edit"),
     path("metrics/<uuid:pk>/delete/", views.MetricDeleteView.as_view(), name="metric-delete"),
     # Device Types

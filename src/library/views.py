@@ -204,6 +204,45 @@ class MetricListView(LoginRequiredMixin, ListView):
         return ctx
 
 
+class MetricDetailView(LoginRequiredMixin, DetailView):
+    """L1 metric detail with L2 (DeviceTypes declaring it) and L4 (VendorModels
+    mapping a decoded field to it) usage breakdown."""
+
+    model = Metric
+    template_name = "library/metric_detail.html"
+    context_object_name = "metric"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        key = self.object.key
+
+        # L2 — DeviceTypes that declare this metric in their profile
+        declared_in = []
+        for dt in DeviceType.objects.all():
+            for entry in (dt.metrics or []):
+                if entry.get("metric") == key:
+                    declared_in.append({
+                        "device_type": dt,
+                        "tier": entry.get("tier") or "secondary",
+                    })
+                    break
+        ctx["declared_in"] = declared_in
+
+        # L4 — VendorModels whose ProcessorConfig.field_mappings target this metric
+        mapped_by = []
+        for pc in ProcessorConfig.objects.exclude(field_mappings=[]).select_related("device_type__vendor", "device_type__device_type_fk"):
+            matches = [e for e in (pc.field_mappings or []) if e.get("target") == key]
+            if matches:
+                mapped_by.append({
+                    "vendor_model": pc.device_type,
+                    "entries": matches,
+                })
+        mapped_by.sort(key=lambda m: (m["vendor_model"].vendor.name, m["vendor_model"].model_number))
+        ctx["mapped_by"] = mapped_by
+
+        return ctx
+
+
 def _count_metric_references(metric_key: str) -> int:
     """Return the number of ProcessorConfig.field_mappings entries whose
     ``target`` points at this metric. Used to warn the operator before delete."""
