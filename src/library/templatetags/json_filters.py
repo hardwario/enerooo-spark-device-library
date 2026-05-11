@@ -9,6 +9,22 @@ register = template.Library()
 
 
 @register.filter
+def raw_json(value):
+    """Dump a dict/list as plain indented JSON (no HTML highlighting).
+
+    Use for HTML attribute values (``data-json='{{ x|raw_json }}'``) where
+    auto-escaping turns embedded ``"`` into ``&quot;`` — JS reads via
+    ``dataset.json`` and gets the unescaped string back.
+    """
+    if not value:
+        return ""
+    try:
+        return json.dumps(value, indent=2, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
+
+
+@register.filter
 def pretty_json(value):
     """Render a dict/list as syntax-highlighted, indented JSON."""
     if not value:

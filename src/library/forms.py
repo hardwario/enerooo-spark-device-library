@@ -57,7 +57,7 @@ class FieldMappingsWidget(forms.Textarea):
             parsed = []
         else:
             parsed = value
-        return json.dumps(parsed)
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
 
     def get_context(self, name, value, attrs):
         import json
@@ -93,7 +93,7 @@ class MetricsProfileWidget(forms.Textarea):
             parsed = []
         else:
             parsed = value
-        return json.dumps(parsed)
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
 
     def get_context(self, name, value, attrs):
         import json

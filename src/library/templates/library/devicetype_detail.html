@@ -245,7 +245,7 @@
                         <h6 class="text-sm font-medium text-gray-600">Field Mappings</h6>
                         <button type="button"
                                 data-copy-json
-                                data-json='{{ processor_config.field_mappings|pretty_json }}'
+                                data-json='{{ processor_config.field_mappings|raw_json }}'
                                 class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
                             <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
                         </button>

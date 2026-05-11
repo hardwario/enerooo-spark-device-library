@@ -1,10 +1,18 @@
 {% spaceless %}
 <div class="field-mappings-editor" data-field-mappings-editor>
-    <textarea name="{{ widget.name }}"
-              data-field-mappings-input
-              style="display: none;"
-              {% if widget.attrs.required %}required{% endif %}>{{ widget.value }}</textarea>
+    <div class="flex items-center gap-1 mb-2 bg-gray-100 rounded p-0.5 w-fit text-xs">
+        <button type="button" data-view-mode="table"
+                class="px-3 py-1 rounded bg-white shadow-sm font-medium" data-active>
+            <i class="bi bi-table mr-1"></i>Table
+        </button>
+        <button type="button" data-view-mode="json"
+                class="px-3 py-1 rounded text-gray-600 hover:text-gray-900">
+            <i class="bi bi-braces mr-1"></i>JSON
+        </button>
+    </div>
+    <div data-json-error class="hidden mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700"></div>
 
+    <div data-view-table>
     <div class="border border-gray-300 rounded overflow-x-auto">
         <table class="w-full text-sm" style="min-width: 800px;">
             <thead class="bg-gray-50 border-b">
@@ -35,6 +43,21 @@
                 </tr>
             </tfoot>
         </table>
+    </div>
+    </div>
+
+    <div data-view-json class="hidden">
+        <textarea name="{{ widget.name }}"
+                  data-field-mappings-input
+                  rows="20"
+                  spellcheck="false"
+                  class="w-full text-sm font-mono p-3 border border-gray-300 rounded"
+                  style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;"
+                  {% if widget.attrs.required %}required{% endif %}>{{ widget.value }}</textarea>
+        <p class="text-xs text-gray-500 mt-1">
+            Direct JSON edit — bulk paste from another model, search/replace, etc.
+            Switch back to Table view to verify (re-render parses + validates).
+        </p>
     </div>
 
     <details class="mt-2 text-xs text-gray-500">
@@ -103,7 +126,7 @@
             if (tags && Object.keys(tags).length) entry.tags = tags;
             return entry;
         }).filter(e => e);
-        input.value = JSON.stringify(data);
+        input.value = JSON.stringify(data, null, 2);
     }
 
     // Custom dropdown combobox — wraps an <input> with a filtered list of
@@ -307,15 +330,61 @@
         }
     }
 
-    initialEntries.forEach(e => rowsContainer.appendChild(makeRow(e)));
-    ensureAtLeastOneRow();
+    function rebuildRows(entries) {
+        rowsContainer.innerHTML = '';
+        entries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+        ensureAtLeastOneRow();
+        syncToInput();
+    }
+
+    rebuildRows(initialEntries);
 
     addBtn.addEventListener('click', () => {
         rowsContainer.appendChild(makeRow());
         syncToInput();
     });
 
-    syncToInput();
+    // View mode toggle (Table ⇄ JSON)
+    const tableView = editor.querySelector('[data-view-table]');
+    const jsonView = editor.querySelector('[data-view-json]');
+    const errorEl = editor.querySelector('[data-json-error]');
+    const tableBtn = editor.querySelector('[data-view-mode="table"]');
+    const jsonBtn = editor.querySelector('[data-view-mode="json"]');
+
+    const ACTIVE_CLASS = 'px-3 py-1 rounded bg-white shadow-sm font-medium';
+    const INACTIVE_CLASS = 'px-3 py-1 rounded text-gray-600 hover:text-gray-900';
+
+    function setViewMode(mode) {
+        if (mode === 'json') {
+            syncToInput();
+            tableView.classList.add('hidden');
+            jsonView.classList.remove('hidden');
+            tableBtn.className = INACTIVE_CLASS;
+            jsonBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        } else {
+            let parsed;
+            try {
+                parsed = JSON.parse(input.value || '[]');
+                if (!Array.isArray(parsed)) {
+                    throw new Error('Expected a JSON array of entries.');
+                }
+            } catch (e) {
+                errorEl.textContent = 'JSON parse error: ' + e.message + ' — stay on JSON view, fix, then switch back.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            rebuildRows(parsed);
+            jsonView.classList.add('hidden');
+            tableView.classList.remove('hidden');
+            jsonBtn.className = INACTIVE_CLASS;
+            tableBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        }
+    }
+
+    tableBtn.addEventListener('click', () => setViewMode('table'));
+    jsonBtn.addEventListener('click', () => setViewMode('json'));
 })();
 </script>
 {% endspaceless %}
