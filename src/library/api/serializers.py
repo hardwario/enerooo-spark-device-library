@@ -10,6 +10,7 @@ from library.models import (
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
+    Metric,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -17,6 +18,14 @@ from library.models import (
     VendorModel,
     WMBusConfig,
 )
+
+
+class MetricSerializer(serializers.ModelSerializer):
+    """L1 — Catalogue entry."""
+
+    class Meta:
+        model = Metric
+        fields = ["key", "label", "unit", "data_type", "description"]
 
 
 # === Sync API serializers (read-only, nested) ===
@@ -72,7 +81,7 @@ class ControlConfigSerializer(serializers.ModelSerializer):
 class ProcessorConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "extra_config", "field_mappings", "extra_field_mappings"]
+        fields = ["decoder_type", "extra_config", "field_mappings"]
 
 
 class DeviceTechnologyConfigSerializer(serializers.Serializer):
@@ -139,7 +148,7 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
 
 
 class DeviceTypeSerializer(serializers.ModelSerializer):
-    """Schema-v3 device type metadata exposed to sync clients."""
+    """Schema-v4 — L2 semantic profile (metrics + tier per declared metric)."""
 
     class Meta:
         model = DeviceType
@@ -150,7 +159,7 @@ class DeviceTypeSerializer(serializers.ModelSerializer):
             "label",
             "description",
             "icon",
-            "default_field_mappings",
+            "metrics",
         ]
 
 
@@ -175,16 +184,16 @@ class VendorModelListSerializer(serializers.ModelSerializer):
 
 
 class VendorModelDetailSerializer(serializers.ModelSerializer):
-    """Full serializer matching the YAML schema structure.
+    """Schema-v4 full serializer.
 
-    Schema-v3 adds ``device_type_key`` (UUID pointer into the new DeviceType
-    table) alongside the legacy ``device_type`` enum string, the per-meter
-    ``offline_window_seconds`` knob, and ``processor_config`` now exposes
-    ``extra_field_mappings`` for vendor-specific extras concatenated on top
-    of the type defaults. Clients on schema_v2 keep working — they read
-    ``device_type`` — v3-aware clients prefer the explicit fields and use
-    ``effective_field_mappings`` (provided at the type → model layer they
-    resolve themselves) to pick up the merged list.
+    ``effective_field_mappings`` is the resolved L4 view: each entry carries
+    raw fields from ``ProcessorConfig.field_mappings`` (``source``, ``metric``,
+    optional ``transform`` + ``tags``) plus ``label``, ``unit``, and ``tier``
+    derived from L1 ``Metric`` and L2 ``DeviceType.metrics``. Consumers
+    render without further lookups.
+
+    ``declared_metrics`` exposes the parent type's L2 profile for coverage
+    reporting (type declares X but model doesn't produce it).
     """
 
     vendor_name = serializers.CharField(source="vendor.name", read_only=True)
@@ -193,6 +202,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
     control_config = serializers.SerializerMethodField()
     processor_config = serializers.SerializerMethodField()
     effective_field_mappings = serializers.ListField(read_only=True)
+    declared_metrics = serializers.ListField(read_only=True)
 
     class Meta:
         model = VendorModel
@@ -210,6 +220,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "control_config",
             "processor_config",
             "effective_field_mappings",
+            "declared_metrics",
         ]
 
     def get_control_config(self, obj):

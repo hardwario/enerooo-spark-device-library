@@ -9,9 +9,19 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from library.exporters import snapshot_to_schema
-from library.models import DEFAULT_SCHEMA_VERSION, APIKey, DeviceHistory, DeviceType, GatewayAssignment, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
+from library.models import (
+    DEFAULT_SCHEMA_VERSION,
+    APIKey,
+    DeviceHistory,
+    DeviceType,
+    GatewayAssignment,
+    LibraryVersion,
+    LibraryVersionDevice,
+    Vendor,
+    VendorModel,
+)
 
-from .permissions import HasAPIKey, HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
+from .permissions import HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
     DeviceTypeSerializer,
@@ -25,7 +35,6 @@ from .serializers import (
     VendorSerializer,
     VendorWithDevicesSerializer,
 )
-
 
 # === Sync API viewsets (read-only, API key auth) ===
 

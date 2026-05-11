@@ -8,11 +8,82 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from model_utils.models import TimeStampedModel
 
-
 # Wire-format version emitted in /api/v1/sync/, /api/v1/manifest/,
 # /api/v1/library/content/<v>/ and manifest.yaml exports. Bump when the
 # payload shape changes in a way clients must opt into.
-DEFAULT_SCHEMA_VERSION = 3
+DEFAULT_SCHEMA_VERSION = 4
+
+
+# Closed enum of allowed L4 ProcessorConfig.field_mappings.transform values.
+# Each is a pure unit conversion — no type coercion, no derivations. Used as
+# an escape valve for vendor decoders (typically LoRaWAN JS codecs pulled
+# from upstream) that don't emit values in the canonical unit declared on
+# the matching ``Metric`` row.
+ALLOWED_TRANSFORMS = (
+    "wh_to_kwh",
+    "mwh_to_kwh",
+    "kwh_to_mwh",
+    "percent_to_ratio",
+    "ratio_to_percent",
+    "c_to_k",
+    "k_to_c",
+    "identity",  # No-op, kept for explicit "checked, no conversion needed" cases
+)
+
+
+class Metric(TimeStampedModel):
+    """L1 — Global catalogue of canonical metrics the platform understands.
+
+    Each VendorModel field mapping points at one of these via ``metric=key``.
+    The catalogue is the single source of truth for **what** a metric is —
+    its label, canonical unit, and data type. Tier (primary / secondary /
+    diagnostic) is *not* on the metric itself; it lives on each DeviceType's
+    profile (L2), because the same metric can be primary on one device type
+    and diagnostic on another.
+
+    Key convention: ``<namespace>:<name>``. The namespace prefix is
+    **semantic**, not cosmetic — ``heat:total_energy`` (calorific, kWh) and
+    ``elec:total_energy`` (electrical, kWh) are different physical
+    quantities even though both share kWh as the unit. Cross-domain
+    prefixes (``device:``, ``radio:``) carry metrics that aren't tied to a
+    measurement domain (battery level, signal strength, firmware health).
+    """
+
+    class DataType(models.TextChoices):
+        DECIMAL = "decimal", "Decimal"
+        INTEGER = "integer", "Integer"
+        BOOLEAN = "boolean", "Boolean"
+        ENUM = "enum", "Enum"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    key = models.CharField(
+        max_length=128,
+        unique=True,
+        help_text="Namespaced canonical key, e.g. 'heat:total_energy'. Format '<namespace>:<name>'.",
+    )
+    label = models.CharField(max_length=128)
+    unit = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Canonical unit symbol, e.g. 'kWh', 'm³', 'dBm'. Empty for dimensionless metrics.",
+    )
+    data_type = models.CharField(max_length=20, choices=DataType.choices, default=DataType.DECIMAL)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.key
+
+    @property
+    def namespace(self) -> str:
+        return self.key.split(":", 1)[0] if ":" in self.key else ""
+
+    @property
+    def name(self) -> str:
+        return self.key.split(":", 1)[1] if ":" in self.key else self.key
 
 
 class Vendor(TimeStampedModel):
@@ -31,23 +102,28 @@ class Vendor(TimeStampedModel):
 
 
 class DeviceType(TimeStampedModel):
-    """A first-class device type — water_meter, gas_meter, heat_meter, …
+    """L2 — Semantic profile for a class of device (water_meter, heat_meter, …).
 
-    Carries the shared *default field mappings* that VendorModels of this
-    type inherit when their own override list is empty. A mapping entry
-    has the shape ``{source, target, transform, primary?}`` — ``primary``
-    is a per-entry boolean (default false ⇒ secondary), so display tier
-    travels with the mapping itself instead of being maintained as a
-    separate ``primary_field_names`` list.
+    Declares **which** canonical metrics (L1 ``Metric`` keys) this device
+    type tracks, and the **tier** at which each should be rendered. No
+    sources, no transforms — those are decoder concerns that live on
+    individual ``VendorModel`` rows.
 
-    Per-meter knobs that genuinely vary between instances of the same
-    type — offline window, controllability — live on ``VendorModel`` and
-    ``ControlConfig`` instead.
+    Tier semantics (consumer-side rendering intent):
+
+    - ``primary``      — shown by default on charts and overviews
+    - ``secondary``    — hidden by default, user can toggle on
+    - ``diagnostic``   — admin-only, hidden from end users
 
     Identity is the ``code`` slug (matches the historical ``DeviceCategory``
     enum values used on ``VendorModel.device_type``); ``key`` is the UUID
     used by sync clients (Spark) to refer to this row across instances.
     """
+
+    class Tier(models.TextChoices):
+        PRIMARY = "primary", "Primary"
+        SECONDARY = "secondary", "Secondary"
+        DIAGNOSTIC = "diagnostic", "Diagnostic"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     key = models.UUIDField(default=uuid.uuid4, null=True, blank=True, unique=True)
@@ -60,16 +136,14 @@ class DeviceType(TimeStampedModel):
         default="",
         help_text="Lucide icon name used by clients to render this type (e.g. 'droplet', 'zap').",
     )
-    default_field_mappings = models.JSONField(
+    metrics = models.JSONField(
         default=list,
         blank=True,
         help_text=(
-            "Default codec → canonical-metric mappings shared by every "
-            "VendorModel of this type. Each entry is "
-            "{source, target, transform, primary?} — primary defaults to false "
-            "(⇒ secondary). VendorModels can replace the whole list via "
-            "ProcessorConfig.field_mappings or extend it via "
-            "ProcessorConfig.extra_field_mappings."
+            "L2 profile — list of {metric, tier} entries declaring which "
+            "L1 Metric keys this device type tracks, and at which display "
+            "tier. Tier ∈ {primary, secondary, diagnostic}. No sources or "
+            "transforms here — those are decoder concerns on VendorModel."
         ),
     )
 
@@ -141,32 +215,63 @@ class VendorModel(TimeStampedModel):
 
     @property
     def effective_field_mappings(self) -> list[dict]:
-        """Resolve the effective list of codec→metric mappings for this model.
+        """Resolved L4 mappings annotated with metadata from L1 + L2.
 
-        ``ProcessorConfig.field_mappings`` (per-model) replaces the
-        ``DeviceType.default_field_mappings`` when non-empty, otherwise the
-        type defaults are used. ``ProcessorConfig.extra_field_mappings``
-        (vendor-specific extras) is always concatenated on top.
+        Each entry carries the raw L4 fields (``source``, ``metric``,
+        optional ``transform``, optional ``tags``) plus three derived
+        fields the consumer needs to render without further lookups:
+
+        - ``label`` (from L1 ``Metric.label``)
+        - ``unit``  (from L1 ``Metric.unit``)
+        - ``tier``  (from L2 ``DeviceType.metrics[metric].tier``; entries
+          whose metric isn't declared on the type default to ``diagnostic``)
+
+        L1/L2 lookups are batched once per call to avoid N+1.
         """
         proc = getattr(self, "processor_config", None)
-        base: list[dict] = []
-        if proc and proc.field_mappings:
-            base = list(proc.field_mappings)
-        elif self.device_type_fk_id:
-            base = list(self.device_type_fk.default_field_mappings or [])
-        if proc and proc.extra_field_mappings:
-            base.extend(proc.extra_field_mappings)
-        return base
+        raw_entries: list[dict] = list(proc.field_mappings) if (proc and proc.field_mappings) else []
+        if not raw_entries:
+            return []
+
+        # Batch L1 lookup
+        metric_keys = {e.get("metric") for e in raw_entries if e.get("metric")}
+        metrics_by_key = {m.key: m for m in Metric.objects.filter(key__in=metric_keys)}
+
+        # L2 tier resolution
+        tier_by_metric: dict[str, str] = {}
+        if self.device_type_fk_id:
+            for entry in (self.device_type_fk.metrics or []):
+                if entry.get("metric") and entry.get("tier"):
+                    tier_by_metric[entry["metric"]] = entry["tier"]
+
+        result: list[dict] = []
+        for entry in raw_entries:
+            metric_key = entry.get("metric")
+            m = metrics_by_key.get(metric_key)
+            annotated = {
+                "source": entry.get("source"),
+                "metric": metric_key,
+                "label": m.label if m else metric_key,
+                "unit": m.unit if m else "",
+                "tier": tier_by_metric.get(metric_key, "diagnostic"),
+            }
+            if entry.get("transform"):
+                annotated["transform"] = entry["transform"]
+            if entry.get("tags"):
+                annotated["tags"] = entry["tags"]
+            result.append(annotated)
+        return result
 
     @property
-    def primary_targets(self) -> list[str]:
-        """Targets from ``effective_field_mappings`` flagged as primary."""
-        return [m.get("target") for m in self.effective_field_mappings if m.get("primary")]
+    def declared_metrics(self) -> list[dict]:
+        """L2 view: which metrics this model's DeviceType declares, with tier.
 
-    @property
-    def secondary_targets(self) -> list[str]:
-        """Targets from ``effective_field_mappings`` not flagged as primary."""
-        return [m.get("target") for m in self.effective_field_mappings if not m.get("primary")]
+        Useful for coverage reporting on the API + admin (compare declared
+        vs produced).
+        """
+        if not self.device_type_fk_id:
+            return []
+        return list(self.device_type_fk.metrics or [])
 
     def save(self, *args, **kwargs):
         """Keep ``device_type`` (charfield) aligned with ``device_type_fk.code``
@@ -377,18 +482,13 @@ class ProcessorConfig(TimeStampedModel):
         default=list,
         blank=True,
         help_text=(
-            "Per-model codec → canonical-metric mappings. When non-empty this "
-            "list REPLACES the DeviceType.default_field_mappings entirely. "
-            "Leave empty to inherit the type defaults."
-        ),
-    )
-    extra_field_mappings = models.JSONField(
-        default=list,
-        blank=True,
-        help_text=(
-            "Vendor-specific extras always concatenated on top of the "
-            "effective base list (override or default). Use for telemetry "
-            "unique to this model — e.g. battery, signal strength."
+            "L4 — list of {source, metric, transform?, tags?} entries that "
+            "map this model's decoded fields onto canonical L1 Metric keys. "
+            "``transform`` is optional and comes from the closed "
+            "ALLOWED_TRANSFORMS enum — used only as an escape valve when the "
+            "decoder can't emit canonical units (typical for vendor LoRaWAN "
+            "codecs we don't fork). ``tags`` distinguishes instances of the "
+            "same metric (e.g. {phase: L1} on a 3-phase meter)."
         ),
     )
 

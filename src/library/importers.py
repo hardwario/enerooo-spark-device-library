@@ -12,6 +12,7 @@ from .models import (
     DeviceHistory,
     DeviceType,
     LoRaWANConfig,
+    Metric,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -54,9 +55,21 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
         Vendor.objects.all().delete()
         logger.info("Cleared existing vendors and devices")
 
-    # Schema-v3: import top-level device_types section first so VendorModel
-    # imports below can resolve device_type_fk by key/code. Older manifests
-    # without the section just rely on the seeded defaults from the migration.
+    # Schema-v4: import the L1 Metric catalogue first (vocabulary of metrics
+    # referenced by every L4 mapping). Then L2 device_types, then vendors +
+    # models. Older manifests (v3 / v2) just lack the metrics block; legacy
+    # ``target`` strings on entries are auto-promoted to Metric rows below
+    # (tolerant migration).
+    for m_data in manifest.get("metrics", []) or []:
+        try:
+            _import_metric(m_data)
+        except Exception as e:
+            stats["errors"].append(f"Error importing metric {m_data.get('key', '?')}: {e}")
+            logger.error("Error importing metric %s: %s", m_data.get("key"), e)
+
+    # Import top-level device_types section so VendorModel imports below can
+    # resolve device_type_fk by key/code. Older manifests without the section
+    # rely on the seeded defaults from the migration.
     for dt_data in manifest.get("device_types", []) or []:
         try:
             _import_device_type(dt_data, stats)
@@ -104,16 +117,114 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
     return stats
 
 
+def _import_metric(data: dict) -> Metric:
+    """Upsert an L1 Metric row from YAML."""
+    key = (data.get("key") or "").strip()
+    if not key:
+        raise ValueError("metric entry is missing 'key'")
+    defaults = {
+        "label": data.get("label") or key.split(":", 1)[-1].replace("_", " ").title(),
+        "unit": data.get("unit", "") or "",
+        "data_type": data.get("data_type", "decimal"),
+        "description": data.get("description", "") or "",
+    }
+    obj, _ = Metric.objects.update_or_create(key=key, defaults=defaults)
+    return obj
+
+
+def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list[dict]:
+    """Translate schema-v3 ProcessorConfig mappings into the v4 single-slot shape.
+
+    - Concatenates ``base`` + ``extras`` (extras win on same-source collision,
+      preserving the historical effective-list order).
+    - Renames ``target`` → ``metric`` per entry.
+    - Drops per-entry ``unit`` and ``primary`` (resolved from L1/L2 now).
+    - Auto-creates missing L1 Metric rows so downstream lookups don't fail.
+    """
+    if extras:
+        extra_sources = {e.get("source") for e in extras if e.get("source")}
+        merged = [m for m in base if m.get("source") not in extra_sources] + list(extras)
+    else:
+        merged = list(base)
+
+    out: list[dict] = []
+    for entry in merged:
+        # Schema-v4 entries are already in the new shape — pass through.
+        if "metric" in entry and "target" not in entry:
+            new_entry = {"source": entry.get("source"), "metric": entry["metric"]}
+        else:
+            target = entry.get("target")
+            if not target:
+                continue
+            new_entry = {"source": entry.get("source"), "metric": target}
+            Metric.objects.get_or_create(
+                key=target,
+                defaults={
+                    "label": target.split(":", 1)[-1].replace("_", " ").title(),
+                    "unit": entry.get("unit", "") or "",
+                    "data_type": "decimal",
+                },
+            )
+        if entry.get("transform"):
+            new_entry["transform"] = entry["transform"]
+        if entry.get("tags"):
+            new_entry["tags"] = entry["tags"]
+        out.append(new_entry)
+    return out
+
+
+def _convert_legacy_default_field_mappings(legacy: list[dict]) -> list[dict]:
+    """Translate schema-v3 ``default_field_mappings`` entries to v4 ``metrics``.
+
+    Old shape: ``[{source, target, transform?, primary?}]``
+    New shape: ``[{metric, tier}]``
+    Source/transform are dropped (they were decoder concerns that don't
+    belong on the type). ``primary`` flag promotes to tier=primary,
+    otherwise tier=secondary.
+    """
+    seen = set()
+    out: list[dict] = []
+    for entry in legacy or []:
+        target = entry.get("target")
+        if not target or target in seen:
+            continue
+        seen.add(target)
+        tier = "primary" if entry.get("primary") else "secondary"
+        out.append({"metric": target, "tier": tier})
+    return out
+
+
 def _import_device_type(data: dict, stats: dict) -> DeviceType:
     code = data.get("code", "").strip()
     if not code:
         raise ValueError("device_type entry is missing 'code'")
 
+    # Schema-v4 carries ``metrics`` directly; legacy v3 manifests still ship
+    # ``default_field_mappings`` and we translate on the fly.
+    if "metrics" in data:
+        metrics = data.get("metrics") or []
+    else:
+        metrics = _convert_legacy_default_field_mappings(
+            data.get("default_field_mappings") or [],
+        )
+    # Auto-create any L1 Metric rows referenced from the profile but missing
+    # from the catalogue (tolerant import; operator tidies in admin).
+    for entry in metrics:
+        metric_key = entry.get("metric")
+        if metric_key:
+            Metric.objects.get_or_create(
+                key=metric_key,
+                defaults={
+                    "label": metric_key.split(":", 1)[-1].replace("_", " ").title(),
+                    "data_type": "decimal",
+                },
+            )
+
     defaults = {
         "label": data.get("label", code.replace("_", " ").title()),
         "description": data.get("description", "") or "",
         "icon": data.get("icon", "") or "",
-        "default_field_mappings": data.get("default_field_mappings", []) or [],
+        "metrics": metrics,
     }
     if data.get("key"):
         defaults["key"] = data["key"]
@@ -197,7 +308,11 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             },
         )
 
-    # Import processor config (only if meaningful data present)
+    # Import processor config (only if meaningful data present). Schema-v3
+    # had two slots (``field_mappings`` replace + ``extra_field_mappings``
+    # additive) and each entry carried ``target`` + ``unit`` + ``primary``.
+    # Schema-v4 collapses to one slot and entries use ``metric`` (no unit,
+    # no primary). Translate both shapes here.
     processor_data = data.get("processor_config", {})
     if processor_data and (
         processor_data.get("decoder_type")
@@ -210,8 +325,10 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             defaults={
                 "decoder_type": processor_data.get("decoder_type", ""),
                 "extra_config": processor_data.get("extra_config", {}),
-                "field_mappings": processor_data.get("field_mappings", []),
-                "extra_field_mappings": processor_data.get("extra_field_mappings", []),
+                "field_mappings": _convert_legacy_field_mappings(
+                    processor_data.get("field_mappings") or [],
+                    processor_data.get("extra_field_mappings") or [],
+                ),
             },
         )
 

@@ -12,6 +12,7 @@ from .models import (
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
+    Metric,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -19,6 +20,14 @@ from .models import (
     VendorModel,
     WMBusConfig,
 )
+
+
+@admin.register(Metric)
+class MetricAdmin(admin.ModelAdmin):
+    list_display = ["key", "label", "unit", "data_type"]
+    list_filter = ["data_type"]
+    search_fields = ["key", "label"]
+    readonly_fields = ["id", "created", "modified"]
 
 
 @admin.register(DeviceType)
@@ -33,13 +42,14 @@ class DeviceTypeAdmin(admin.ModelAdmin):
         (None, {
             "fields": ["code", "label", "description", "icon"],
         }),
-        ("Default field mappings (inherited by VendorModels of this type)", {
-            "fields": ["default_field_mappings"],
+        ("Metrics profile (L2)", {
+            "fields": ["metrics"],
             "description": (
-                "Each entry: {source, target, transform, primary?}. ``primary`` "
-                "missing or false ⇒ secondary. VendorModels can replace the whole "
-                "list via ProcessorConfig.field_mappings or extend it via "
-                "ProcessorConfig.extra_field_mappings."
+                "List of {metric, tier} entries declaring which canonical "
+                "L1 Metric keys this device type tracks, and at which "
+                "display tier (primary / secondary / diagnostic). No sources "
+                "or transforms here — those are decoder concerns on each "
+                "VendorModel's ProcessorConfig.field_mappings."
             ),
         }),
         ("Identity", {
@@ -131,8 +141,10 @@ class VendorModelAdmin(admin.ModelAdmin):
             "fields": ["offline_window_seconds"],
             "description": (
                 "Override the DeviceType defaults for this specific meter. "
-                "Field mappings live on ProcessorConfig (override list "
-                "field_mappings, extras list extra_field_mappings)."
+                "Field mappings live on ProcessorConfig.field_mappings — "
+                "each entry maps a decoded ``source`` field to a canonical "
+                "L1 ``metric`` key (with optional ``transform`` for unit "
+                "conversion and ``tags`` for multi-channel disambiguation)."
             ),
         }),
         ("Identity", {
