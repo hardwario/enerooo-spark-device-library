@@ -132,6 +132,19 @@ def _import_metric(data: dict) -> Metric:
     return obj
 
 
+# Legacy schema-v3 ``transform`` strings that map cleanly to linear
+# (scale, offset) pairs. Anything else gets dropped on import.
+_LEGACY_TRANSFORM_TO_LINEAR = {
+    "wh_to_kwh": (0.001, 0),
+    "mwh_to_kwh": (1000, 0),
+    "kwh_to_mwh": (0.001, 0),
+    "percent_to_ratio": (0.01, 0),
+    "ratio_to_percent": (100, 0),
+    "c_to_k": (1, 273.15),
+    "k_to_c": (1, -273.15),
+}
+
+
 def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list[dict]:
     """Translate schema-v3 ProcessorConfig mappings into the v4 single-slot shape.
 
@@ -139,6 +152,9 @@ def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list
       preserving the historical effective-list order).
     - Renames ``target`` → ``metric`` per entry.
     - Drops per-entry ``unit`` and ``primary`` (resolved from L1/L2 now).
+    - Translates known legacy ``transform`` strings into ``scale``/``offset``
+      pairs; drops anything that isn't a clean linear conversion (type
+      coercion like ``to_float`` is no longer modeled at this layer).
     - Auto-creates missing L1 Metric rows so downstream lookups don't fail.
     """
     if extras:
@@ -165,8 +181,19 @@ def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list
                     "data_type": "decimal",
                 },
             )
-        if entry.get("transform"):
-            new_entry["transform"] = entry["transform"]
+
+        legacy_transform = entry.get("transform")
+        if legacy_transform in _LEGACY_TRANSFORM_TO_LINEAR:
+            scale, offset = _LEGACY_TRANSFORM_TO_LINEAR[legacy_transform]
+            if scale != 1:
+                new_entry["scale"] = scale
+            if offset != 0:
+                new_entry["offset"] = offset
+
+        if entry.get("scale") not in (None, 1):
+            new_entry["scale"] = entry["scale"]
+        if entry.get("offset") not in (None, 0):
+            new_entry["offset"] = entry["offset"]
         if entry.get("tags"):
             new_entry["tags"] = entry["tags"]
         out.append(new_entry)

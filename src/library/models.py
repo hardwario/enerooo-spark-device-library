@@ -14,23 +14,6 @@ from model_utils.models import TimeStampedModel
 DEFAULT_SCHEMA_VERSION = 4
 
 
-# Closed enum of allowed L4 ProcessorConfig.field_mappings.transform values.
-# Each is a pure unit conversion — no type coercion, no derivations. Used as
-# an escape valve for vendor decoders (typically LoRaWAN JS codecs pulled
-# from upstream) that don't emit values in the canonical unit declared on
-# the matching ``Metric`` row.
-ALLOWED_TRANSFORMS = (
-    "wh_to_kwh",
-    "mwh_to_kwh",
-    "kwh_to_mwh",
-    "percent_to_ratio",
-    "ratio_to_percent",
-    "c_to_k",
-    "k_to_c",
-    "identity",  # No-op, kept for explicit "checked, no conversion needed" cases
-)
-
-
 class Metric(TimeStampedModel):
     """L1 — Global catalogue of canonical metrics the platform understands.
 
@@ -255,8 +238,10 @@ class VendorModel(TimeStampedModel):
                 "unit": m.unit if m else "",
                 "tier": tier_by_metric.get(metric_key, "diagnostic"),
             }
-            if entry.get("transform"):
-                annotated["transform"] = entry["transform"]
+            if entry.get("scale") is not None and entry["scale"] != 1:
+                annotated["scale"] = entry["scale"]
+            if entry.get("offset") is not None and entry["offset"] != 0:
+                annotated["offset"] = entry["offset"]
             if entry.get("tags"):
                 annotated["tags"] = entry["tags"]
             result.append(annotated)
@@ -482,15 +467,40 @@ class ProcessorConfig(TimeStampedModel):
         default=list,
         blank=True,
         help_text=(
-            "L4 — list of {source, metric, transform?, tags?} entries that "
-            "map this model's decoded fields onto canonical L1 Metric keys. "
-            "``transform`` is optional and comes from the closed "
-            "ALLOWED_TRANSFORMS enum — used only as an escape valve when the "
-            "decoder can't emit canonical units (typical for vendor LoRaWAN "
-            "codecs we don't fork). ``tags`` distinguishes instances of the "
-            "same metric (e.g. {phase: L1} on a 3-phase meter)."
+            "L4 — list of {source, metric, scale?, offset?, tags?} entries "
+            "mapping this model's decoded fields onto canonical L1 Metric "
+            "keys. ``scale`` (default 1) and ``offset`` (default 0) apply "
+            "a linear conversion ``value * scale + offset`` — used when "
+            "the decoder can't emit canonical units (typically vendor "
+            "LoRaWAN codecs we don't fork). ``tags`` distinguishes instances "
+            "of the same metric on multi-channel devices (e.g. "
+            "{phase: L1} on a 3-phase meter). Entries referencing a metric "
+            "key not yet in the L1 catalogue auto-create the Metric row "
+            "on save (operators tidy label/unit in admin afterwards)."
         ),
     )
+
+    def save(self, *args, **kwargs):
+        """Auto-create any missing L1 Metric rows referenced by entries.
+
+        Tolerant pattern: a VendorModel can declare a metric the catalogue
+        doesn't know yet (e.g. ``temp:temperature_boiler`` for a custom
+        installation). We create a minimal Metric row so downstream lookups
+        don't fail; the operator dials in label/unit/data_type later in the
+        admin once the metric earns its place in the catalogue.
+        """
+        for entry in (self.field_mappings or []):
+            metric_key = entry.get("metric")
+            if not metric_key:
+                continue
+            Metric.objects.get_or_create(
+                key=metric_key,
+                defaults={
+                    "label": metric_key.split(":", 1)[-1].replace("_", " ").title(),
+                    "data_type": Metric.DataType.DECIMAL,
+                },
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"ProcessorConfig for {self.device_type}"

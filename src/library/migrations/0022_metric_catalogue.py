@@ -43,15 +43,17 @@ SEED_METRICS = [
     ("env:humidity",                 "Humidity",                "%",       "decimal"),
     ("env:pressure",                 "Pressure",                "hPa",     "decimal"),
     ("env:co2",                      "CO₂",                     "ppm",     "decimal"),
-    # Cross-domain — device health
+    # Cross-domain — device health + radio (all under device:* — we don't
+    # fragment the namespace per technology; RSSI / SNR are device telemetry
+    # for any wireless device, just like battery is universal).
     ("device:battery",               "Battery",                 "ratio",   "decimal"),
     ("device:battery_voltage",       "Battery Voltage",         "V",       "decimal"),
     ("device:firmware_version",      "Firmware Version",        "",        "enum"),
     ("device:uptime",                "Uptime",                  "s",       "integer"),
-    # Cross-domain — radio
-    ("radio:rssi",                   "Signal Strength",         "dBm",     "integer"),
-    ("radio:snr",                    "Signal-to-Noise Ratio",   "dB",      "decimal"),
-    ("radio:spreading_factor",       "Spreading Factor",        "",        "integer"),
+    ("device:status",                "Status",                  "",        "enum"),
+    ("device:rssi",                  "Signal Strength",         "dBm",     "integer"),
+    ("device:snr",                   "Signal-to-Noise Ratio",   "dB",      "decimal"),
+    ("device:spreading_factor",      "Spreading Factor",        "",        "integer"),
 ]
 
 

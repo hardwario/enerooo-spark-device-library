@@ -62,7 +62,8 @@ class TestMetricCatalogue:
         assert Metric.objects.filter(key="heat:total_energy").exists()
         assert Metric.objects.filter(key="water:total_volume").exists()
         assert Metric.objects.filter(key="device:battery").exists()
-        assert Metric.objects.filter(key="radio:rssi").exists()
+        assert Metric.objects.filter(key="device:rssi").exists()
+        assert Metric.objects.filter(key="device:status").exists()
 
     def test_namespace_and_name_split(self):
         m = Metric.objects.get(key="heat:total_energy")
@@ -72,7 +73,7 @@ class TestMetricCatalogue:
     def test_unit_for_seeded_metrics(self):
         assert Metric.objects.get(key="heat:total_energy").unit == "kWh"
         assert Metric.objects.get(key="water:total_volume").unit == "m³"
-        assert Metric.objects.get(key="radio:rssi").unit == "dBm"
+        assert Metric.objects.get(key="device:rssi").unit == "dBm"
 
 
 class TestDeviceTypeProfile:
@@ -156,14 +157,14 @@ class TestEffectiveFieldMappings:
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "rssi_dbm", "metric": "radio:rssi"},
+                {"source": "rssi_dbm", "metric": "device:rssi"},
             ],
         )
         result = vm.effective_field_mappings
         assert result[0]["tier"] == "diagnostic"
         assert result[0]["unit"] == "dBm"
 
-    def test_transform_and_tags_passed_through(self, heat_with_profile):
+    def test_scale_offset_and_tags_passed_through(self, heat_with_profile):
         vm = self._make_model(heat_with_profile, vendor_slug="trans", vendor_name="Trans")
         ProcessorConfig.objects.create(
             device_type=vm,
@@ -171,14 +172,68 @@ class TestEffectiveFieldMappings:
                 {
                     "source": "energy_wh",
                     "metric": "heat:total_energy",
-                    "transform": "wh_to_kwh",
+                    "scale": 0.001,
                     "tags": {"channel": "1"},
                 },
             ],
         )
         entry = vm.effective_field_mappings[0]
-        assert entry["transform"] == "wh_to_kwh"
+        assert entry["scale"] == 0.001
+        assert "offset" not in entry  # default 0 — omitted
         assert entry["tags"] == {"channel": "1"}
+
+    def test_scale_and_offset_for_temperature_conversion(self, heat_meter_type):
+        # °F → °C: value * (5/9) - 17.78
+        heat_meter_type.metrics = [{"metric": "env:temperature", "tier": "secondary"}]
+        heat_meter_type.save(update_fields=["metrics"])
+        vm = self._make_model(heat_meter_type, vendor_slug="ftoc", vendor_name="FtoC")
+        ProcessorConfig.objects.create(
+            device_type=vm,
+            field_mappings=[
+                {
+                    "source": "temp_f",
+                    "metric": "env:temperature",
+                    "scale": 0.5556,
+                    "offset": -17.78,
+                },
+            ],
+        )
+        entry = vm.effective_field_mappings[0]
+        assert entry["scale"] == 0.5556
+        assert entry["offset"] == -17.78
+
+    def test_default_scale_and_offset_omitted_from_output(self, heat_with_profile):
+        vm = self._make_model(heat_with_profile, vendor_slug="def", vendor_name="Def")
+        ProcessorConfig.objects.create(
+            device_type=vm,
+            field_mappings=[
+                {"source": "energy_kwh", "metric": "heat:total_energy", "scale": 1, "offset": 0},
+            ],
+        )
+        entry = vm.effective_field_mappings[0]
+        # Default (scale=1, offset=0) → no-op, omitted from rendered output
+        assert "scale" not in entry
+        assert "offset" not in entry
+
+    def test_unknown_metric_auto_creates_l1_row(self, heat_with_profile):
+        """Tolerant pattern: a model can reference a metric not in the
+        catalogue, and saving the ProcessorConfig auto-creates the L1
+        Metric row with sane defaults."""
+        assert not Metric.objects.filter(key="temp:temperature_boiler").exists()
+
+        vm = self._make_model(heat_with_profile, vendor_slug="boiler", vendor_name="Boiler")
+        ProcessorConfig.objects.create(
+            device_type=vm,
+            field_mappings=[
+                {"source": "boiler_temp_c", "metric": "temp:temperature_boiler"},
+            ],
+        )
+
+        m = Metric.objects.get(key="temp:temperature_boiler")
+        assert m.label == "Temperature Boiler"
+        assert m.data_type == "decimal"
+        # Unit defaults to empty — operator dials it in via admin afterwards
+        assert m.unit == ""
 
     def test_multi_channel_via_tags(self, heat_meter_type):
         # 3-phase voltage modeled via tags, one entry per phase

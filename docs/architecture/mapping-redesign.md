@@ -7,9 +7,11 @@ Four layers, split by responsibility. L3 and L4 already exist implicitly; L1 and
 | **L1 Metric** | Global catalogue of metrics (label, unit, data_type) | Platform |
 | **L2 DeviceType profile** | Which metrics this device type tracks + tier | Per type |
 | **L3 Decoder** | Bytes → named dict | Per model (Modbus / wM-Bus / LoRaWAN) |
-| **L4 Mapping** | Decoded field → metric, optional `transform` + `tags` | Per model |
+| **L4 Mapping** | Decoded field → metric, optional `scale` + `offset` + `tags` | Per model |
 
-L3 emits canonical units wherever we own the decoder config (Modbus `scale`, wmbusmeters driver). For vendor LoRaWAN codecs pulled from upstream we don't fork, L4 carries a `transform` from a closed enum (`wh_to_kwh`, `mwh_to_kwh`, `percent_to_ratio`, `c_to_k`, …) as an escape valve.
+L3 emits canonical units wherever we own the decoder config (Modbus `scale`/`offset`, wmbusmeters driver). For vendor LoRaWAN codecs we pull from upstream and don't fork, L4 carries `scale` (default 1) and `offset` (default 0) for a generic linear conversion `value * scale + offset` — covers Wh→kWh, dWh→kWh, °F→°C, %→ratio without enumerating each.
+
+Model entries referencing a metric not yet in the L1 catalogue **auto-create** the row on save (tolerant pattern — operator tidies label/unit in admin afterwards). Lets vendors land custom metrics like `temp:temperature_boiler` without blocking on catalogue maintenance.
 
 ---
 
@@ -21,10 +23,11 @@ L3 emits canonical units wherever we own the decoder config (Modbus `scale`, wmb
 - {key: elec:voltage,       label: "Voltage",       unit: V,     data_type: decimal}
 - {key: elec:current,       label: "Current",       unit: A,     data_type: decimal}
 - {key: device:battery,     label: "Battery",       unit: ratio, data_type: decimal}
-- {key: radio:rssi,         label: "Signal",        unit: dBm,   data_type: integer}
+- {key: device:rssi,        label: "Signal",        unit: dBm,   data_type: integer}
+- {key: device:status,      label: "Status",        unit: "",    data_type: enum}
 ```
 
-The `key` namespace prefix is semantic: `heat:total_energy` (calorific) ≠ `elec:total_energy` (electrical), same unit but different physical quantity. Cross-domain prefixes (`device:`, `radio:`) carry metrics not tied to a measurement domain.
+The `key` namespace prefix is semantic: `heat:total_energy` (calorific) ≠ `elec:total_energy` (electrical), same unit but different physical quantity. The `device:` namespace covers cross-domain health telemetry (battery, RSSI, firmware, status) regardless of underlying technology — no separate `radio:*` namespace to avoid fragmenting.
 
 ---
 
@@ -38,7 +41,7 @@ metrics:
   - {metric: heat:flow_temp,    tier: secondary}
   - {metric: heat:return_temp,  tier: secondary}
   - {metric: device:battery,    tier: diagnostic}
-  - {metric: radio:rssi,        tier: diagnostic}
+  - {metric: device:rssi,       tier: diagnostic}
 ```
 
 Three exclusive tiers (consumer-side UX intent):
@@ -88,10 +91,12 @@ function decodeUplink(input) {
 ```
 → `{energy_wh: 123400}`
 
-**L4:**
+**L4** — `scale` compensates for the non-canonical unit (we don't fork the vendor codec):
 ```yaml
-- {source: energy_wh, metric: heat:total_energy, transform: wh_to_kwh}
+- {source: energy_wh, metric: heat:total_energy, scale: 0.001}
 ```
+
+For an `°F → °C` device the same shape covers offset too: `{source: temp_f, metric: env:temperature, scale: 0.5556, offset: -17.78}`.
 
 ---
 
@@ -122,12 +127,11 @@ Consumers query `metric=elec:voltage, tags.phase=L1`. Same pattern for multi-tar
   "label": "Total Energy",
   "unit": "kWh",
   "tier": "primary",
-  "transform": "wh_to_kwh",
-  "tags": {}
+  "scale": 0.001
 }
 ```
 
-`label`, `unit`, `tier` resolved from L1+L2 (not stored per entry). `transform` and `tags` come from L4.
+`label`, `unit`, `tier` resolved from L1+L2 (not stored per entry). `scale`, `offset`, `tags` come from L4 and are emitted only when non-default (scale ≠ 1, offset ≠ 0, tags non-empty).
 
 ---
 
@@ -136,6 +140,6 @@ Consumers query `metric=elec:voltage, tags.phase=L1`. Same pattern for multi-tar
 - Seed L1 from unique `target` values across existing mappings; manual dedup pass (today's targets are free-text — expect `total_energy` vs `Total Energy` vs `total energy`).
 - Aggregate per type → seed L2 (default `tier: secondary`, manually promote primaries).
 - Drop `unit` from L4 entries (now resolved from L1).
-- Validate every L4 entry against L1.
-- Define `transform` enum.
+- Translate any legacy `transform` strings (`wh_to_kwh`, `c_to_k`, …) into `scale`/`offset` pairs; drop type-coercion transforms (`to_float`, `identity`) — type handling moves to L1 `data_type`.
+- Validate every L4 entry against L1 (with tolerant auto-create for vendor-specific metrics).
 - ~4–5 days. Spark and Mobile untouched (API shape stays a flat list).

@@ -17,21 +17,39 @@ import django.db.models
 from django.db import migrations
 
 FIELD_MAPPINGS_HELP = (
-    "L4 — list of {source, metric, transform?, tags?} entries that "
-    "map this model's decoded fields onto canonical L1 Metric keys. "
-    "``transform`` is optional and comes from the closed "
-    "ALLOWED_TRANSFORMS enum — used only as an escape valve when the "
-    "decoder can't emit canonical units (typical for vendor LoRaWAN "
-    "codecs we don't fork). ``tags`` distinguishes instances of the "
-    "same metric (e.g. {phase: L1} on a 3-phase meter)."
+    "L4 — list of {source, metric, scale?, offset?, tags?} entries "
+    "mapping this model's decoded fields onto canonical L1 Metric "
+    "keys. ``scale`` (default 1) and ``offset`` (default 0) apply "
+    "a linear conversion ``value * scale + offset`` — used when "
+    "the decoder can't emit canonical units (typically vendor "
+    "LoRaWAN codecs we don't fork). ``tags`` distinguishes instances "
+    "of the same metric on multi-channel devices (e.g. "
+    "{phase: L1} on a 3-phase meter). Entries referencing a metric "
+    "key not yet in the L1 catalogue auto-create the Metric row "
+    "on save (operators tidy label/unit in admin afterwards)."
 )
+
+
+# Legacy schema-v3 ``transform`` strings that map cleanly to linear
+# (scale, offset) pairs. Anything else (``to_float``, ``identity``,
+# unknown names) gets dropped on reshape — type coercion isn't part of
+# the new model, and Spark already does numeric coercion downstream.
+LEGACY_TRANSFORM_TO_LINEAR = {
+    "wh_to_kwh": (0.001, 0),
+    "mwh_to_kwh": (1000, 0),
+    "kwh_to_mwh": (0.001, 0),
+    "percent_to_ratio": (0.01, 0),
+    "ratio_to_percent": (100, 0),
+    "c_to_k": (1, 273.15),
+    "k_to_c": (1, -273.15),
+}
 
 
 def _reshape_entry(entry: dict, Metric) -> dict:
     """Rewrite one legacy entry into the new shape.
 
     Legacy: {source, target, transform?, unit?, primary?, ...}
-    New:    {source, metric, transform?, tags?}
+    New:    {source, metric, scale?, offset?, tags?}
     """
     target = entry.get("target") or entry.get("metric")
     if not target:
@@ -45,8 +63,21 @@ def _reshape_entry(entry: dict, Metric) -> dict:
         },
     )
     new_entry = {"source": entry.get("source"), "metric": target}
-    if entry.get("transform"):
-        new_entry["transform"] = entry["transform"]
+
+    legacy_transform = entry.get("transform")
+    if legacy_transform in LEGACY_TRANSFORM_TO_LINEAR:
+        scale, offset = LEGACY_TRANSFORM_TO_LINEAR[legacy_transform]
+        if scale != 1:
+            new_entry["scale"] = scale
+        if offset != 0:
+            new_entry["offset"] = offset
+    # Any other legacy transform value (e.g. ``to_float``, ``identity``) is
+    # silently dropped — type coercion isn't part of the new model.
+
+    if entry.get("scale") not in (None, 1):
+        new_entry["scale"] = entry["scale"]
+    if entry.get("offset") not in (None, 0):
+        new_entry["offset"] = entry["offset"]
     if entry.get("tags"):
         new_entry["tags"] = entry["tags"]
     return new_entry
@@ -69,10 +100,12 @@ def reshape_processor_field_mappings(apps, schema_editor):
 
 
 def revert_reshape(apps, schema_editor):
-    """Reverse: rebuild legacy {target, primary?} entries from {metric}.
+    """Reverse: rebuild legacy {target} entries from {metric}.
 
     We can't recover the original split between field_mappings and
-    extra_field_mappings — everything lands back in field_mappings.
+    extra_field_mappings, or the original transform strings (lossy on
+    re-derive) — everything lands back in field_mappings as plain
+    target entries.
     """
     ProcessorConfig = apps.get_model("library", "ProcessorConfig")
     for pc in ProcessorConfig.objects.all():
@@ -81,7 +114,6 @@ def revert_reshape(apps, schema_editor):
             rebuilt.append({
                 "source": entry.get("source"),
                 "target": entry.get("metric"),
-                **({"transform": entry["transform"]} if entry.get("transform") else {}),
             })
         pc.field_mappings = rebuilt
         pc.save(update_fields=["field_mappings"])
