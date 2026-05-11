@@ -1,5 +1,5 @@
 """Schema-v4 step 3: collapse the two ProcessorConfig mapping slots into one
-and reshape entries to ``{source, metric, transform?, tags?}``.
+and reshape entries to ``{source, metric, scale?, offset?, tags?}``.
 
 - Concatenate legacy ``extra_field_mappings`` into ``field_mappings``
   (extras win on same-source collision — preserves the historical effective
@@ -7,6 +7,8 @@ and reshape entries to ``{source, metric, transform?, tags?}``.
 - Rename per-entry ``target`` → ``metric``.
 - Drop per-entry ``unit`` (now resolved from the L1 Metric row).
 - Drop per-entry ``primary`` flag (tier now derived from L2 DeviceType.metrics).
+- Drop per-entry ``transform`` (production data only ever carried type-coercion
+  values like ``to_float``; unit conversion is now expressed via ``scale``/``offset``).
 - Drop the ``extra_field_mappings`` column from the schema.
 - Auto-create any missing L1 Metric rows for ``metric`` values that aren't
   in the seeded catalogue (tolerant migration — operators tidy labels/units
@@ -30,21 +32,6 @@ FIELD_MAPPINGS_HELP = (
 )
 
 
-# Legacy schema-v3 ``transform`` strings that map cleanly to linear
-# (scale, offset) pairs. Anything else (``to_float``, ``identity``,
-# unknown names) gets dropped on reshape — type coercion isn't part of
-# the new model, and Spark already does numeric coercion downstream.
-LEGACY_TRANSFORM_TO_LINEAR = {
-    "wh_to_kwh": (0.001, 0),
-    "mwh_to_kwh": (1000, 0),
-    "kwh_to_mwh": (0.001, 0),
-    "percent_to_ratio": (0.01, 0),
-    "ratio_to_percent": (100, 0),
-    "c_to_k": (1, 273.15),
-    "k_to_c": (1, -273.15),
-}
-
-
 def _reshape_entry(entry: dict, Metric) -> dict:
     """Rewrite one legacy entry into the new shape.
 
@@ -63,17 +50,6 @@ def _reshape_entry(entry: dict, Metric) -> dict:
         },
     )
     new_entry = {"source": entry.get("source"), "metric": target}
-
-    legacy_transform = entry.get("transform")
-    if legacy_transform in LEGACY_TRANSFORM_TO_LINEAR:
-        scale, offset = LEGACY_TRANSFORM_TO_LINEAR[legacy_transform]
-        if scale != 1:
-            new_entry["scale"] = scale
-        if offset != 0:
-            new_entry["offset"] = offset
-    # Any other legacy transform value (e.g. ``to_float``, ``identity``) is
-    # silently dropped — type coercion isn't part of the new model.
-
     if entry.get("scale") not in (None, 1):
         new_entry["scale"] = entry["scale"]
     if entry.get("offset") not in (None, 0):

@@ -138,8 +138,7 @@ def test_import_translates_legacy_default_field_mappings(tmp_path, heat_meter_ty
 
 def test_import_translates_legacy_processor_field_mappings(tmp_path, water_meter_type):
     """Schema-v3 had two slots and entries used ``target``/``unit``/``primary``/``transform``.
-    Schema-v4 importer collapses + renames + drops the obsolete fields,
-    translating any known legacy transform into scale/offset."""
+    Schema-v4 importer collapses + renames + drops the obsolete fields."""
     vendor_yaml = {
         "models": [
             {
@@ -152,8 +151,7 @@ def test_import_translates_legacy_processor_field_mappings(tmp_path, water_meter
                 "processor_config": {
                     "decoder_type": "js_codec",
                     "field_mappings": [
-                        {"source": "volume_m3", "target": "water:total_volume", "unit": "m³", "primary": True},
-                        {"source": "energy_wh", "target": "heat:total_energy", "transform": "wh_to_kwh"},
+                        {"source": "volume_m3", "target": "water:total_volume", "unit": "m³", "primary": True, "transform": "to_float"},
                     ],
                     "extra_field_mappings": [
                         {"source": "battery_pct", "target": "device:battery", "unit": "ratio"},
@@ -179,13 +177,12 @@ def test_import_translates_legacy_processor_field_mappings(tmp_path, water_meter
     by_source = {m["source"]: m for m in proc.field_mappings}
     assert by_source["volume_m3"]["metric"] == "water:total_volume"
     assert by_source["battery_pct"]["metric"] == "device:battery"
-    # Per-entry unit + primary should be dropped (now lives in L1 / L2)
+    # Per-entry unit / primary / target / transform are all dropped
+    # (resolved from L1 / L2 in the new model)
     assert "unit" not in by_source["volume_m3"]
     assert "primary" not in by_source["volume_m3"]
     assert "target" not in by_source["volume_m3"]
-    # ``wh_to_kwh`` legacy transform was translated to scale=0.001
-    assert by_source["energy_wh"]["scale"] == 0.001
-    assert "transform" not in by_source["energy_wh"]
+    assert "transform" not in by_source["volume_m3"]
 
 
 def test_import_resolves_device_type_fk_by_key(tmp_path, water_meter_type):
