@@ -11,7 +11,7 @@
             <code class="text-sm bg-gray-100 px-2 py-1 rounded mt-1 inline-block">{{ device_type.code }}</code>
             {% if device_type.description %}<p class="text-sm text-gray-600 mt-2">{{ device_type.description }}</p>{% endif %}
         </div>
-        {% if user.is_superuser %}
+        {% if user.is_admin_role %}
             <div class="flex gap-2">
                 <a href="{% url 'library:devicetype-edit' device_type.pk %}"
                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium"><i class="bi bi-pencil mr-1"></i>Edit</a>

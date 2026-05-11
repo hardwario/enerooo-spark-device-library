@@ -8,7 +8,7 @@
                 Catalogue holding the <strong>default field mappings</strong> shared across VendorModels of the same type. Per-meter knobs (offline window, controllability, overrides) live on each VendorModel.
             </p>
         </div>
-        {% if user.is_superuser %}
+        {% if user.is_admin_role %}
             <a href="{% url 'library:devicetype-create' %}"
                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
                 <i class="bi bi-plus-lg mr-1"></i>Add Device Type

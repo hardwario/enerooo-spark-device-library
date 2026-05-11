@@ -15,10 +15,22 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, T
 from auditlog.helpers import log_action
 from auditlog.models import AuditLog
 from core.models import User
-from core.permissions import RoleRequiredMixin, SuperuserRequiredMixin
+from core.permissions import RoleRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
-from .forms import APIKeyForm, ControlConfigForm, DeviceTypeForm, LoRaWANConfigForm, ModbusConfigForm, ProcessorConfigForm, RegisterDefinitionForm, VendorForm, VendorModelForm, WMBusConfigForm, YAMLImportForm
+from .forms import (
+    APIKeyForm,
+    ControlConfigForm,
+    DeviceTypeForm,
+    LoRaWANConfigForm,
+    ModbusConfigForm,
+    ProcessorConfigForm,
+    RegisterDefinitionForm,
+    VendorForm,
+    VendorModelForm,
+    WMBusConfigForm,
+    YAMLImportForm,
+)
 from .history import diff_snapshots, record_history, snapshot_device
 from .importers import import_from_yaml
 from .models import (
@@ -37,7 +49,6 @@ from .models import (
     VendorModel,
     WMBusConfig,
 )
-
 
 # === Dashboard ===
 
@@ -85,7 +96,8 @@ class VendorListView(LoginRequiredMixin, ListView):
         return qs.order_by(order)
 
 
-class VendorCreateView(LoginRequiredMixin, CreateView):
+class VendorCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.EDITOR
     model = Vendor
     form_class = VendorForm
     template_name = "library/vendor_form.html"
@@ -99,7 +111,9 @@ class VendorCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug})
 
 
-class VendorDeleteView(LoginRequiredMixin, View):
+class VendorDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.EDITOR
+
     def post(self, request, slug):
         vendor = get_object_or_404(Vendor, slug=slug)
         if vendor.device_types.exists():
@@ -152,7 +166,8 @@ class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class DeviceTypeCreateView(SuperuserRequiredMixin, CreateView):
+class DeviceTypeCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.ADMIN
     model = DeviceType
     form_class = DeviceTypeForm
     template_name = "library/device_type/form.html"
@@ -166,7 +181,8 @@ class DeviceTypeCreateView(SuperuserRequiredMixin, CreateView):
         return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
 
 
-class DeviceTypeUpdateView(SuperuserRequiredMixin, UpdateView):
+class DeviceTypeUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.ADMIN
     model = DeviceType
     form_class = DeviceTypeForm
     template_name = "library/device_type/form.html"
@@ -180,7 +196,9 @@ class DeviceTypeUpdateView(SuperuserRequiredMixin, UpdateView):
         return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
 
 
-class DeviceTypeDeleteView(SuperuserRequiredMixin, View):
+class DeviceTypeDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
     def post(self, request, pk):
         dt = get_object_or_404(DeviceType, pk=pk)
         if dt.vendor_models.exists():
@@ -307,7 +325,8 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class VendorModelCreateView(LoginRequiredMixin, CreateView):
+class VendorModelCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.EDITOR
     model = VendorModel
     form_class = VendorModelForm
     template_name = "library/devicetype_form.html"
@@ -322,7 +341,8 @@ class VendorModelCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
-class VendorModelUpdateView(LoginRequiredMixin, UpdateView):
+class VendorModelUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = VendorModel
     form_class = VendorModelForm
     template_name = "library/devicetype_form.html"
@@ -342,7 +362,9 @@ class VendorModelUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
-class VendorModelDeleteView(LoginRequiredMixin, View):
+class VendorModelDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.EDITOR
+
     def post(self, request, pk):
         device = get_object_or_404(VendorModel, pk=pk)
         name = f"{device.vendor.name} {device.model_number}"
@@ -356,7 +378,8 @@ class VendorModelDeleteView(LoginRequiredMixin, View):
 # === Modbus Config ===
 
 
-class ModbusConfigUpdateView(LoginRequiredMixin, UpdateView):
+class ModbusConfigUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = ModbusConfig
     form_class = ModbusConfigForm
     template_name = "library/modbus_config_form.html"
@@ -388,7 +411,8 @@ class ModbusConfigUpdateView(LoginRequiredMixin, UpdateView):
 # === Control Config ===
 
 
-class ControlConfigUpdateView(LoginRequiredMixin, UpdateView):
+class ControlConfigUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = ControlConfig
     form_class = ControlConfigForm
     template_name = "library/control_config_form.html"
@@ -419,7 +443,8 @@ class ControlConfigUpdateView(LoginRequiredMixin, UpdateView):
 # === wM-Bus Config ===
 
 
-class WMBusConfigUpdateView(LoginRequiredMixin, UpdateView):
+class WMBusConfigUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = WMBusConfig
     form_class = WMBusConfigForm
     template_name = "library/wmbus_config_form.html"
@@ -456,7 +481,8 @@ class WMBusConfigUpdateView(LoginRequiredMixin, UpdateView):
 # === LoRaWAN Config ===
 
 
-class LoRaWANConfigUpdateView(LoginRequiredMixin, UpdateView):
+class LoRaWANConfigUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = LoRaWANConfig
     form_class = LoRaWANConfigForm
     template_name = "library/lorawan_config_form.html"
@@ -487,7 +513,8 @@ class LoRaWANConfigUpdateView(LoginRequiredMixin, UpdateView):
 # === Processor Config ===
 
 
-class ProcessorConfigUpdateView(LoginRequiredMixin, UpdateView):
+class ProcessorConfigUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = ProcessorConfig
     form_class = ProcessorConfigForm
     template_name = "library/processor_config_form.html"
@@ -525,7 +552,8 @@ class RegisterListView(LoginRequiredMixin, ListView):
         return redirect("library:model-detail", pk=device_pk)
 
 
-class RegisterCreateView(LoginRequiredMixin, CreateView):
+class RegisterCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.EDITOR
     model = RegisterDefinition
     form_class = RegisterDefinitionForm
     template_name = "library/register_form.html"
@@ -552,7 +580,8 @@ class RegisterCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.kwargs["device_pk"]})
 
 
-class RegisterUpdateView(LoginRequiredMixin, UpdateView):
+class RegisterUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = RegisterDefinition
     form_class = RegisterDefinitionForm
     template_name = "library/register_form.html"
@@ -579,7 +608,8 @@ class RegisterUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.object.modbus_config.device_type.pk})
 
 
-class RegisterDeleteView(LoginRequiredMixin, DeleteView):
+class RegisterDeleteView(RoleRequiredMixin, DeleteView):
+    required_role = User.Role.EDITOR
     model = RegisterDefinition
     template_name = "library/register_confirm_delete.html"
 
@@ -666,7 +696,8 @@ class DeviceHistorySnapshotView(LoginRequiredMixin, TemplateView):
 # === Import / Export ===
 
 
-class ImportView(SuperuserRequiredMixin, TemplateView):
+class ImportView(RoleRequiredMixin, TemplateView):
+    required_role = User.Role.ADMIN
     template_name = "library/import.html"
 
     def get_context_data(self, **kwargs):
@@ -707,11 +738,13 @@ class ImportView(SuperuserRequiredMixin, TemplateView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-class ExportView(SuperuserRequiredMixin, TemplateView):
+class ExportView(RoleRequiredMixin, TemplateView):
+    required_role = User.Role.ADMIN
     template_name = "library/export.html"
 
 
-class ExportDownloadView(SuperuserRequiredMixin, View):
+class ExportDownloadView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
     """Export all device definitions as a downloadable ZIP archive."""
 
     def post(self, request):
@@ -1015,7 +1048,8 @@ class APIKeyListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class APIKeyCreateView(LoginRequiredMixin, CreateView):
+class APIKeyCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.ADMIN
     model = APIKey
     form_class = APIKeyForm
     template_name = "library/apikey_form.html"
@@ -1042,7 +1076,9 @@ class APIKeyDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class APIKeyRevokeView(LoginRequiredMixin, View):
+class APIKeyRevokeView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
     def post(self, request, pk):
         apikey = get_object_or_404(APIKey, pk=pk)
         apikey.is_active = False
@@ -1052,7 +1088,9 @@ class APIKeyRevokeView(LoginRequiredMixin, View):
         return redirect("library:apikey-detail", pk=apikey.pk)
 
 
-class APIKeyEnableView(LoginRequiredMixin, View):
+class APIKeyEnableView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
     def post(self, request, pk):
         apikey = get_object_or_404(APIKey, pk=pk)
         apikey.is_active = True
@@ -1062,7 +1100,9 @@ class APIKeyEnableView(LoginRequiredMixin, View):
         return redirect("library:apikey-detail", pk=apikey.pk)
 
 
-class APIKeyRegenerateView(LoginRequiredMixin, View):
+class APIKeyRegenerateView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
     def post(self, request, pk):
         apikey = get_object_or_404(APIKey, pk=pk)
         from .models import generate_api_key
@@ -1074,7 +1114,9 @@ class APIKeyRegenerateView(LoginRequiredMixin, View):
         return redirect("library:apikey-detail", pk=apikey.pk)
 
 
-class APIKeyDeleteView(LoginRequiredMixin, View):
+class APIKeyDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
     def post(self, request, pk):
         apikey = get_object_or_404(APIKey, pk=pk)
         name = apikey.name
@@ -1168,7 +1210,8 @@ class GatewayAssignmentListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
+class GatewayAssignmentCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.EDITOR
     model = GatewayAssignment
     fields = ["serial_number", "spark_url"]
     template_name = "library/gateway_form.html"
@@ -1184,7 +1227,8 @@ class GatewayAssignmentCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("library:gateway-list")
 
 
-class GatewayAssignmentUpdateView(LoginRequiredMixin, UpdateView):
+class GatewayAssignmentUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
     model = GatewayAssignment
     fields = ["serial_number", "spark_url", "is_registered", "is_assigned"]
     template_name = "library/gateway_form.html"
@@ -1199,7 +1243,9 @@ class GatewayAssignmentUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy("library:gateway-list")
 
 
-class GatewayAssignmentDeleteView(LoginRequiredMixin, View):
+class GatewayAssignmentDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.EDITOR
+
     def post(self, request, pk):
         assignment = get_object_or_404(GatewayAssignment, pk=pk)
         serial = assignment.serial_number

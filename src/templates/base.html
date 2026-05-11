@@ -127,7 +127,7 @@
                             <i data-lucide="router" class="w-4 h-4 mr-2 shrink-0"></i>Gateways
                         </a>
                     </li>
-                    {% if user.is_superuser %}
+                    {% if user.is_admin_role %}
                     <li>
                         <a class="nav-link {% if 'export' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:export' %}">
                             <i data-lucide="download" class="w-4 h-4 mr-2 shrink-0"></i>Export

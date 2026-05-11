@@ -17,6 +17,7 @@
         <h2 class="text-2xl font-bold">{{ device.name }}</h2>
         {% if device.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ device.key }}</p>{% endif %}
     </div>
+    {% if user.is_editor %}
     <div class="flex gap-2">
         <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
             <i class="bi bi-pencil mr-1"></i>Edit
@@ -28,6 +29,7 @@
             <i class="bi bi-trash mr-1"></i>Delete
         </button>
     </div>
+    {% endif %}
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -69,9 +71,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Modbus Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:modbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                     <i class="bi bi-pencil"></i>
                 </a>
+                {% endif %}
             </div>
             <div class="p-6">
                 {% if modbus_config %}
@@ -94,9 +98,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">LoRaWAN Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                     {% if lorawan_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
+                {% endif %}
             </div>
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
@@ -125,9 +131,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">wM-Bus Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:wmbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                     {% if wmbus_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
+                {% endif %}
             </div>
             {% if wmbus_config %}
             <div class="p-6">
@@ -180,9 +188,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Control Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                     <i class="bi bi-pencil"></i>
                 </a>
+                {% endif %}
             </div>
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
@@ -199,9 +209,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Control Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
                     <i class="bi bi-plus-lg mr-1"></i>Add
                 </a>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -211,9 +223,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Processor Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                     <i class="bi bi-pencil"></i>
                 </a>
+                {% endif %}
             </div>
             <div class="p-6">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
@@ -234,9 +248,11 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Processor Configuration</h5>
+                {% if user.is_editor %}
                 <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
                     <i class="bi bi-plus-lg mr-1"></i>Add
                 </a>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -251,9 +267,11 @@
             <h5 class="font-semibold">Payload Codec</h5>
             <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ lorawan_config.get_codec_format_display }}</span>
         </div>
+        {% if user.is_editor %}
         <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
             <i class="bi bi-pencil"></i>
         </a>
+        {% endif %}
     </div>
     <div class="overflow-hidden rounded-b-lg">
         <script type="text/plain" id="codec-source">{{ lorawan_config.payload_codec }}</script>
@@ -267,9 +285,11 @@
 <div class="bg-white rounded-lg shadow mt-4">
     <div class="px-6 py-4 border-b flex justify-between items-center">
         <h5 class="font-semibold">Register Definitions ({{ registers|length }})</h5>
+        {% if user.is_editor %}
         <a href="{% url 'library:register-create' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
             <i class="bi bi-plus-lg mr-1"></i>Add Register
         </a>
+        {% endif %}
     </div>
     <div class="p-6">
         {% if registers %}
@@ -295,8 +315,10 @@
                     <td class="py-2 px-2">{{ reg.scale }}</td>
                     <td class="py-2 px-2">{{ reg.offset }}</td>
                     <td class="py-2 px-2 flex gap-1">
+                        {% if user.is_editor %}
                         <a href="{% url 'library:register-edit' reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50"><i class="bi bi-pencil"></i></a>
                         <a href="{% url 'library:register-delete' reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50"><i class="bi bi-trash"></i></a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
