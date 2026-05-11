@@ -69,17 +69,23 @@ register_definitions:
 
 ### wM-Bus
 
-**L3:**
+**L3** — external `wmbusmeters` decoder does the work; we just pick a driver (`auto` lets it detect the manufacturer):
 ```yaml
-data_record_mapping:
-  - {dr: "0x04,0x07", field: energy_kwh, unit: kWh}
+wmbus_config:
+  manufacturer_code: ZRI
+  wmbus_device_type: 8
+  wmbusmeters_driver: auto    # or vendor-specific driver name
+  encryption_required: true
 ```
-→ `{energy_kwh: 1234.5}`
+→ wmbusmeters output: `{consumption_hca: 1342, target_hca: 1100, base_hca: 200, …}` (field names follow the driver)
 
 **L4:**
 ```yaml
-- {source: energy_kwh, metric: heat:total_energy}
+- {source: consumption_hca, metric: heat:total_consumption}
+- {source: target_hca,      metric: heat:consumption_at_set_date}
 ```
+
+`WMBusConfig.data_record_mapping` exists as an escape hatch for manually defining DR-level decoding when wmbusmeters isn't enough — rare in practice.
 
 ### LoRaWAN (vendor codec, not modified)
 

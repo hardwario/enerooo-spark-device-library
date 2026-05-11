@@ -230,18 +230,70 @@
                 {% endif %}
             </div>
             <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                <dl class="grid grid-cols-3 gap-y-3 text-sm mb-4">
                     <dt class="font-medium text-gray-600">Decoder Type</dt>
                     <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ processor_config.decoder_type }}</code></dd>
                     {% if processor_config.extra_config %}
                     <dt class="font-medium text-gray-600">Extra Config</dt>
                     <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ processor_config.extra_config|pretty_json }}</pre></dd>
                     {% endif %}
-                    {% if processor_config.field_mappings %}
-                    <dt class="font-medium text-gray-600">Field Mappings</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ processor_config.field_mappings|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
+
+                {% if processor_config.field_mappings %}
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h6 class="text-sm font-medium text-gray-600">Field Mappings</h6>
+                        <button type="button"
+                                data-copy-json
+                                data-json='{{ processor_config.field_mappings|pretty_json }}'
+                                class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
+                            <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
+                        </button>
+                    </div>
+                    <div class="border border-gray-200 rounded overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-50 border-b text-left text-gray-500">
+                                <tr>
+                                    <th class="py-1.5 px-2 font-medium">Source</th>
+                                    <th class="py-1.5 px-2 font-medium">Metric</th>
+                                    <th class="py-1.5 px-2 font-medium">Label</th>
+                                    <th class="py-1.5 px-2 font-medium">Unit</th>
+                                    <th class="py-1.5 px-2 font-medium">Tier</th>
+                                    <th class="py-1.5 px-2 font-medium">Scale</th>
+                                    <th class="py-1.5 px-2 font-medium">Offset</th>
+                                    <th class="py-1.5 px-2 font-medium">Tags</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in device.effective_field_mappings %}
+                                <tr class="border-b last:border-b-0">
+                                    <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"—" }}</td>
+                                    <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.metric|default:"—" }}</td>
+                                    <td class="py-1.5 px-2 text-gray-700">{{ entry.label|default:"—" }}</td>
+                                    <td class="py-1.5 px-2">
+                                        {% if entry.unit %}<code class="bg-gray-100 px-1 rounded">{{ entry.unit }}</code>{% else %}<span class="text-gray-300">—</span>{% endif %}
+                                    </td>
+                                    <td class="py-1.5 px-2">
+                                        {% if entry.tier == "primary" %}
+                                            <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">primary</span>
+                                        {% elif entry.tier == "diagnostic" %}
+                                            <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">diagnostic</span>
+                                        {% else %}
+                                            <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">{{ entry.tier|default:"secondary" }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-1.5 px-2 font-mono">{{ entry.scale|default:"—" }}</td>
+                                    <td class="py-1.5 px-2 font-mono">{{ entry.offset|default:"—" }}</td>
+                                    <td class="py-1.5 px-2 font-mono text-gray-500">
+                                        {% if entry.tags %}{{ entry.tags|pretty_json }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% else %}

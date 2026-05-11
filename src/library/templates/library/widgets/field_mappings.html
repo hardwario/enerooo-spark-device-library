@@ -1,0 +1,321 @@
+{% spaceless %}
+<div class="field-mappings-editor" data-field-mappings-editor>
+    <textarea name="{{ widget.name }}"
+              data-field-mappings-input
+              style="display: none;"
+              {% if widget.attrs.required %}required{% endif %}>{{ widget.value }}</textarea>
+
+    <div class="border border-gray-300 rounded overflow-x-auto">
+        <table class="w-full text-sm" style="min-width: 800px;">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="text-left py-2 px-3 font-semibold">Source</th>
+                    <th class="text-left py-2 px-3 font-semibold">Metric (L1 key)</th>
+                    <th class="text-left py-2 px-3 font-semibold w-24" title="value × scale + offset">Scale</th>
+                    <th class="text-left py-2 px-3 font-semibold w-24">Offset</th>
+                    <th class="text-left py-2 px-3 font-semibold w-48">Tags (JSON)</th>
+                    <th class="py-2 px-3 w-12"></th>
+                </tr>
+            </thead>
+            <tbody data-field-mappings-rows>
+                {# rows injected by JS #}
+            </tbody>
+            <tfoot class="bg-gray-50 border-t">
+                <tr>
+                    <td colspan="6" class="py-2 px-3">
+                        <button type="button"
+                                data-field-mappings-add
+                                class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
+                            <i class="bi bi-plus-lg mr-1"></i>Add mapping
+                        </button>
+                        <a href="{% url 'library:metric-list' %}" target="_blank" class="ml-3 text-xs text-blue-600 hover:text-blue-800">
+                            Browse metric catalogue <i class="bi bi-arrow-up-right-square"></i>
+                        </a>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <details class="mt-2 text-xs text-gray-500">
+        <summary class="cursor-pointer hover:text-gray-700 select-none">
+            <i class="bi bi-info-circle"></i> Help — entry shape, auto-create, scale/offset/tags
+        </summary>
+        <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
+            <p>Each row maps a decoded <code class="bg-gray-100 px-1 rounded">source</code> field to a canonical L1 <code class="bg-gray-100 px-1 rounded">metric</code> key.</p>
+            <p><strong>Auto-create:</strong> typing a metric key not in the catalogue creates the L1 row on save (operators tidy label/unit in <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a> afterwards).</p>
+            <p><strong>Scale / offset:</strong> apply a linear conversion <code class="bg-gray-100 px-1 rounded">value × scale + offset</code> — used when the decoder can't emit canonical units (typical for vendor LoRaWAN codecs we don't fork). Defaults: scale 1, offset 0.</p>
+            <p><strong>Tags:</strong> JSON like <code class="bg-gray-100 px-1 rounded">{"phase": "L1"}</code> for multi-channel devices (3-phase meters, multi-tariff, …).</p>
+        </div>
+    </details>
+
+    <script type="application/json" data-available-metrics>{{ widget.available_metrics_json|safe }}</script>
+</div>
+<script>
+(function() {
+    const editor = document.currentScript.previousElementSibling;
+    const input = editor.querySelector('[data-field-mappings-input]');
+    const rowsContainer = editor.querySelector('[data-field-mappings-rows]');
+    const addBtn = editor.querySelector('[data-field-mappings-add]');
+    const availableMetrics = JSON.parse(editor.querySelector('[data-available-metrics]').textContent);
+
+    let initialEntries = [];
+    try {
+        initialEntries = JSON.parse(input.value || '[]');
+        if (!Array.isArray(initialEntries)) initialEntries = [];
+    } catch (e) {
+        initialEntries = [];
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function parseNumber(s) {
+        if (s === '' || s == null) return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function parseTags(s) {
+        s = (s || '').trim();
+        if (!s) return null;
+        try {
+            const obj = JSON.parse(s);
+            return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function syncToInput() {
+        const rows = Array.from(rowsContainer.children);
+        const data = rows.map(row => {
+            const source = row.querySelector('[data-source]').value.trim();
+            const metric = row.querySelector('[data-metric]').value.trim();
+            if (!source && !metric) return null;
+            const entry = {source, metric};
+            const scale = parseNumber(row.querySelector('[data-scale]').value);
+            if (scale !== null && scale !== 1) entry.scale = scale;
+            const offset = parseNumber(row.querySelector('[data-offset]').value);
+            if (offset !== null && offset !== 0) entry.offset = offset;
+            const tags = parseTags(row.querySelector('[data-tags]').value);
+            if (tags && Object.keys(tags).length) entry.tags = tags;
+            return entry;
+        }).filter(e => e);
+        input.value = JSON.stringify(data);
+    }
+
+    // Custom dropdown combobox — wraps an <input> with a filtered list of
+    // metric keys. Free-text entry is allowed (auto-create on save).
+    // The list is rendered with position:fixed and reparented to <body> so
+    // it isn't clipped by ancestor ``overflow-x-auto`` containers.
+    function attachMetricCombo(wrapper, initialValue) {
+        const inputEl = wrapper.querySelector('[data-metric]');
+        const listEl = wrapper.querySelector('[data-metric-options]');
+        const statusEl = wrapper.querySelector('[data-metric-status]');
+        let highlightedIndex = -1;
+
+        // Reparent the dropdown to body so it escapes overflow clipping.
+        document.body.appendChild(listEl);
+        listEl.style.position = 'fixed';
+        listEl.style.zIndex = '1000';
+
+        function positionList() {
+            const rect = inputEl.getBoundingClientRect();
+            listEl.style.left = rect.left + 'px';
+            listEl.style.top = (rect.bottom + 2) + 'px';
+            listEl.style.width = rect.width + 'px';
+        }
+
+        function renderOptions(filter) {
+            const q = (filter || '').toLowerCase().trim();
+            const matches = availableMetrics.filter(m => {
+                if (!q) return true;
+                return m.key.toLowerCase().includes(q) || (m.label || '').toLowerCase().includes(q);
+            });
+            if (!matches.length) {
+                listEl.innerHTML = `<li class="px-3 py-2 text-xs text-gray-500 italic">No match — typing creates a new metric on save.</li>`;
+                highlightedIndex = -1;
+                return;
+            }
+            listEl.innerHTML = matches.map((m, i) => {
+                const unit = m.unit ? ` <span class="text-gray-400">(${escapeHtml(m.unit)})</span>` : '';
+                const label = m.label ? ` <span class="text-gray-500">— ${escapeHtml(m.label)}</span>` : '';
+                return `<li role="option" data-key="${escapeHtml(m.key)}"
+                            class="px-3 py-1.5 cursor-pointer text-xs hover:bg-blue-50 ${i === highlightedIndex ? 'bg-blue-100' : ''}">
+                    <span class="font-mono">${escapeHtml(m.key)}</span>${label}${unit}
+                </li>`;
+            }).join('');
+            listEl.querySelectorAll('li[data-key]').forEach(li => {
+                li.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    inputEl.value = li.dataset.key;
+                    updateStatus();
+                    syncToInput();
+                    closeList();
+                });
+            });
+        }
+
+        function openList() {
+            positionList();
+            listEl.classList.remove('hidden');
+            renderOptions(inputEl.value);
+            window.addEventListener('scroll', positionList, true);
+            window.addEventListener('resize', positionList);
+        }
+
+        function closeList() {
+            listEl.classList.add('hidden');
+            highlightedIndex = -1;
+            window.removeEventListener('scroll', positionList, true);
+            window.removeEventListener('resize', positionList);
+        }
+
+        function updateStatus() {
+            const v = inputEl.value.trim();
+            if (!v) {
+                statusEl.innerHTML = '';
+                return;
+            }
+            const match = availableMetrics.find(m => m.key === v);
+            if (match) {
+                const unit = match.unit ? ` (${escapeHtml(match.unit)})` : '';
+                statusEl.innerHTML = `<span class="text-green-700"><i class="bi bi-check-circle-fill"></i> ${escapeHtml(match.label || match.key)}${unit}</span>`;
+            } else {
+                statusEl.innerHTML = `<span class="text-blue-600"><i class="bi bi-stars"></i> new — will be auto-created on save</span>`;
+            }
+        }
+
+        inputEl.value = initialValue || '';
+        updateStatus();
+
+        inputEl.addEventListener('focus', openList);
+        inputEl.addEventListener('input', () => {
+            highlightedIndex = -1;
+            openList();
+            updateStatus();
+            syncToInput();
+        });
+        inputEl.addEventListener('blur', () => {
+            // Defer to allow click on option to register
+            setTimeout(closeList, 150);
+        });
+        inputEl.addEventListener('keydown', (e) => {
+            const visibleOptions = listEl.querySelectorAll('li[data-key]');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!visibleOptions.length) return;
+                highlightedIndex = Math.min(highlightedIndex + 1, visibleOptions.length - 1);
+                renderOptions(inputEl.value);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!visibleOptions.length) return;
+                highlightedIndex = Math.max(highlightedIndex - 1, 0);
+                renderOptions(inputEl.value);
+            } else if (e.key === 'Enter') {
+                if (highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+                    e.preventDefault();
+                    inputEl.value = visibleOptions[highlightedIndex].dataset.key;
+                    updateStatus();
+                    syncToInput();
+                    closeList();
+                }
+            } else if (e.key === 'Escape') {
+                closeList();
+            }
+        });
+
+        // Chevron click toggles the list
+        wrapper.querySelector('[data-metric-toggle]').addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (listEl.classList.contains('hidden')) {
+                inputEl.focus();
+                openList();
+            } else {
+                closeList();
+            }
+        });
+    }
+
+    function makeRow(entry) {
+        entry = entry || {};
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-b-0';
+
+        const tagsValue = entry.tags ? JSON.stringify(entry.tags) : '';
+        tr.innerHTML = `
+            <td class="py-1.5 px-3 align-top">
+                <input data-source type="text" value="${escapeHtml(entry.source || '')}"
+                       placeholder="decoded field name"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
+                <div class="relative">
+                    <input data-metric type="text" autocomplete="off"
+                           placeholder="select or type new key…"
+                           class="!w-full !py-1 !pr-7 !text-sm font-mono">
+                    <button type="button" data-metric-toggle
+                            class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
+                            tabindex="-1">
+                        <i class="bi bi-chevron-down text-xs"></i>
+                    </button>
+                </div>
+                <ul data-metric-options role="listbox"
+                    class="hidden max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg"></ul>
+                <div data-metric-status class="text-xs mt-0.5 leading-tight"></div>
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-scale type="number" step="any" value="${entry.scale != null ? entry.scale : ''}"
+                       placeholder="1"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-offset type="number" step="any" value="${entry.offset != null ? entry.offset : ''}"
+                       placeholder="0"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-tags type="text" value="${escapeHtml(tagsValue)}"
+                       placeholder='{"phase":"L1"}'
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 text-right align-top">
+                <button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        ['data-source', 'data-scale', 'data-offset', 'data-tags'].forEach(sel => {
+            tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
+        });
+        attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.metric || '');
+
+        tr.querySelector('[data-remove]').addEventListener('click', () => {
+            tr.remove();
+            ensureAtLeastOneRow();
+            syncToInput();
+        });
+        return tr;
+    }
+
+    function ensureAtLeastOneRow() {
+        if (rowsContainer.children.length === 0) {
+            rowsContainer.appendChild(makeRow());
+        }
+    }
+
+    initialEntries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+    ensureAtLeastOneRow();
+
+    addBtn.addEventListener('click', () => {
+        rowsContainer.appendChild(makeRow());
+        syncToInput();
+    });
+
+    syncToInput();
+})();
+</script>
+{% endspaceless %}

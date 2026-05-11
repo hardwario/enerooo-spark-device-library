@@ -23,6 +23,7 @@ from .forms import (
     ControlConfigForm,
     DeviceTypeForm,
     LoRaWANConfigForm,
+    MetricForm,
     ModbusConfigForm,
     ProcessorConfigForm,
     RegisterDefinitionForm,
@@ -42,6 +43,7 @@ from .models import (
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
+    Metric,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -137,6 +139,147 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["models"] = self.object.device_types.select_related("vendor").all()
         return ctx
+
+
+# === Metrics ===
+
+
+class MetricListView(LoginRequiredMixin, ListView):
+    """L1 catalogue browser with usage stats (L2 type declarations, L4 model mappings)."""
+
+    model = Metric
+    template_name = "library/metric_list.html"
+    context_object_name = "metrics"
+
+    ALLOWED_SORT_FIELDS = {"key", "label", "unit", "data_type", "model_count", "type_count"}
+
+    def get_queryset(self):
+        qs = Metric.objects.all()
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(Q(key__icontains=q) | Q(label__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["search_query"] = self.request.GET.get("q", "")
+
+        # Single-pass aggregation over JSON fields — no FK constraint on
+        # metric keys, so we have to scan the rows. ~30 types × ~30 entries
+        # and ~30 ProcessorConfigs × ~10 entries is trivial.
+        type_counts: dict[str, int] = {}
+        for dt in DeviceType.objects.all():
+            for entry in (dt.metrics or []):
+                key = entry.get("metric")
+                if key:
+                    type_counts[key] = type_counts.get(key, 0) + 1
+
+        model_counts: dict[str, int] = {}
+        for pc in ProcessorConfig.objects.exclude(field_mappings=[]):
+            seen_in_this_model = set()
+            for entry in (pc.field_mappings or []):
+                key = entry.get("metric")
+                if key and key not in seen_in_this_model:
+                    seen_in_this_model.add(key)
+                    model_counts[key] = model_counts.get(key, 0) + 1
+
+        # Attach counts onto each Metric instance so the template can render
+        # them directly. Then apply sort + namespace facet here, after the
+        # counts are known (allows sorting by usage).
+        metrics = list(ctx["metrics"])
+        for m in metrics:
+            m.type_count = type_counts.get(m.key, 0)
+            m.model_count = model_counts.get(m.key, 0)
+
+        sort = self.request.GET.get("sort", "key")
+        descending = sort.startswith("-")
+        field = sort.lstrip("-")
+        if field not in self.ALLOWED_SORT_FIELDS:
+            field, descending = "key", False
+        metrics.sort(key=lambda m: getattr(m, field) or "", reverse=descending)
+
+        ctx["metrics"] = metrics
+        ctx["namespaces"] = sorted({m.namespace for m in metrics if m.namespace})
+        ctx["unused_count"] = sum(1 for m in metrics if not m.type_count and not m.model_count)
+        return ctx
+
+
+def _count_metric_references(metric_key: str) -> int:
+    """Return the number of ProcessorConfig.field_mappings entries that
+    reference this metric. Used to warn the operator before delete."""
+    count = 0
+    for pc in ProcessorConfig.objects.exclude(field_mappings=[]):
+        for entry in pc.field_mappings or []:
+            if entry.get("metric") == metric_key:
+                count += 1
+    return count
+
+
+class MetricCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.ADMIN
+    model = Metric
+    form_class = MetricForm
+    template_name = "library/metric_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "created", self.object)
+        messages.success(self.request, f"Metric '{self.object.key}' created.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:metric-list")
+
+
+class MetricUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.ADMIN
+    model = Metric
+    form_class = MetricForm
+    template_name = "library/metric_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "updated", self.object)
+        messages.success(self.request, f"Metric '{self.object.key}' updated.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:metric-list")
+
+
+class MetricDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
+    def get(self, request, pk):
+        metric = get_object_or_404(Metric, pk=pk)
+        return self._render_confirm(request, metric)
+
+    def post(self, request, pk):
+        metric = get_object_or_404(Metric, pk=pk)
+        references = _count_metric_references(metric.key)
+        if references and not request.POST.get("confirm_force"):
+            messages.error(
+                request,
+                f"Cannot delete '{metric.key}' — {references} VendorModel field mapping(s) reference it. "
+                "Remove those references first, or tick 'Force delete' on the confirmation form.",
+            )
+            return redirect("library:metric-delete", pk=metric.pk)
+        key = metric.key
+        log_action(request, "deleted", metric)
+        metric.delete()
+        messages.success(request, f"Metric '{key}' deleted.")
+        return redirect("library:metric-list")
+
+    def _render_confirm(self, request, metric):
+        from django.shortcuts import render
+        return render(
+            request,
+            "library/metric_confirm_delete.html",
+            {
+                "metric": metric,
+                "reference_count": _count_metric_references(metric.key),
+            },
+        )
 
 
 # === Device Types ===

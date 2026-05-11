@@ -93,6 +93,11 @@
                         </a>
                     </li>
                     <li>
+                        <a class="nav-link {% if 'metric' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:metric-list' %}">
+                            <i data-lucide="ruler" class="w-4 h-4 mr-2 shrink-0"></i>Metrics
+                        </a>
+                    </li>
+                    <li>
                         <a class="nav-link {% if 'devicetype' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:devicetype-list' %}">
                             <i data-lucide="shapes" class="w-4 h-4 mr-2 shrink-0"></i>Device Types
                         </a>
@@ -297,6 +302,26 @@
                 form.appendChild(input);
                 document.body.appendChild(form);
                 form.submit();
+            }
+        });
+    });
+    // Copy-to-clipboard for elements with [data-copy-json]
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-copy-json]');
+        if (!btn) return;
+        e.preventDefault();
+        const json = btn.dataset.json || '';
+        const labelEl = btn.querySelector('[data-copy-label]');
+        const original = labelEl ? labelEl.textContent : '';
+        navigator.clipboard.writeText(json).then(() => {
+            if (labelEl) {
+                labelEl.textContent = 'Copied ✓';
+                setTimeout(() => { labelEl.textContent = original; }, 1500);
+            }
+        }).catch(() => {
+            if (labelEl) {
+                labelEl.textContent = 'Copy failed';
+                setTimeout(() => { labelEl.textContent = original; }, 1500);
             }
         });
     });
