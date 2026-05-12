@@ -29,15 +29,9 @@
             </tbody>
             <tfoot class="bg-gray-50 border-t">
                 <tr>
-                    <td colspan="5" class="py-2 px-3">
-                        <button type="button"
-                                data-field-mappings-add
-                                class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
-                            <i class="bi bi-plus-lg mr-1"></i>Add mapping
-                        </button>
-                        <a href="{% url 'library:metric-list' %}" target="_blank" class="ml-3 text-xs text-blue-600 hover:text-blue-800">
-                            Browse metric catalogue <i class="bi bi-arrow-up-right-square"></i>
-                        </a>
+                    <td colspan="5" class="py-2 px-3 text-xs text-gray-500">
+                        Rows are scaffolded from the parent DeviceType's L2 metrics profile.
+                        Use <strong>Extra Mappings</strong> below for anything not on the type.
                     </td>
                 </tr>
             </tfoot>
@@ -64,22 +58,28 @@
             <i class="bi bi-info-circle"></i> Help — entry shape, auto-create, scale/offset
         </summary>
         <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
-            <p>Each row maps a decoded <code class="bg-gray-100 px-1 rounded">source</code> field to a canonical L1 metric key (<code class="bg-gray-100 px-1 rounded">target</code>).</p>
-            <p><strong>Auto-create:</strong> typing a metric key not in the catalogue creates the L1 row on save (operators tidy label/unit in <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a> afterwards).</p>
-            <p><strong>Scale / offset:</strong> apply a linear conversion <code class="bg-gray-100 px-1 rounded">value × scale + offset</code> — used when the decoder can't emit canonical units (typical for vendor LoRaWAN codecs we don't fork). Defaults: scale 1, offset 0.</p>
-            <p><strong>Multi-channel devices</strong> (3-phase meters, multi-tariff, …) model each channel as a separate metric (e.g. <code class="bg-gray-100 px-1 rounded">elec:voltage_l1</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l2</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l3</code>).</p>
+            <p><strong>Scaffolded rows</strong> (blue background, <i class="bi bi-lock"></i>) come from the DeviceType's L2 metrics profile — the target column is locked. Fill in source / scale / offset per this model. Leave source empty to omit the metric from this model's output on save.</p>
+            <p><strong>Extra rows</strong> (added via <em>Add mapping</em>) point at a metric not on the type — auto-create on save adds it to the L1 catalogue (then tidy label/unit in <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a>).</p>
+            <p><strong>Scale / offset</strong> apply a linear conversion <code class="bg-gray-100 px-1 rounded">value × scale + offset</code> — used when the decoder can't emit canonical units (typical for vendor LoRaWAN codecs we don't fork). Defaults: scale 1, offset 0.</p>
+            <p><strong>Multi-channel devices</strong> (3-phase meters, multi-tariff, …) model each channel as a separate metric (e.g. <code class="bg-gray-100 px-1 rounded">elec:voltage_l1</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l2</code>).</p>
         </div>
     </details>
 
     <script type="application/json" data-available-metrics>{{ widget.available_metrics_json|safe }}</script>
+    <script type="application/json" data-declared-metrics>{{ widget.declared_metrics_json|safe }}</script>
 </div>
 <script>
 (function() {
     const editor = document.currentScript.previousElementSibling;
     const input = editor.querySelector('[data-field-mappings-input]');
     const rowsContainer = editor.querySelector('[data-field-mappings-rows]');
-    const addBtn = editor.querySelector('[data-field-mappings-add]');
+    const addBtn = editor.querySelector('[data-field-mappings-add]'); // null — no Add button on L2-scaffolded widget
     const availableMetrics = JSON.parse(editor.querySelector('[data-available-metrics]').textContent);
+    const declaredMetrics = JSON.parse(editor.querySelector('[data-declared-metrics]').textContent);
+
+    // {target → {label, unit}} lookup for badge rendering on locked rows
+    const metricMetaByKey = {};
+    availableMetrics.forEach(m => { metricMetaByKey[m.key] = m; });
 
     let initialEntries = [];
     try {
@@ -103,8 +103,11 @@
         const rows = Array.from(rowsContainer.children);
         const data = rows.map(row => {
             const source = row.querySelector('[data-source]').value.trim();
-            const target = row.querySelector('[data-metric]').value.trim();
-            if (!source && !target) return null;
+            const target = (row.querySelector('[data-metric]').value || '').trim();
+            // Drop rows without a source: locked scaffolded rows still carry
+            // a target, but an empty source means "this model doesn't produce
+            // this metric" → omit from saved data.
+            if (!source) return null;
             const entry = {source, target};
             const scale = parseNumber(row.querySelector('[data-scale]').value);
             if (scale !== null && scale !== 1) entry.scale = scale;
@@ -248,10 +251,56 @@
         });
     }
 
-    function makeRow(entry) {
+    function tierBadge(tier) {
+        if (tier === 'primary') return '<span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">primary</span>';
+        if (tier === 'diagnostic') return '<span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium">diagnostic</span>';
+        return '<span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">' + (tier || 'secondary') + '</span>';
+    }
+
+    function makeRow(entry, opts) {
         entry = entry || {};
+        opts = opts || {};
+        const locked = !!opts.locked;
+        const tier = opts.tier || null;
         const tr = document.createElement('tr');
-        tr.className = 'border-b last:border-b-0';
+        tr.className = 'border-b last:border-b-0' + (locked ? ' bg-blue-50/40' : '');
+
+        let metricCell;
+        if (locked) {
+            const meta = metricMetaByKey[entry.target] || {};
+            const label = meta.label ? escapeHtml(meta.label) : '';
+            const unit = meta.unit ? `<span class="text-gray-400">(${escapeHtml(meta.unit)})</span>` : '';
+            metricCell = `
+                <td class="py-1.5 px-3 align-top">
+                    <input data-metric type="hidden" value="${escapeHtml(entry.target || '')}">
+                    <div class="flex items-center gap-2">
+                        <code class="text-xs bg-gray-100 px-1 py-0.5 rounded font-mono">${escapeHtml(entry.target || '')}</code>
+                        ${tier ? tierBadge(tier) : ''}
+                    </div>
+                    <div class="text-[11px] text-gray-500 mt-0.5">${label} ${unit}</div>
+                </td>`;
+        } else {
+            metricCell = `
+                <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
+                    <div class="relative">
+                        <input data-metric type="text" autocomplete="off"
+                               placeholder="select or type new metric key…"
+                               class="!w-full !py-1 !pr-7 !text-sm font-mono">
+                        <button type="button" data-metric-toggle
+                                class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
+                                tabindex="-1">
+                            <i class="bi bi-chevron-down text-xs"></i>
+                        </button>
+                    </div>
+                    <ul data-metric-options role="listbox"
+                        class="hidden max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg"></ul>
+                    <div data-metric-status class="text-xs mt-0.5 leading-tight"></div>
+                </td>`;
+        }
+
+        const removeCell = locked
+            ? `<td class="py-1.5 px-3 text-right align-top"><span class="text-gray-300 text-xs" title="Declared on DeviceType — clear source to omit on save"><i class="bi bi-lock"></i></span></td>`
+            : `<td class="py-1.5 px-3 text-right align-top"><button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove"><i class="bi bi-trash"></i></button></td>`;
 
         tr.innerHTML = `
             <td class="py-1.5 px-3 align-top">
@@ -259,21 +308,7 @@
                        placeholder="decoded field name"
                        class="!w-full !py-1 !text-sm font-mono">
             </td>
-            <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
-                <div class="relative">
-                    <input data-metric type="text" autocomplete="off"
-                           placeholder="select or type new metric key…"
-                           class="!w-full !py-1 !pr-7 !text-sm font-mono">
-                    <button type="button" data-metric-toggle
-                            class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
-                            tabindex="-1">
-                        <i class="bi bi-chevron-down text-xs"></i>
-                    </button>
-                </div>
-                <ul data-metric-options role="listbox"
-                    class="hidden max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg"></ul>
-                <div data-metric-status class="text-xs mt-0.5 leading-tight"></div>
-            </td>
+            ${metricCell}
             <td class="py-1.5 px-3 align-top">
                 <input data-scale type="number" step="any" value="${entry.scale != null ? entry.scale : ''}"
                        placeholder="1"
@@ -284,23 +319,20 @@
                        placeholder="0"
                        class="!w-full !py-1 !text-sm font-mono">
             </td>
-            <td class="py-1.5 px-3 text-right align-top">
-                <button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </td>
+            ${removeCell}
         `;
 
         ['data-source', 'data-scale', 'data-offset'].forEach(sel => {
             tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
         });
-        attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.target || '');
-
-        tr.querySelector('[data-remove]').addEventListener('click', () => {
-            tr.remove();
-            ensureAtLeastOneRow();
-            syncToInput();
-        });
+        if (!locked) {
+            attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.target || '');
+            tr.querySelector('[data-remove]').addEventListener('click', () => {
+                tr.remove();
+                ensureAtLeastOneRow();
+                syncToInput();
+            });
+        }
         return tr;
     }
 
@@ -312,17 +344,35 @@
 
     function rebuildRows(entries) {
         rowsContainer.innerHTML = '';
-        entries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+        const existingByTarget = {};
+        for (const e of entries) {
+            if (e && e.target) existingByTarget[e.target] = e;
+        }
+        // Locked scaffolded rows for L2-declared metrics first, in profile order
+        const declaredKeys = new Set();
+        for (const d of declaredMetrics) {
+            if (!d || !d.metric) continue;
+            declaredKeys.add(d.metric);
+            const existing = existingByTarget[d.metric] || {target: d.metric};
+            rowsContainer.appendChild(makeRow(existing, {locked: true, tier: d.tier}));
+        }
+        // Then any entries whose target isn't declared on the type (extras)
+        for (const e of entries) {
+            if (!e || !e.target || declaredKeys.has(e.target)) continue;
+            rowsContainer.appendChild(makeRow(e, {locked: false}));
+        }
         ensureAtLeastOneRow();
         syncToInput();
     }
 
     rebuildRows(initialEntries);
 
-    addBtn.addEventListener('click', () => {
-        rowsContainer.appendChild(makeRow());
-        syncToInput();
-    });
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            rowsContainer.appendChild(makeRow({}, {locked: false}));
+            syncToInput();
+        });
+    }
 
     // View mode toggle (Table ⇄ JSON)
     const tableView = editor.querySelector('[data-view-table]');

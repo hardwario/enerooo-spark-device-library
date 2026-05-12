@@ -329,6 +329,7 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
                     processor_data.get("field_mappings") or [],
                     processor_data.get("extra_field_mappings") or [],
                 ),
+                "extra_mappings": processor_data.get("extra_mappings") or [],
             },
         )
 

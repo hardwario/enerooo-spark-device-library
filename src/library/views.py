@@ -708,6 +708,11 @@ class ProcessorConfigUpdateView(RoleRequiredMixin, UpdateView):
         obj, _ = ProcessorConfig.objects.get_or_create(device_type=device)
         return obj
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["vendor_model"] = self._device
+        return kwargs
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["device"] = self._device

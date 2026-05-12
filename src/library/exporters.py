@@ -213,7 +213,7 @@ def _export_control_config(device: VendorModel) -> dict:
 
 
 def _export_processor_config(device: VendorModel) -> dict:
-    """Export processor config (single field_mappings slot, schema-v4 shape)."""
+    """Export processor config (schema-v4 shape — field_mappings + extra_mappings)."""
     try:
         proc = device.processor_config
         config = {}
@@ -223,6 +223,8 @@ def _export_processor_config(device: VendorModel) -> dict:
             config["extra_config"] = proc.extra_config
         if proc.field_mappings:
             config["field_mappings"] = proc.field_mappings
+        if proc.extra_mappings:
+            config["extra_mappings"] = proc.extra_mappings
         return config
     except VendorModel.processor_config.RelatedObjectDoesNotExist:
         pass

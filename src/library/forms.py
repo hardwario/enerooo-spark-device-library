@@ -35,15 +35,53 @@ class PrettyJSONWidget(forms.Textarea):
 
 
 class FieldMappingsWidget(forms.Textarea):
-    """Tabular editor for ``ProcessorConfig.field_mappings``.
+    """Tabular editor for L2-scaffolded ``ProcessorConfig.field_mappings``.
 
-    Each row: ``source`` text, ``metric`` autocomplete (free-form — typing a
-    new key triggers L1 auto-create on save), optional ``scale`` and
-    ``offset`` number inputs, optional ``tags`` JSON. Hidden textarea keeps
-    Django's JSONField serialization unchanged.
+    Rows are derived from the parent VendorModel's ``DeviceType.metrics`` —
+    one per declared metric, with the ``target`` column locked. Operator
+    fills in source / scale / offset per row. No "Add row" affordance —
+    anything beyond the L2 profile lives in ``extra_mappings``.
     """
 
     template_name = "library/widgets/field_mappings.html"
+    declared_metrics: list[dict] | None = None
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else []
+            except json.JSONDecodeError:
+                parsed = []
+        elif value is None:
+            parsed = []
+        else:
+            parsed = value
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+    def get_context(self, name, value, attrs):
+        import json
+
+        from .models import Metric
+
+        ctx = super().get_context(name, value, attrs)
+        available = list(Metric.objects.values("key", "label", "unit").order_by("key"))
+        ctx["widget"]["available_metrics_json"] = json.dumps(available)
+        ctx["widget"]["declared_metrics_json"] = json.dumps(self.declared_metrics or [])
+        return ctx
+
+
+class ExtraMappingsWidget(forms.Textarea):
+    """Tabular editor for ``ProcessorConfig.extra_mappings``.
+
+    Same shape as field_mappings + a ``tier`` dropdown per row, since
+    these targets aren't in the parent type's L2 profile (no tier to
+    inherit from). Free-form ``target`` column with autocomplete from
+    L1; typing a new key triggers auto-create on save.
+    """
+
+    template_name = "library/widgets/extra_mappings.html"
 
     def format_value(self, value):
         import json
@@ -267,28 +305,33 @@ class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
         # ``decoder_type`` is auto-derived from VendorModel.technology in
-        # ProcessorConfig.save() (wmbus → wmbus_field_map, lorawan → js_codec
-        # or lorawan_field_map based on payload_codec presence). Hidden from
-        # the form to keep the editor minimal.
-        fields = ["field_mappings", "extra_config"]
+        # ProcessorConfig.save(). ``extra_config`` stays on the model for
+        # legacy Spark consumers (``measurement_type``) but is hidden from
+        # the editor — replaced by the structured ``extra_mappings``.
+        fields = ["field_mappings", "extra_mappings"]
         widgets = {
-            "extra_config": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
             "field_mappings": FieldMappingsWidget(),
+            "extra_mappings": ExtraMappingsWidget(),
         }
-        # Model help_text for field_mappings is long. The widget renders its
-        # own collapsible help, so suppress the duplicate here.
         help_texts = {
             "field_mappings": "",
+            "extra_mappings": "",
         }
 
-    def clean_extra_config(self):
-        # JSONField.to_python returns None for an empty textarea, but the DB
-        # column is NOT NULL with default={}. Coerce empty input to {}.
-        val = self.cleaned_data.get("extra_config")
-        return val if val is not None else {}
+    def __init__(self, *args, **kwargs):
+        vendor_model = kwargs.pop("vendor_model", None)
+        super().__init__(*args, **kwargs)
+        declared = []
+        if vendor_model and vendor_model.device_type_fk_id:
+            declared = list(vendor_model.device_type_fk.metrics or [])
+        self.fields["field_mappings"].widget.declared_metrics = declared
 
     def clean_field_mappings(self):
         val = self.cleaned_data.get("field_mappings")
+        return val if val is not None else []
+
+    def clean_extra_mappings(self):
+        val = self.cleaned_data.get("extra_mappings")
         return val if val is not None else []
 
 

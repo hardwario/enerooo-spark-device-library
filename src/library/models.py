@@ -198,60 +198,69 @@ class VendorModel(TimeStampedModel):
 
     @property
     def effective_field_mappings(self) -> list[dict]:
-        """Resolved L4 mappings annotated with metadata from L1 + L2.
+        """Resolved + merged view of L4 ``field_mappings`` and
+        ``extra_mappings``, annotated with metadata from L1 + L2.
 
-        Each entry carries the raw L4 fields (``source``, ``target``,
-        optional ``scale``, ``offset``) plus three derived fields the
-        consumer needs to render without further lookups:
+        Each entry carries the raw L4 fields plus three derived fields:
 
         - ``label`` (from L1 ``Metric.label``)
         - ``unit``  (from L1 ``Metric.unit``)
-        - ``tier``  (from L2 ``DeviceType.metrics[].tier``; entries
-          whose target isn't declared on the type default to ``diagnostic``)
+        - ``tier``  — for ``field_mappings`` entries, resolved from
+          L2 ``DeviceType.metrics``; for ``extra_mappings`` entries,
+          taken from the entry's own ``tier`` field (default
+          ``secondary``).
 
-        ``target`` is the L4 entry's pointer at an L1 ``Metric.key`` — kept
-        named ``target`` so existing decoder/Spark code that reads
-        ``entry["target"]`` keeps working.
+        ``target`` is kept as the per-entry key name so existing
+        decoder/Spark code that reads ``entry["target"]`` keeps working.
 
-        Multi-channel devices (3-phase meters, etc.) model each channel as
-        a separate metric (``elec:voltage_l1``, ``elec:voltage_l2``, …) —
-        no per-entry tags.
+        Multi-channel devices (3-phase meters, etc.) model each channel
+        as a separate metric (``elec:voltage_l1``, …) — no per-entry tags.
 
-        L1/L2 lookups are batched once per call to avoid N+1.
+        L1 lookups are batched once per call to avoid N+1.
         """
         proc = getattr(self, "processor_config", None)
-        raw_entries: list[dict] = list(proc.field_mappings) if (proc and proc.field_mappings) else []
-        if not raw_entries:
+        base_entries: list[dict] = list(proc.field_mappings) if (proc and proc.field_mappings) else []
+        extra_entries: list[dict] = list(proc.extra_mappings) if (proc and proc.extra_mappings) else []
+        if not base_entries and not extra_entries:
             return []
 
-        # Batch L1 lookup
-        target_keys = {e.get("target") for e in raw_entries if e.get("target")}
+        # Batch L1 lookup across both lists
+        target_keys = {
+            e.get("target")
+            for e in (*base_entries, *extra_entries)
+            if e.get("target")
+        }
         metrics_by_key = {m.key: m for m in Metric.objects.filter(key__in=target_keys)}
 
-        # L2 tier resolution — DeviceType profile entries use ``metric`` (an
-        # L2 declaration, not a decoder mapping) so we match by metric key.
+        # L2 tier resolution (only applies to ``field_mappings`` entries —
+        # extras carry tier per-entry).
         tier_by_target: dict[str, str] = {}
         if self.device_type_fk_id:
             for entry in (self.device_type_fk.metrics or []):
                 if entry.get("metric") and entry.get("tier"):
                     tier_by_target[entry["metric"]] = entry["tier"]
 
-        result: list[dict] = []
-        for entry in raw_entries:
+        def _annotate(entry: dict, tier: str) -> dict:
             target_key = entry.get("target")
             m = metrics_by_key.get(target_key)
-            annotated = {
+            ann = {
                 "source": entry.get("source"),
                 "target": target_key,
                 "label": m.label if m else target_key,
                 "unit": m.unit if m else "",
-                "tier": tier_by_target.get(target_key, "diagnostic"),
+                "tier": tier,
             }
             if entry.get("scale") is not None and entry["scale"] != 1:
-                annotated["scale"] = entry["scale"]
+                ann["scale"] = entry["scale"]
             if entry.get("offset") is not None and entry["offset"] != 0:
-                annotated["offset"] = entry["offset"]
-            result.append(annotated)
+                ann["offset"] = entry["offset"]
+            return ann
+
+        result: list[dict] = []
+        for entry in base_entries:
+            result.append(_annotate(entry, tier_by_target.get(entry.get("target"), "diagnostic")))
+        for entry in extra_entries:
+            result.append(_annotate(entry, entry.get("tier") or "secondary"))
         return result
 
     @property
@@ -476,16 +485,25 @@ class ProcessorConfig(TimeStampedModel):
         help_text=(
             "L4 — list of {source, target, scale?, offset?} entries "
             "mapping this model's decoded fields onto canonical L1 Metric "
-            "keys (``target`` is the Metric.key being pointed at). "
-            "``scale`` (default 1) and ``offset`` (default 0) apply "
-            "a linear conversion ``value * scale + offset`` — used when "
-            "the decoder can't emit canonical units (typically vendor "
-            "LoRaWAN codecs we don't fork). Multi-channel devices model "
-            "each channel as a separate metric (e.g. "
-            "``elec:voltage_l1`` / ``elec:voltage_l2`` / ``elec:voltage_l3``). "
-            "Entries referencing a target key not yet in the L1 catalogue "
-            "auto-create the Metric row on save (operators tidy label/unit "
-            "in admin afterwards)."
+            "keys declared on the parent DeviceType (L2 profile). Each "
+            "entry must have a ``target`` matching one of the type's "
+            "declared metrics; the editor scaffolds rows from L2 so this "
+            "is enforced visually. ``scale`` (default 1) and ``offset`` "
+            "(default 0) apply a linear conversion ``value * scale + "
+            "offset`` — used when the decoder can't emit canonical units. "
+            "For metrics not declared on the type, use ``extra_mappings``."
+        ),
+    )
+    extra_mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Per-model extras — metrics this specific VendorModel produces "
+            "that aren't declared on the parent DeviceType. Each entry: "
+            "{source, target, tier, scale?, offset?}. ``tier`` is per-entry "
+            "(primary / secondary / diagnostic) since these metrics have no "
+            "L2 row to derive it from. ``target`` keys not yet in the L1 "
+            "catalogue auto-create on save."
         ),
     )
 
@@ -527,7 +545,7 @@ class ProcessorConfig(TimeStampedModel):
                     self.DecoderType.JS_CODEC if has_codec else self.DecoderType.LORAWAN_FIELD_MAP
                 )
 
-        for entry in (self.field_mappings or []):
+        for entry in [*(self.field_mappings or []), *(self.extra_mappings or [])]:
             target_key = entry.get("target")
             if not target_key:
                 continue
