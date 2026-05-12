@@ -27,14 +27,6 @@
             <tbody data-field-mappings-rows>
                 {# rows injected by JS #}
             </tbody>
-            <tfoot class="bg-gray-50 border-t">
-                <tr>
-                    <td colspan="5" class="py-2 px-3 text-xs text-gray-500">
-                        Rows are scaffolded from the parent DeviceType's L2 metrics profile.
-                        Use <strong>Extra Mappings</strong> below for anything not on the type.
-                    </td>
-                </tr>
-            </tfoot>
         </table>
     </div>
     </div>
@@ -58,8 +50,8 @@
             <i class="bi bi-info-circle"></i> Help — entry shape, auto-create, scale/offset
         </summary>
         <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
-            <p><strong>Scaffolded rows</strong> (blue background, <i class="bi bi-lock"></i>) come from the DeviceType's L2 metrics profile — the target column is locked. Fill in source / scale / offset per this model. Leave source empty to omit the metric from this model's output on save.</p>
-            <p><strong>Extra rows</strong> (added via <em>Add mapping</em>) point at a metric not on the type — auto-create on save adds it to the L1 catalogue (then tidy label/unit in <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a>).</p>
+            <p>Rows are scaffolded from the parent DeviceType's L2 metrics profile — the <code class="bg-gray-100 px-1 rounded">target</code> column is locked (<i class="bi bi-lock"></i>). Fill in source / scale / offset per this model. Leave source empty to omit the metric from this model's output on save.</p>
+            <p>Anything not on the type belongs in <strong>Extra Mappings</strong> below — extras can declare their own tier and use any metric key.</p>
             <p><strong>Scale / offset</strong> apply a linear conversion <code class="bg-gray-100 px-1 rounded">value × scale + offset</code> — used when the decoder can't emit canonical units (typical for vendor LoRaWAN codecs we don't fork). Defaults: scale 1, offset 0.</p>
             <p><strong>Multi-channel devices</strong> (3-phase meters, multi-tariff, …) model each channel as a separate metric (e.g. <code class="bg-gray-100 px-1 rounded">elec:voltage_l1</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l2</code>).</p>
         </div>
@@ -76,10 +68,6 @@
     const addBtn = editor.querySelector('[data-field-mappings-add]'); // null — no Add button on L2-scaffolded widget
     const availableMetrics = JSON.parse(editor.querySelector('[data-available-metrics]').textContent);
     const declaredMetrics = JSON.parse(editor.querySelector('[data-declared-metrics]').textContent);
-
-    // {target → {label, unit}} lookup for badge rendering on locked rows
-    const metricMetaByKey = {};
-    availableMetrics.forEach(m => { metricMetaByKey[m.key] = m; });
 
     let initialEntries = [];
     try {
@@ -267,9 +255,6 @@
 
         let metricCell;
         if (locked) {
-            const meta = metricMetaByKey[entry.target] || {};
-            const label = meta.label ? escapeHtml(meta.label) : '';
-            const unit = meta.unit ? `<span class="text-gray-400">(${escapeHtml(meta.unit)})</span>` : '';
             metricCell = `
                 <td class="py-1.5 px-3 align-top">
                     <input data-metric type="hidden" value="${escapeHtml(entry.target || '')}">
@@ -277,7 +262,6 @@
                         <code class="text-xs bg-gray-100 px-1 py-0.5 rounded font-mono">${escapeHtml(entry.target || '')}</code>
                         ${tier ? tierBadge(tier) : ''}
                     </div>
-                    <div class="text-[11px] text-gray-500 mt-0.5">${label} ${unit}</div>
                 </td>`;
         } else {
             metricCell = `
@@ -299,7 +283,7 @@
         }
 
         const removeCell = locked
-            ? `<td class="py-1.5 px-3 text-right align-top"><span class="text-gray-300 text-xs" title="Declared on DeviceType — clear source to omit on save"><i class="bi bi-lock"></i></span></td>`
+            ? `<td class="py-1.5 px-3 align-top"></td>`
             : `<td class="py-1.5 px-3 text-right align-top"><button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove"><i class="bi bi-trash"></i></button></td>`;
 
         tr.innerHTML = `

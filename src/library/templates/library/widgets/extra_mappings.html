@@ -18,17 +18,19 @@
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="text-left py-2 px-3 font-semibold">Source</th>
-                    <th class="text-left py-2 px-3 font-semibold">Metric (L1 key)</th>
-                    <th class="text-left py-2 px-3 font-semibold w-36">Tier</th>
-                    <th class="text-left py-2 px-3 font-semibold w-24" title="value × scale + offset">Scale</th>
-                    <th class="text-left py-2 px-3 font-semibold w-24">Offset</th>
+                    <th class="text-left py-2 px-3 font-semibold">Metric key</th>
+                    <th class="text-left py-2 px-3 font-semibold">Label</th>
+                    <th class="text-left py-2 px-3 font-semibold w-20">Unit</th>
+                    <th class="text-left py-2 px-3 font-semibold w-32">Tier</th>
+                    <th class="text-left py-2 px-3 font-semibold w-20" title="value × scale + offset">Scale</th>
+                    <th class="text-left py-2 px-3 font-semibold w-20">Offset</th>
                     <th class="py-2 px-3 w-12"></th>
                 </tr>
             </thead>
             <tbody data-extra-mappings-rows></tbody>
             <tfoot class="bg-gray-50 border-t">
                 <tr>
-                    <td colspan="6" class="py-2 px-3">
+                    <td colspan="8" class="py-2 px-3">
                         <button type="button"
                                 data-extra-mappings-add
                                 class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
@@ -62,8 +64,8 @@
         </summary>
         <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
             <p><strong>Extra mappings</strong> are for metrics this specific VendorModel produces that <em>aren't</em> declared on the parent DeviceType's L2 profile — e.g. a custom probe wired into a Modbus device, vendor-specific diagnostics, or one-off measurements you don't want to push into the type taxonomy.</p>
-            <p><strong>Tier per row</strong> — since these targets have no L2 row to derive tier from, you set it explicitly: <code class="bg-gray-100 px-1 rounded">primary</code> (charts default), <code class="bg-gray-100 px-1 rounded">secondary</code> (toggle on), <code class="bg-gray-100 px-1 rounded">diagnostic</code> (admin-only).</p>
-            <p><strong>Auto-create:</strong> typing a metric key not in the L1 catalogue creates the row on save (tidy label/unit in <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a>).</p>
+            <p><strong>Tier / label / unit per row</strong> — these targets aren't in the L1 catalogue, so display metadata lives on the entry itself. Label is shown to users on charts; unit annotates the Y-axis.</p>
+            <p>If you later realize an extra metric is common across multiple models, you can <strong>promote</strong> it to the L1 catalogue via <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a> + add it to the relevant DeviceType profile.</p>
         </div>
     </details>
 
@@ -103,6 +105,10 @@
             if (!source && !target) return null;
             const tier = row.querySelector('[data-tier]').value;
             const entry = {source, target, tier};
+            const label = row.querySelector('[data-label]').value.trim();
+            if (label) entry.label = label;
+            const unit = row.querySelector('[data-unit]').value.trim();
+            if (unit) entry.unit = unit;
             const scale = parseNumber(row.querySelector('[data-scale]').value);
             if (scale !== null && scale !== 1) entry.scale = scale;
             const offset = parseNumber(row.querySelector('[data-offset]').value);
@@ -230,7 +236,7 @@
             <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
                 <div class="relative">
                     <input data-metric type="text" autocomplete="off"
-                           placeholder="select or type new metric key…"
+                           placeholder="e.g. heat:boiler_temp"
                            class="!w-full !py-1 !pr-7 !text-sm font-mono">
                     <button type="button" data-metric-toggle
                             class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
@@ -241,6 +247,16 @@
                 <ul data-metric-options role="listbox"
                     class="hidden max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg"></ul>
                 <div data-metric-status class="text-xs mt-0.5 leading-tight"></div>
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-label type="text" value="${escapeHtml(entry.label || '')}"
+                       placeholder="Boiler Temperature"
+                       class="!w-full !py-1 !text-sm">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-unit type="text" value="${escapeHtml(entry.unit || '')}"
+                       placeholder="°C"
+                       class="!w-full !py-1 !text-sm font-mono">
             </td>
             <td class="py-1.5 px-3 align-top">
                 <select data-tier class="!w-full !py-1 !text-sm">${tierOptions}</select>
@@ -260,7 +276,7 @@
             </td>
         `;
 
-        ['data-source', 'data-tier', 'data-scale', 'data-offset'].forEach(sel => {
+        ['data-source', 'data-label', 'data-unit', 'data-tier', 'data-scale', 'data-offset'].forEach(sel => {
             tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
             tr.querySelector(`[${sel}]`).addEventListener('change', syncToInput);
         });
@@ -275,6 +291,9 @@
     function rebuildRows(entries) {
         rowsContainer.innerHTML = '';
         entries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+        if (rowsContainer.children.length === 0) {
+            rowsContainer.appendChild(makeRow());
+        }
         syncToInput();
     }
 

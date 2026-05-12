@@ -240,14 +240,24 @@ class VendorModel(TimeStampedModel):
                 if entry.get("metric") and entry.get("tier"):
                     tier_by_target[entry["metric"]] = entry["tier"]
 
-        def _annotate(entry: dict, tier: str) -> dict:
+        def _annotate(entry: dict, tier: str, prefer_entry_meta: bool) -> dict:
             target_key = entry.get("target")
             m = metrics_by_key.get(target_key)
+            # For extras, prefer the entry's own label/unit (set by the
+            # operator); fall back to L1 if the target happens to be in
+            # the catalogue; finally fall back to the bare target key /
+            # empty string.
+            if prefer_entry_meta:
+                label = entry.get("label") or (m.label if m else target_key)
+                unit = entry.get("unit") if entry.get("unit") is not None else (m.unit if m else "")
+            else:
+                label = m.label if m else target_key
+                unit = m.unit if m else ""
             ann = {
                 "source": entry.get("source"),
                 "target": target_key,
-                "label": m.label if m else target_key,
-                "unit": m.unit if m else "",
+                "label": label,
+                "unit": unit,
                 "tier": tier,
             }
             if entry.get("scale") is not None and entry["scale"] != 1:
@@ -258,9 +268,9 @@ class VendorModel(TimeStampedModel):
 
         result: list[dict] = []
         for entry in base_entries:
-            result.append(_annotate(entry, tier_by_target.get(entry.get("target"), "diagnostic")))
+            result.append(_annotate(entry, tier_by_target.get(entry.get("target"), "diagnostic"), prefer_entry_meta=False))
         for entry in extra_entries:
-            result.append(_annotate(entry, entry.get("tier") or "secondary"))
+            result.append(_annotate(entry, entry.get("tier") or "secondary", prefer_entry_meta=True))
         return result
 
     @property
@@ -499,11 +509,14 @@ class ProcessorConfig(TimeStampedModel):
         blank=True,
         help_text=(
             "Per-model extras — metrics this specific VendorModel produces "
-            "that aren't declared on the parent DeviceType. Each entry: "
-            "{source, target, tier, scale?, offset?}. ``tier`` is per-entry "
-            "(primary / secondary / diagnostic) since these metrics have no "
-            "L2 row to derive it from. ``target`` keys not yet in the L1 "
-            "catalogue auto-create on save."
+            "that aren't declared on the parent DeviceType and that the "
+            "operator chose not to promote into the L1 catalogue. "
+            "Each entry: {source, target, tier, label?, unit?, scale?, "
+            "offset?}. ``tier`` is per-entry (primary / secondary / "
+            "diagnostic). ``label`` and ``unit`` live on the entry itself "
+            "(no L1 row required) — if the target happens to match an "
+            "existing L1 key, the catalogue's label/unit is used as a "
+            "fallback. Targets are NOT auto-created in L1 for this list."
         ),
     )
 
@@ -545,7 +558,12 @@ class ProcessorConfig(TimeStampedModel):
                     self.DecoderType.JS_CODEC if has_codec else self.DecoderType.LORAWAN_FIELD_MAP
                 )
 
-        for entry in [*(self.field_mappings or []), *(self.extra_mappings or [])]:
+        # Auto-create L1 Metric rows for ``field_mappings`` entries only —
+        # those reference L2-declared metrics that need a catalogue anchor.
+        # ``extra_mappings`` entries are intentionally device-specific
+        # (label + unit live on each entry); we don't pollute the catalogue
+        # with one-off keys.
+        for entry in (self.field_mappings or []):
             target_key = entry.get("target")
             if not target_key:
                 continue
