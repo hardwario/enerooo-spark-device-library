@@ -169,8 +169,6 @@ def _convert_legacy_field_mappings(base: list[dict], extras: list[dict]) -> list
             new_entry["scale"] = entry["scale"]
         if entry.get("offset") not in (None, 0):
             new_entry["offset"] = entry["offset"]
-        if entry.get("tags"):
-            new_entry["tags"] = entry["tags"]
         out.append(new_entry)
     return out
 

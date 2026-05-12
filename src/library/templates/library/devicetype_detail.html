@@ -261,7 +261,6 @@
                                     <th class="py-1.5 px-2 font-medium">Tier</th>
                                     <th class="py-1.5 px-2 font-medium">Scale</th>
                                     <th class="py-1.5 px-2 font-medium">Offset</th>
-                                    <th class="py-1.5 px-2 font-medium">Tags</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -284,9 +283,6 @@
                                     </td>
                                     <td class="py-1.5 px-2 font-mono">{{ entry.scale|default:"—" }}</td>
                                     <td class="py-1.5 px-2 font-mono">{{ entry.offset|default:"—" }}</td>
-                                    <td class="py-1.5 px-2 font-mono text-gray-500">
-                                        {% if entry.tags %}{{ entry.tags|pretty_json }}{% else %}<span class="text-gray-300">—</span>{% endif %}
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

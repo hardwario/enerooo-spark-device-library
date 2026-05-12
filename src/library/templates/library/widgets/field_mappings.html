@@ -14,14 +14,13 @@
 
     <div data-view-table>
     <div class="border border-gray-300 rounded overflow-x-auto">
-        <table class="w-full text-sm" style="min-width: 800px;">
+        <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="text-left py-2 px-3 font-semibold">Source</th>
                     <th class="text-left py-2 px-3 font-semibold">Metric (L1 key)</th>
                     <th class="text-left py-2 px-3 font-semibold w-24" title="value × scale + offset">Scale</th>
                     <th class="text-left py-2 px-3 font-semibold w-24">Offset</th>
-                    <th class="text-left py-2 px-3 font-semibold w-48">Tags (JSON)</th>
                     <th class="py-2 px-3 w-12"></th>
                 </tr>
             </thead>
@@ -30,7 +29,7 @@
             </tbody>
             <tfoot class="bg-gray-50 border-t">
                 <tr>
-                    <td colspan="6" class="py-2 px-3">
+                    <td colspan="5" class="py-2 px-3">
                         <button type="button"
                                 data-field-mappings-add
                                 class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
@@ -62,13 +61,13 @@
 
     <details class="mt-2 text-xs text-gray-500">
         <summary class="cursor-pointer hover:text-gray-700 select-none">
-            <i class="bi bi-info-circle"></i> Help — entry shape, auto-create, scale/offset/tags
+            <i class="bi bi-info-circle"></i> Help — entry shape, auto-create, scale/offset
         </summary>
         <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
-            <p>Each row maps a decoded <code class="bg-gray-100 px-1 rounded">source</code> field to a canonical L1 <code class="bg-gray-100 px-1 rounded">metric</code> key.</p>
+            <p>Each row maps a decoded <code class="bg-gray-100 px-1 rounded">source</code> field to a canonical L1 metric key (<code class="bg-gray-100 px-1 rounded">target</code>).</p>
             <p><strong>Auto-create:</strong> typing a metric key not in the catalogue creates the L1 row on save (operators tidy label/unit in <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a> afterwards).</p>
             <p><strong>Scale / offset:</strong> apply a linear conversion <code class="bg-gray-100 px-1 rounded">value × scale + offset</code> — used when the decoder can't emit canonical units (typical for vendor LoRaWAN codecs we don't fork). Defaults: scale 1, offset 0.</p>
-            <p><strong>Tags:</strong> JSON like <code class="bg-gray-100 px-1 rounded">{"phase": "L1"}</code> for multi-channel devices (3-phase meters, multi-tariff, …).</p>
+            <p><strong>Multi-channel devices</strong> (3-phase meters, multi-tariff, …) model each channel as a separate metric (e.g. <code class="bg-gray-100 px-1 rounded">elec:voltage_l1</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l2</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l3</code>).</p>
         </div>
     </details>
 
@@ -100,17 +99,6 @@
         return Number.isFinite(n) ? n : null;
     }
 
-    function parseTags(s) {
-        s = (s || '').trim();
-        if (!s) return null;
-        try {
-            const obj = JSON.parse(s);
-            return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : null;
-        } catch (e) {
-            return null;
-        }
-    }
-
     function syncToInput() {
         const rows = Array.from(rowsContainer.children);
         const data = rows.map(row => {
@@ -122,8 +110,6 @@
             if (scale !== null && scale !== 1) entry.scale = scale;
             const offset = parseNumber(row.querySelector('[data-offset]').value);
             if (offset !== null && offset !== 0) entry.offset = offset;
-            const tags = parseTags(row.querySelector('[data-tags]').value);
-            if (tags && Object.keys(tags).length) entry.tags = tags;
             return entry;
         }).filter(e => e);
         input.value = JSON.stringify(data, null, 2);
@@ -267,7 +253,6 @@
         const tr = document.createElement('tr');
         tr.className = 'border-b last:border-b-0';
 
-        const tagsValue = entry.tags ? JSON.stringify(entry.tags) : '';
         tr.innerHTML = `
             <td class="py-1.5 px-3 align-top">
                 <input data-source type="text" value="${escapeHtml(entry.source || '')}"
@@ -299,11 +284,6 @@
                        placeholder="0"
                        class="!w-full !py-1 !text-sm font-mono">
             </td>
-            <td class="py-1.5 px-3 align-top">
-                <input data-tags type="text" value="${escapeHtml(tagsValue)}"
-                       placeholder='{"phase":"L1"}'
-                       class="!w-full !py-1 !text-sm font-mono">
-            </td>
             <td class="py-1.5 px-3 text-right align-top">
                 <button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove">
                     <i class="bi bi-trash"></i>
@@ -311,7 +291,7 @@
             </td>
         `;
 
-        ['data-source', 'data-scale', 'data-offset', 'data-tags'].forEach(sel => {
+        ['data-source', 'data-scale', 'data-offset'].forEach(sel => {
             tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
         });
         attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.target || '');

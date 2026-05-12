@@ -115,7 +115,6 @@
                                     <code class="text-xs bg-gray-100 px-1 rounded">{{ entry.source|default:"—" }}</code>
                                     {% if entry.scale %}<span class="text-xs text-gray-500 ml-1">× {{ entry.scale }}</span>{% endif %}
                                     {% if entry.offset %}<span class="text-xs text-gray-500 ml-1">+ {{ entry.offset }}</span>{% endif %}
-                                    {% if entry.tags %}<span class="text-xs text-gray-400 ml-1">{{ entry.tags }}</span>{% endif %}
                                 </li>
                                 {% endfor %}
                             </ul>

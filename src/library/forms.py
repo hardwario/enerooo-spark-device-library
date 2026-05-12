@@ -266,7 +266,11 @@ class ControlConfigForm(forms.ModelForm):
 class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "field_mappings", "extra_config"]
+        # ``decoder_type`` is auto-derived from VendorModel.technology in
+        # ProcessorConfig.save() (wmbus → wmbus_field_map, lorawan → js_codec
+        # or lorawan_field_map based on payload_codec presence). Hidden from
+        # the form to keep the editor minimal.
+        fields = ["field_mappings", "extra_config"]
         widgets = {
             "extra_config": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
             "field_mappings": FieldMappingsWidget(),

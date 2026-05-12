@@ -201,8 +201,8 @@ class VendorModel(TimeStampedModel):
         """Resolved L4 mappings annotated with metadata from L1 + L2.
 
         Each entry carries the raw L4 fields (``source``, ``target``,
-        optional ``scale``, ``offset``, ``tags``) plus three derived
-        fields the consumer needs to render without further lookups:
+        optional ``scale``, ``offset``) plus three derived fields the
+        consumer needs to render without further lookups:
 
         - ``label`` (from L1 ``Metric.label``)
         - ``unit``  (from L1 ``Metric.unit``)
@@ -212,6 +212,10 @@ class VendorModel(TimeStampedModel):
         ``target`` is the L4 entry's pointer at an L1 ``Metric.key`` — kept
         named ``target`` so existing decoder/Spark code that reads
         ``entry["target"]`` keeps working.
+
+        Multi-channel devices (3-phase meters, etc.) model each channel as
+        a separate metric (``elec:voltage_l1``, ``elec:voltage_l2``, …) —
+        no per-entry tags.
 
         L1/L2 lookups are batched once per call to avoid N+1.
         """
@@ -247,8 +251,6 @@ class VendorModel(TimeStampedModel):
                 annotated["scale"] = entry["scale"]
             if entry.get("offset") is not None and entry["offset"] != 0:
                 annotated["offset"] = entry["offset"]
-            if entry.get("tags"):
-                annotated["tags"] = entry["tags"]
             result.append(annotated)
         return result
 
@@ -472,29 +474,59 @@ class ProcessorConfig(TimeStampedModel):
         default=list,
         blank=True,
         help_text=(
-            "L4 — list of {source, target, scale?, offset?, tags?} entries "
+            "L4 — list of {source, target, scale?, offset?} entries "
             "mapping this model's decoded fields onto canonical L1 Metric "
             "keys (``target`` is the Metric.key being pointed at). "
             "``scale`` (default 1) and ``offset`` (default 0) apply "
             "a linear conversion ``value * scale + offset`` — used when "
             "the decoder can't emit canonical units (typically vendor "
-            "LoRaWAN codecs we don't fork). ``tags`` distinguishes instances "
-            "of the same metric on multi-channel devices (e.g. "
-            "{phase: L1} on a 3-phase meter). Entries referencing a target "
-            "key not yet in the L1 catalogue auto-create the Metric row "
-            "on save (operators tidy label/unit in admin afterwards)."
+            "LoRaWAN codecs we don't fork). Multi-channel devices model "
+            "each channel as a separate metric (e.g. "
+            "``elec:voltage_l1`` / ``elec:voltage_l2`` / ``elec:voltage_l3``). "
+            "Entries referencing a target key not yet in the L1 catalogue "
+            "auto-create the Metric row on save (operators tidy label/unit "
+            "in admin afterwards)."
         ),
     )
 
     def save(self, *args, **kwargs):
-        """Auto-create any missing L1 Metric rows referenced by entries.
+        """Auto-derive ``decoder_type`` from the parent VendorModel's
+        technology and auto-create any missing L1 Metric rows referenced
+        by entries.
 
-        Tolerant pattern: a VendorModel can declare a metric the catalogue
-        doesn't know yet (e.g. ``temp:temperature_boiler`` for a custom
-        installation). We create a minimal Metric row so downstream lookups
-        don't fail; the operator dials in label/unit/data_type later in the
-        admin once the metric earns its place in the catalogue.
+        Decoder-type derivation:
+        - wmbus  → ``wmbus_field_map``
+        - lorawan → ``js_codec`` if a payload codec is configured,
+                    else ``lorawan_field_map``
+        - modbus → left empty (modbus decodes via RegisterDefinition, not
+                   field_mappings; ProcessorConfig is rarely used)
+
+        Operators can still set a non-default ``decoder_type`` (e.g.
+        ``configurable``) explicitly via API/admin — auto-derive only fills
+        in when the field is blank.
+
+        Tolerant metric auto-create: a VendorModel can declare a metric
+        the catalogue doesn't know yet (e.g. ``temp:temperature_boiler``).
+        We create a minimal Metric row so downstream lookups don't fail;
+        the operator dials in label/unit/data_type later in admin.
         """
+        if not self.decoder_type:
+            try:
+                technology = self.device_type.technology
+            except Exception:
+                technology = None
+            if technology == "wmbus":
+                self.decoder_type = self.DecoderType.WMBUS_FIELD_MAP
+            elif technology == "lorawan":
+                has_codec = False
+                try:
+                    has_codec = bool(self.device_type.lorawan_config.payload_codec)
+                except Exception:
+                    pass
+                self.decoder_type = (
+                    self.DecoderType.JS_CODEC if has_codec else self.DecoderType.LORAWAN_FIELD_MAP
+                )
+
         for entry in (self.field_mappings or []):
             target_key = entry.get("target")
             if not target_key:

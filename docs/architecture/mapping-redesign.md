@@ -7,9 +7,13 @@ Four layers, split by responsibility. L3 and L4 already exist implicitly; L1 and
 | **L1 Metric** | Global catalogue of metrics (label, unit, data_type) | Platform |
 | **L2 DeviceType profile** | Which metrics this device type tracks + tier | Per type |
 | **L3 Decoder** | Bytes → named dict | Per model (Modbus / wM-Bus / LoRaWAN) |
-| **L4 Mapping** | Decoded field → target metric, optional `scale` + `offset` + `tags` | Per model |
+| **L4 Mapping** | Decoded field → target metric, optional `scale` + `offset` | Per model |
 
 L4 entries use the key name **`target`** for the pointer at an L1 `Metric.key` — kept so existing decoders (Spark) reading `entry["target"]` keep working without code change. L2 entries use **`metric`** because they're a declaration (this type tracks this metric), not a decoder mapping.
+
+**Multi-channel devices** (3-phase meters, multi-tariff, …) model each channel as a separate L1 metric (`elec:voltage_l1` / `elec:voltage_l2` / `elec:voltage_l3`) — no parallel "tags" concept. Catalogue grows by N entries; data model stays flat. Auto-create on save handles the L1 row creation.
+
+**Decoder type auto-derive.** `ProcessorConfig.decoder_type` is filled by the model's `save()` based on `VendorModel.technology`: wmbus → `wmbus_field_map`, lorawan → `js_codec` (if a payload codec is set) or `lorawan_field_map`. Operator only sets it explicitly for edge cases.
 
 L3 emits canonical units wherever we own the decoder config (Modbus `scale`/`offset`, wmbusmeters driver). For vendor LoRaWAN codecs we pull from upstream and don't fork, L4 carries `scale` (default 1) and `offset` (default 0) for a generic linear conversion `value * scale + offset` — covers Wh→kWh, dWh→kWh, °F→°C, %→ratio without enumerating each.
 
@@ -108,21 +112,25 @@ For an `°F → °C` device the same shape covers offset too: `{source: temp_f, 
 
 ---
 
-## Multi-channel via tags
+## Multi-channel (3-phase, multi-tariff)
 
-The catalogue declares each metric once; instances are distinguished by structured `tags` in L4.
+Each channel = a separate L1 metric. The catalogue grows by N entries
+(e.g. `elec:voltage_l1`, `elec:voltage_l2`, `elec:voltage_l3`) but the
+data model stays flat — one entry per decoded source field.
 
 ```yaml
-# L1 — one entry per metric (already in the catalogue above)
-- {key: elec:voltage, label: "Voltage", unit: V, data_type: decimal}
+# L1 — three entries, one per phase
+- {key: elec:voltage_l1, label: "Voltage L1", unit: V, data_type: decimal}
+- {key: elec:voltage_l2, label: "Voltage L2", unit: V, data_type: decimal}
+- {key: elec:voltage_l3, label: "Voltage L3", unit: V, data_type: decimal}
 
-# L4 — instances via tags
-- {source: voltage_l1, target: elec:voltage, tags: {phase: L1}}
-- {source: voltage_l2, target: elec:voltage, tags: {phase: L2}}
-- {source: voltage_l3, target: elec:voltage, tags: {phase: L3}}
+# L4 — straight 1:1 source → target
+- {source: voltage_l1, target: elec:voltage_l1}
+- {source: voltage_l2, target: elec:voltage_l2}
+- {source: voltage_l3, target: elec:voltage_l3}
 ```
 
-Consumers query `target=elec:voltage, tags.phase=L1`. Same pattern for multi-tariff (`tags: {tariff: T1}`), multi-zone, multi-channel HCAs.
+Consumers query by `target` directly. Same pattern for multi-tariff (`elec:energy_t1`, `elec:energy_t2`, …).
 
 ---
 
@@ -139,7 +147,7 @@ Consumers query `target=elec:voltage, tags.phase=L1`. Same pattern for multi-tar
 }
 ```
 
-`label`, `unit`, `tier` resolved from L1+L2 (not stored per entry). `scale`, `offset`, `tags` come from L4 and are emitted only when non-default (scale ≠ 1, offset ≠ 0, tags non-empty).
+`label`, `unit`, `tier` resolved from L1+L2 (not stored per entry). `scale`, `offset` come from L4 and are emitted only when non-default (scale ≠ 1, offset ≠ 0).
 
 ---
 

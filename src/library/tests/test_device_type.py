@@ -164,7 +164,7 @@ class TestEffectiveFieldMappings:
         assert result[0]["tier"] == "diagnostic"
         assert result[0]["unit"] == "dBm"
 
-    def test_scale_offset_and_tags_passed_through(self, heat_with_profile):
+    def test_scale_passed_through_offset_omitted_when_zero(self, heat_with_profile):
         vm = self._make_model(heat_with_profile, vendor_slug="trans", vendor_name="Trans")
         ProcessorConfig.objects.create(
             device_type=vm,
@@ -173,14 +173,12 @@ class TestEffectiveFieldMappings:
                     "source": "energy_wh",
                     "target": "heat:total_energy",
                     "scale": 0.001,
-                    "tags": {"channel": "1"},
                 },
             ],
         )
         entry = vm.effective_field_mappings[0]
         assert entry["scale"] == 0.001
         assert "offset" not in entry  # default 0 — omitted
-        assert entry["tags"] == {"channel": "1"}
 
     def test_scale_and_offset_for_temperature_conversion(self, heat_meter_type):
         # °F → °C: value * (5/9) - 17.78
@@ -235,26 +233,59 @@ class TestEffectiveFieldMappings:
         # Unit defaults to empty — operator dials it in via admin afterwards
         assert m.unit == ""
 
-    def test_multi_channel_via_tags(self, heat_meter_type):
-        # 3-phase voltage modeled via tags, one entry per phase
-        heat_meter_type.metrics = [{"metric": "elec:voltage", "tier": "primary"}]
+    def test_multi_channel_via_separate_metric_keys(self, heat_meter_type):
+        # 3-phase voltage modeled as three distinct L1 metrics (one per phase)
+        heat_meter_type.metrics = [
+            {"metric": "elec:voltage_l1", "tier": "primary"},
+            {"metric": "elec:voltage_l2", "tier": "primary"},
+            {"metric": "elec:voltage_l3", "tier": "primary"},
+        ]
         heat_meter_type.save(update_fields=["metrics"])
         vm = self._make_model(heat_meter_type, vendor_slug="3ph", vendor_name="ThreePhase")
         ProcessorConfig.objects.create(
             device_type=vm,
             field_mappings=[
-                {"source": "voltage_l1", "target": "elec:voltage", "tags": {"phase": "L1"}},
-                {"source": "voltage_l2", "target": "elec:voltage", "tags": {"phase": "L2"}},
-                {"source": "voltage_l3", "target": "elec:voltage", "tags": {"phase": "L3"}},
+                {"source": "voltage_l1", "target": "elec:voltage_l1"},
+                {"source": "voltage_l2", "target": "elec:voltage_l2"},
+                {"source": "voltage_l3", "target": "elec:voltage_l3"},
             ],
         )
         result = vm.effective_field_mappings
         assert len(result) == 3
-        # All resolve to the same metric but distinguish via tags
-        phases = {entry["tags"]["phase"] for entry in result}
-        assert phases == {"L1", "L2", "L3"}
+        targets = {entry["target"] for entry in result}
+        assert targets == {"elec:voltage_l1", "elec:voltage_l2", "elec:voltage_l3"}
         # All inherit the same tier from L2
         assert all(entry["tier"] == "primary" for entry in result)
+
+    def test_decoder_type_autoderived_from_technology(self, water_meter_type):
+        """``ProcessorConfig.save()`` auto-fills ``decoder_type`` based on
+        VendorModel.technology so operators don't have to."""
+        vendor = Vendor.objects.create(name="AutoDeriveVendor", slug="autoderive")
+        # wmbus model
+        wmbus_vm = VendorModel.objects.create(
+            vendor=vendor,
+            model_number="WB-1",
+            name="WB-1",
+            device_type="water_meter",
+            device_type_fk=water_meter_type,
+            technology=VendorModel.Technology.WMBUS,
+        )
+        wmbus_pc = ProcessorConfig.objects.create(device_type=wmbus_vm)
+        wmbus_pc.refresh_from_db()
+        assert wmbus_pc.decoder_type == "wmbus_field_map"
+
+        # lorawan model without payload codec → lorawan_field_map
+        lw_vm = VendorModel.objects.create(
+            vendor=vendor,
+            model_number="LW-1",
+            name="LW-1",
+            device_type="water_meter",
+            device_type_fk=water_meter_type,
+            technology=VendorModel.Technology.LORAWAN,
+        )
+        lw_pc = ProcessorConfig.objects.create(device_type=lw_vm)
+        lw_pc.refresh_from_db()
+        assert lw_pc.decoder_type == "lorawan_field_map"
 
     def test_declared_metrics_exposes_type_profile(self, heat_with_profile):
         vm = self._make_model(heat_with_profile, vendor_slug="decl", vendor_name="Decl")
