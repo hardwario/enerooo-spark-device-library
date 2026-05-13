@@ -21,7 +21,7 @@ from library.models import (
 
 
 class MetricSerializer(serializers.ModelSerializer):
-    """L1 — Catalogue entry (incl. value bounds + monotonic flag)."""
+    """L1 — Catalogue entry (incl. value bounds + monotonic + aggregation)."""
 
     class Meta:
         model = Metric
@@ -34,6 +34,7 @@ class MetricSerializer(serializers.ModelSerializer):
             "min_value",
             "max_value",
             "monotonic",
+            "aggregation",
         ]
 
 

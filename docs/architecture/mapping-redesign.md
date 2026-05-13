@@ -25,18 +25,19 @@ Model entries referencing a target key not yet in the L1 catalogue **auto-create
 
 ```yaml
 - {key: heat:total_energy,  label: "Total Energy",  unit: kWh,   data_type: decimal,
-   min_value: 0, max_value: 1e12, monotonic: true}
+   min_value: 0, max_value: 1e12, monotonic: true,  aggregation: delta}
 - {key: heat:total_volume,  label: "Total Volume",  unit: m³,    data_type: decimal,
-   min_value: 0, max_value: 1e9,  monotonic: true}
+   min_value: 0, max_value: 1e9,  monotonic: true,  aggregation: delta}
 - {key: elec:voltage,       label: "Voltage",       unit: V,     data_type: decimal,
-   min_value: 0, max_value: 1000}
+   min_value: 0, max_value: 1000}                              # aggregation: avg (default)
 - {key: env:temperature,    label: "Temperature",   unit: °C,    data_type: decimal,
    min_value: -100, max_value: 150}
 - {key: device:battery,     label: "Battery",       unit: ratio, data_type: decimal,
-   min_value: 0, max_value: 1}
+   min_value: 0, max_value: 1,                                  aggregation: last}
 - {key: device:rssi,        label: "Signal",        unit: dBm,   data_type: integer,
-   min_value: -150, max_value: 0}
-- {key: device:status,      label: "Status",        unit: "",    data_type: enum}
+   min_value: -150, max_value: 0,                               aggregation: last}
+- {key: device:status,      label: "Status",        unit: "",    data_type: enum,
+                                                                aggregation: last}
 ```
 
 The `key` namespace prefix is semantic: `heat:total_energy` (calorific) ≠ `elec:total_energy` (electrical), same unit but different physical quantity. The `device:` namespace covers cross-domain health telemetry (battery, RSSI, firmware, status) regardless of underlying technology — no separate `radio:*` namespace to avoid fragmenting.
@@ -75,11 +76,32 @@ Two redundant paths, by design:
   "tier": "primary",
   "min_value": "0.000000",
   "max_value": "1000000000.000000",
-  "monotonic": true
+  "monotonic": true,
+  "aggregation": "delta"
 }
 ```
 
 The two paths intentionally overlap. Spark can pick whichever fits the call site — the per-entry view for hot ingestion, the top-level catalogue for everything else.
+
+### Chart aggregation
+
+Each L1 entry also carries an `aggregation` enum declaring **how to collapse the metric into a single value per time bucket** when a consumer (Spark chart engine, mobile graph widget) resamples a time-series:
+
+| Value | Bucket math | Typical use |
+|---|---|---|
+| `avg` *(default)* | Arithmetic mean | Instantaneous quantities — temperature, voltage, flow rate |
+| `delta` | `last − first` | Cumulative counters — `heat:total_energy`, `water:total_volume` → consumption per bucket |
+| `last` | Most recent value | Stateful telemetry — `device:battery`, `device:rssi`, `device:status` |
+| `min` / `max` | Extremes | Environmental extremes (rare) |
+| `sum` | Sum of raw values | Non-monotonic event counts (pulse counts, openings) |
+
+This is **bucketing semantics only** — it controls how charts resample the series, not the chart type or styling. "Current value" widgets (e.g. *Battery: 87 %* tiles) always read the latest raw point regardless of `aggregation`. The distinction matters for `device:battery` in particular: aggregation is `last` (graphs of daily snapshots), but a 30-day trend chart still works because the *chart* is a bucketed series of `last` values — you see the degradation curve, not one single number.
+
+Spark's chart engine can also derive a sensible default *chart type* from this field — `delta` typically renders as a bar chart (consumption per hour), everything else as a line. No separate `chart_type` field needed yet.
+
+Migration `0032_metric_aggregation` seeds `delta` for the six monotonic cumulative counters and `last` for the seven device-telemetry metrics. Everything else falls through to the `avg` default. Auto-created metric rows (`ProcessorConfig.save()` discovering unknown targets) also default to `avg` — no opinion until an operator dials it in.
+
+The same denormalization pattern applies: `aggregation` is inlined into each `effective_field_mappings` entry, but **omitted when equal to the default `avg`** to keep payloads compact. Spark reads `entry.get("aggregation", "avg")`.
 
 ---
 
@@ -189,11 +211,15 @@ Consumers query by `target` directly. Same pattern for multi-tariff (`elec:energ
   "label": "Total Energy",
   "unit": "kWh",
   "tier": "primary",
-  "scale": 0.001
+  "scale": 0.001,
+  "min_value": "0.000000",
+  "max_value": "1000000000000.000000",
+  "monotonic": true,
+  "aggregation": "delta"
 }
 ```
 
-`label`, `unit`, `tier` resolved from L1+L2 (not stored per entry). `scale`, `offset` come from L4 and are emitted only when non-default (scale ≠ 1, offset ≠ 0).
+`label`, `unit`, `tier` resolved from L1+L2 (not stored per entry). `scale`, `offset` come from L4 and are emitted only when non-default (scale ≠ 1, offset ≠ 0). `min_value`, `max_value`, `monotonic`, `aggregation` come from L1 and are emitted only when non-default (null bounds, `monotonic=false`, and `aggregation=avg` are all omitted).
 
 ---
 

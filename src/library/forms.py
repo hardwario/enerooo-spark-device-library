@@ -156,6 +156,7 @@ class MetricForm(forms.ModelForm):
             "min_value",
             "max_value",
             "monotonic",
+            "aggregation",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),

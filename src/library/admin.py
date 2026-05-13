@@ -24,8 +24,8 @@ from .models import (
 
 @admin.register(Metric)
 class MetricAdmin(admin.ModelAdmin):
-    list_display = ["key", "label", "unit", "data_type", "monotonic", "min_value", "max_value"]
-    list_filter = ["data_type", "monotonic"]
+    list_display = ["key", "label", "unit", "data_type", "monotonic", "aggregation", "min_value", "max_value"]
+    list_filter = ["data_type", "monotonic", "aggregation"]
     search_fields = ["key", "label"]
     readonly_fields = ["id", "created", "modified"]
     fieldsets = [
@@ -39,6 +39,17 @@ class MetricAdmin(admin.ModelAdmin):
                 "Values outside [min_value, max_value] are rejected. "
                 "Leave either bound null to skip that check. "
                 "Monotonic flags cumulative counters that must not decrease."
+            ),
+        }),
+        ("Chart aggregation", {
+            "fields": ["aggregation"],
+            "description": (
+                "How to collapse the metric into one value per time "
+                "bucket in charts. 'delta' = consumption per bucket "
+                "(cumulative counters); 'avg' = instantaneous average "
+                "(temperature, voltage); 'last' = latest reading "
+                "(battery, status). 'Current value' widgets always "
+                "read the latest raw point regardless of this field."
             ),
         }),
         ("Identity", {

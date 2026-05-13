@@ -143,6 +143,104 @@ class TestMetricValueBounds:
         assert m.monotonic is False
 
 
+class TestMetricAggregation:
+    """L1 ``aggregation`` enum — how a metric is collapsed into one value
+    per time bucket. Migration 0032 seeds 'delta' for cumulative counters
+    and 'last' for stateful telemetry; everything else defaults to 'avg'."""
+
+    def test_default_is_avg(self):
+        m = Metric.objects.create(key="x:newmetric", label="Newmetric", data_type="decimal")
+        m.refresh_from_db()
+        assert m.aggregation == "avg"
+
+    def test_cumulative_counters_seeded_with_delta(self):
+        for key in (
+            "heat:total_energy",
+            "heat:total_consumption",
+            "heat:total_volume",
+            "water:total_volume",
+            "gas:total_volume",
+            "elec:total_energy",
+        ):
+            assert Metric.objects.get(key=key).aggregation == "delta", (
+                f"{key} should be seeded as delta (cumulative counter)"
+            )
+
+    def test_stateful_telemetry_seeded_with_last(self):
+        for key in ("device:battery", "device:rssi", "device:snr"):
+            assert Metric.objects.get(key=key).aggregation == "last", (
+                f"{key} should be seeded as last (state telemetry)"
+            )
+
+    def test_instantaneous_quantities_default_to_avg(self):
+        # Temperature / voltage / pressure are not seeded explicitly →
+        # they keep the column default 'avg'.
+        for key in ("env:temperature", "elec:voltage", "env:pressure"):
+            assert Metric.objects.get(key=key).aggregation == "avg"
+
+    def test_aggregation_choices_enum_exposes_all_values(self):
+        assert Metric.Aggregation.AVG == "avg"
+        assert Metric.Aggregation.LAST == "last"
+        assert Metric.Aggregation.DELTA == "delta"
+        assert Metric.Aggregation.SUM == "sum"
+        assert Metric.Aggregation.MIN == "min"
+        assert Metric.Aggregation.MAX == "max"
+
+    def test_auto_created_metrics_default_to_avg(self, heat_meter_type):
+        """Tolerant auto-create from ProcessorConfig.save() doesn't take
+        an opinion on aggregation either — column default ('avg') applies."""
+        vendor = Vendor.objects.create(name="AggAuto", slug="aggauto")
+        vm = VendorModel.objects.create(
+            vendor=vendor,
+            model_number="AA-1",
+            name="AggAuto AA-1",
+            device_type="heat_meter",
+            device_type_fk=heat_meter_type,
+            technology=VendorModel.Technology.WMBUS,
+        )
+        ProcessorConfig.objects.create(
+            device_type=vm,
+            field_mappings=[{"source": "raw", "target": "heat:novel_agg_metric"}],
+        )
+        assert Metric.objects.get(key="heat:novel_agg_metric").aggregation == "avg"
+
+    def test_effective_mappings_emit_non_default_aggregation(self, heat_meter_type):
+        """``effective_field_mappings`` denormalizes aggregation onto each
+        entry — but only when it differs from the default 'avg' so the
+        wire shape stays compact for the common case."""
+        heat_meter_type.metrics = [
+            {"metric": "heat:total_energy", "tier": "primary"},
+            {"metric": "heat:flow_temperature", "tier": "secondary"},
+            {"metric": "device:battery", "tier": "diagnostic"},
+        ]
+        heat_meter_type.save(update_fields=["metrics"])
+        vendor = Vendor.objects.create(name="AggEffective", slug="aggeffective")
+        vm = VendorModel.objects.create(
+            vendor=vendor,
+            model_number="AE-1",
+            name="AggEffective AE-1",
+            device_type="heat_meter",
+            device_type_fk=heat_meter_type,
+            technology=VendorModel.Technology.LORAWAN,
+        )
+        ProcessorConfig.objects.create(
+            device_type=vm,
+            field_mappings=[
+                {"source": "energy_kwh", "target": "heat:total_energy"},
+                {"source": "temp_c", "target": "heat:flow_temperature"},
+                {"source": "bat", "target": "device:battery"},
+            ],
+        )
+        entries = {e["target"]: e for e in vm.effective_field_mappings}
+
+        # Cumulative counter → emitted with 'delta'
+        assert entries["heat:total_energy"]["aggregation"] == "delta"
+        # State telemetry → emitted with 'last'
+        assert entries["device:battery"]["aggregation"] == "last"
+        # Instantaneous (avg = default) → omitted to keep payload compact
+        assert "aggregation" not in entries["heat:flow_temperature"]
+
+
 class TestDeviceTypeProfile:
     """L2 — DeviceType.metrics declares which canonical metrics this type
     tracks and at which tier (primary / secondary / diagnostic)."""

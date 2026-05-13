@@ -80,6 +80,40 @@
     </div>
 </div>
 
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">Chart aggregation</h5>
+        <p class="text-xs text-gray-500 mt-1">
+            How chart engines collapse this metric into one value per time
+            bucket. "Current value" widgets always read the latest raw
+            reading regardless of this setting.
+        </p>
+    </div>
+    <div class="p-6">
+        <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <dt class="font-medium text-gray-600">Per-bucket aggregation</dt>
+            <dd class="col-span-2">
+                {% if metric.aggregation == "delta" %}
+                    <span class="inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-xs font-medium">delta — last − first per bucket</span>
+                    <span class="text-xs text-gray-500 ml-2">cumulative counter → consumption per window</span>
+                {% elif metric.aggregation == "last" %}
+                    <span class="inline-block bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-medium">last — latest reading in bucket</span>
+                    <span class="text-xs text-gray-500 ml-2">state telemetry (battery, status, …)</span>
+                {% elif metric.aggregation == "min" %}
+                    <span class="inline-block bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded text-xs font-medium">min — minimum per bucket</span>
+                {% elif metric.aggregation == "max" %}
+                    <span class="inline-block bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs font-medium">max — maximum per bucket</span>
+                {% elif metric.aggregation == "sum" %}
+                    <span class="inline-block bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded text-xs font-medium">sum — sum of raw values</span>
+                {% else %}
+                    <span class="inline-block bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-xs font-medium">avg — arithmetic mean per bucket</span>
+                    <span class="text-xs text-gray-500 ml-2">default — instantaneous quantities</span>
+                {% endif %}
+            </dd>
+        </dl>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4 border-b">

@@ -45,6 +45,16 @@ class Metric(TimeStampedModel):
     layer (the consumer applies its own default or skips the check).
     Mirrors Spark's existing ``METRIC_LIMITS`` + ``NON_NEGATIVE_METRICS``
     so it can replace those hardcoded tables 1:1.
+
+    ``aggregation`` declares how the metric should be collapsed into a
+    single value when a time-series is bucketed (hourly / daily /
+    monthly charts). ``delta`` for cumulative counters (last − first
+    per bucket = consumption in that window), ``avg`` for instantaneous
+    quantities (temperature, voltage), ``last`` for stateful telemetry
+    (battery, RSSI, status). ``min`` / ``max`` / ``sum`` available for
+    extremes and non-monotonic event counts. This is **bucketing
+    semantics only** — "current value" widgets always read the latest
+    raw point regardless of this field.
     """
 
     class DataType(models.TextChoices):
@@ -52,6 +62,14 @@ class Metric(TimeStampedModel):
         INTEGER = "integer", "Integer"
         BOOLEAN = "boolean", "Boolean"
         ENUM = "enum", "Enum"
+
+    class Aggregation(models.TextChoices):
+        AVG = "avg", "Average"
+        LAST = "last", "Last value"
+        DELTA = "delta", "Delta (last − first)"
+        SUM = "sum", "Sum"
+        MIN = "min", "Minimum"
+        MAX = "max", "Maximum"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     key = models.CharField(
@@ -89,6 +107,16 @@ class Metric(TimeStampedModel):
     monotonic = models.BooleanField(
         default=False,
         help_text="True for cumulative counters that must not decrease (e.g. total_energy, total_volume).",
+    )
+    aggregation = models.CharField(
+        max_length=10,
+        choices=Aggregation.choices,
+        default=Aggregation.AVG,
+        help_text=(
+            "How to collapse this metric into one value per time bucket "
+            "in charts. 'delta' for cumulative counters, 'avg' for "
+            "instantaneous quantities, 'last' for state telemetry."
+        ),
     )
 
     class Meta:
@@ -324,6 +352,10 @@ class VendorModel(TimeStampedModel):
                     ann["max_value"] = m.max_value
                 if m.monotonic:
                     ann["monotonic"] = True
+                # ``avg`` is the default — only emit when non-default
+                # so the wire shape stays compact for the common case.
+                if m.aggregation and m.aggregation != Metric.Aggregation.AVG:
+                    ann["aggregation"] = m.aggregation
             return ann
 
         result: list[dict] = []

@@ -146,6 +146,7 @@ def _import_metric(data: dict) -> Metric:
         "min_value": _decimal_or_none(data.get("min_value")),
         "max_value": _decimal_or_none(data.get("max_value")),
         "monotonic": bool(data.get("monotonic", False)),
+        "aggregation": data.get("aggregation") or "avg",
     }
     obj, _ = Metric.objects.update_or_create(key=key, defaults=defaults)
     return obj

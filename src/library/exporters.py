@@ -102,6 +102,9 @@ def _export_metric(m) -> dict:
         data["max_value"] = str(m.max_value)
     if m.monotonic:
         data["monotonic"] = True
+    # Default is 'avg' — only emit when non-default to keep YAML tidy.
+    if m.aggregation and m.aggregation != "avg":
+        data["aggregation"] = m.aggregation
     return data
 
 

@@ -102,15 +102,19 @@ class TestSyncEndpoint:
         assert "metrics" in body
         by_key = {m["key"]: m for m in body["metrics"]}
         assert "heat:total_energy" in by_key
-        # Seeded cumulative counter: monotonic + non-negative floor
+        # Seeded cumulative counter: monotonic + non-negative floor + delta agg
         heat = by_key["heat:total_energy"]
         assert heat["monotonic"] is True
         assert heat["min_value"] is not None
-        # Instantaneous quantity: bounded, not monotonic
+        assert heat["aggregation"] == "delta"
+        # Instantaneous quantity: bounded, not monotonic, default avg agg
         temp = by_key["env:temperature"]
         assert temp["monotonic"] is False
         assert temp["min_value"] is not None
         assert temp["max_value"] is not None
+        assert temp["aggregation"] == "avg"
+        # Stateful telemetry: last-value aggregation
+        assert by_key["device:battery"]["aggregation"] == "last"
 
     def test_effective_field_mappings_carry_bounds_per_entry(
         self, staff_client, water_vendor_model
@@ -136,15 +140,18 @@ class TestSyncEndpoint:
         vendor_block = next(v for v in body["vendors"] if v["name"] == "Acme Water")
         model = vendor_block["models"][0]
         entries = {e["target"]: e for e in model["effective_field_mappings"]}
-        # water:total_volume is monotonic + non-negative
+        # water:total_volume is monotonic + non-negative + delta aggregation
         vol = entries["water:total_volume"]
         assert vol["monotonic"] is True
         assert vol["min_value"] is not None
-        # water:flow_rate is not monotonic — flag omitted, bounds present
+        assert vol["aggregation"] == "delta"
+        # water:flow_rate is not monotonic — flag omitted, bounds present,
+        # aggregation defaults to avg so it's also omitted (compact payload).
         flow = entries["water:flow_rate"]
         assert "monotonic" not in flow
         assert flow["min_value"] is not None
         assert flow["max_value"] is not None
+        assert "aggregation" not in flow
 
 
 class TestDeviceTypesEndpoint:
