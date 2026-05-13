@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ metric.key }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:metric-list' %}" class="hover:text-gray-700">Metrics</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">Delete {{ metric.key }}</span>
+</nav>
+
+<h2 class="text-2xl font-bold mb-6">Delete Metric</h2>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <p class="text-sm mb-4">
+            You are about to permanently delete the L1 metric
+            <code class="text-sm bg-gray-100 px-1 rounded">{{ metric.key }}</code> ({{ metric.label }}).
+            This action cannot be undone.
+        </p>
+
+        {% if reference_count %}
+        <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+            <strong>Warning:</strong>
+            <strong>{{ reference_count }}</strong> VendorModel field mapping{{ reference_count|pluralize }} reference{{ reference_count|pluralize:"s," }} this metric.
+            Deleting now will leave those mappings pointing at a non-existent metric key —
+            consumers will fall back to <em>diagnostic</em> tier and a missing label/unit.
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-600 mb-4">No VendorModel field mappings reference this metric — safe to delete.</p>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            {% if reference_count %}
+            <label class="flex items-center gap-2 mb-4 text-sm">
+                <input type="checkbox" name="confirm_force" value="1">
+                Force delete despite {{ reference_count }} reference{{ reference_count|pluralize }}
+            </label>
+            {% endif %}
+            <div class="flex gap-2">
+                <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">Delete</button>
+                <a href="{% url 'library:metric-list' %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

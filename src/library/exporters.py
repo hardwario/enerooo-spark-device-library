@@ -51,11 +51,16 @@ def export_to_yaml(output_dir: str | Path) -> dict:
         stats["devices_exported"] += len(device_types)
         logger.info("Exported %d devices for %s", len(device_types), vendor.name)
 
-    # Schema-v3: device_types section carries shared per-type metadata
-    # (offline window, primary / secondary fields, icon). Importers without
-    # v3 awareness ignore the section.
+    # Schema-v4: manifest carries both the L1 Metric catalogue (the global
+    # vocabulary of canonical metrics) and the L2 device_types section
+    # (per-type semantic profile of declared metrics + tier). Older importers
+    # without v4 awareness ignore unknown top-level keys.
+    from .models import Metric
+
     device_type_entries = [_export_device_type(dt) for dt in DeviceType.objects.all()]
     stats["device_types_exported"] = len(device_type_entries)
+    metric_entries = [_export_metric(m) for m in Metric.objects.all()]
+    stats["metrics_exported"] = len(metric_entries)
 
     # Export manifest
     from .models import LibraryVersion
@@ -64,6 +69,7 @@ def export_to_yaml(output_dir: str | Path) -> dict:
     manifest = {
         "version": current_version.version if current_version else "0.0.0",
         "schema_version": current_version.schema_version if current_version else DEFAULT_SCHEMA_VERSION,
+        "metrics": metric_entries,
         "device_types": device_type_entries,
         "vendors": manifest_vendors,
     }
@@ -75,15 +81,42 @@ def export_to_yaml(output_dir: str | Path) -> dict:
     return stats
 
 
+def _export_metric(m) -> dict:
+    """Export a single L1 Metric row to a YAML-compatible dict.
+
+    Value bounds + monotonic flag are emitted only when set, keeping the
+    YAML readable when a metric relies on seeded defaults from the
+    migration. Decimal bounds are serialized as strings to preserve
+    precision across YAML round-trips.
+    """
+    data = {
+        "key": m.key,
+        "label": m.label,
+        "unit": m.unit or "",
+        "data_type": m.data_type,
+        "description": m.description or "",
+    }
+    if m.min_value is not None:
+        data["min_value"] = str(m.min_value)
+    if m.max_value is not None:
+        data["max_value"] = str(m.max_value)
+    if m.monotonic:
+        data["monotonic"] = True
+    # Default is 'avg' — only emit when non-default to keep YAML tidy.
+    if m.aggregation and m.aggregation != "avg":
+        data["aggregation"] = m.aggregation
+    return data
+
+
 def _export_device_type(dt: DeviceType) -> dict:
-    """Export a single DeviceType row to a YAML-compatible dict."""
+    """Export a single DeviceType row to a YAML-compatible dict (L2 profile)."""
     return {
         "code": dt.code,
         "key": str(dt.key) if dt.key else "",
         "label": dt.label,
         "description": dt.description or "",
         "icon": dt.icon or "",
-        "default_field_mappings": list(dt.default_field_mappings or []),
+        "metrics": list(dt.metrics or []),
     }
 
 
@@ -196,7 +229,7 @@ def _export_control_config(device: VendorModel) -> dict:
 
 
 def _export_processor_config(device: VendorModel) -> dict:
-    """Export processor config."""
+    """Export processor config (schema-v4 shape — field_mappings + extra_mappings)."""
     try:
         proc = device.processor_config
         config = {}
@@ -206,8 +239,8 @@ def _export_processor_config(device: VendorModel) -> dict:
             config["extra_config"] = proc.extra_config
         if proc.field_mappings:
             config["field_mappings"] = proc.field_mappings
-        if proc.extra_field_mappings:
-            config["extra_field_mappings"] = proc.extra_field_mappings
+        if proc.extra_mappings:
+            config["extra_mappings"] = proc.extra_mappings
         return config
     except VendorModel.processor_config.RelatedObjectDoesNotExist:
         pass

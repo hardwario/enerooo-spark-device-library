@@ -5,9 +5,11 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold">API Keys</h2>
+    {% if user.is_admin_role %}
     <a href="{% url 'library:apikey-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
         <i class="bi bi-plus-lg mr-1"></i>Create API Key
     </a>
+    {% endif %}
 </div>
 
 {% if new_key %}
@@ -49,7 +51,7 @@
                     <td class="py-3 px-2">{{ apikey.created_by|default:"—" }}</td>
                     <td class="py-3 px-2">{{ apikey.created|date:"Y-m-d" }}</td>
                     <td class="py-3 px-2">
-                        {% if apikey.is_active %}
+                        {% if apikey.is_active and user.is_admin_role %}
                         <form method="post" action="{% url 'library:apikey-revoke' apikey.pk %}" class="inline">
                             {% csrf_token %}
                             <button type="submit" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" onclick="return confirm('Revoke this API key?')">Revoke</button>

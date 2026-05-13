@@ -71,6 +71,7 @@
     </div>
 </div>
 
+{% if user.is_admin_role %}
 <div class="bg-white rounded-lg shadow mb-6">
     <div class="px-6 py-4 border-b"><h5 class="font-semibold">Actions</h5></div>
     <div class="p-6 flex flex-wrap gap-3">
@@ -111,6 +112,7 @@
         </button>
     </div>
 </div>
+{% endif %}
 
 <div class="bg-white rounded-lg shadow">
     <div class="px-6 py-4 border-b"><h5 class="font-semibold">Usage</h5></div>

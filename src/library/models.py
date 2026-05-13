@@ -8,11 +8,140 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from model_utils.models import TimeStampedModel
 
-
 # Wire-format version emitted in /api/v1/sync/, /api/v1/manifest/,
 # /api/v1/library/content/<v>/ and manifest.yaml exports. Bump when the
 # payload shape changes in a way clients must opt into.
-DEFAULT_SCHEMA_VERSION = 3
+DEFAULT_SCHEMA_VERSION = 4
+
+
+class Metric(TimeStampedModel):
+    """L1 — Global catalogue of canonical metrics the platform understands.
+
+    Each VendorModel field mapping points at one of these via ``metric=key``.
+    The catalogue is the single source of truth for **what** a metric is —
+    its label, canonical unit, data type, and *value bounds* (``min_value``
+    / ``max_value`` hard caps, ``monotonic`` flag for cumulative
+    counters). Tier (primary / secondary / diagnostic) is *not* on the
+    metric itself; it lives on each DeviceType's profile (L2), because
+    the same metric can be primary on one device type and diagnostic on
+    another.
+
+    Key convention: ``<namespace>:<name>``. The namespace prefix is
+    **semantic**, not cosmetic — ``heat:total_energy`` (calorific, kWh) and
+    ``elec:total_energy`` (electrical, kWh) are different physical
+    quantities even though both share kWh as the unit. Cross-domain
+    prefixes (``device:``, ``radio:``) carry metrics that aren't tied to a
+    measurement domain (battery level, signal strength, firmware health).
+
+    Validation policy (consumed by Spark's ingestion pipeline):
+
+    - Outside ``[min_value, max_value]`` → **reject** (data is physically
+      impossible, e.g. negative cumulative volume, voltage above 1 kV
+      on a residential meter).
+    - ``monotonic=True`` flags cumulative counters that must never
+      decrease between consecutive readings of the same device.
+
+    Bounds are optional — null means *no opinion* at the catalogue
+    layer (the consumer applies its own default or skips the check).
+    Mirrors Spark's existing ``METRIC_LIMITS`` + ``NON_NEGATIVE_METRICS``
+    so it can replace those hardcoded tables 1:1.
+
+    ``aggregation`` declares how the metric should be collapsed into a
+    single value when a time-series is bucketed (hourly / daily /
+    monthly charts). ``delta`` for cumulative counters (last − first
+    per bucket = consumption in that window), ``avg`` for instantaneous
+    quantities (temperature, voltage), ``last`` for stateful telemetry
+    (battery, RSSI, status). ``min`` / ``max`` / ``sum`` available for
+    extremes and non-monotonic event counts. This is **bucketing
+    semantics only** — "current value" widgets always read the latest
+    raw point regardless of this field.
+    """
+
+    class DataType(models.TextChoices):
+        DECIMAL = "decimal", "Decimal"
+        INTEGER = "integer", "Integer"
+        BOOLEAN = "boolean", "Boolean"
+        ENUM = "enum", "Enum"
+
+    class Aggregation(models.TextChoices):
+        AVG = "avg", "Average"
+        LAST = "last", "Last value"
+        DELTA = "delta", "Delta (last − first)"
+        SUM = "sum", "Sum"
+        MIN = "min", "Minimum"
+        MAX = "max", "Maximum"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    key = models.CharField(
+        max_length=128,
+        unique=True,
+        help_text="Namespaced canonical key, e.g. 'heat:total_energy'. Format '<namespace>:<name>'.",
+    )
+    label = models.CharField(max_length=128)
+    unit = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Canonical unit symbol, e.g. 'kWh', 'm³', 'dBm'. Empty for dimensionless metrics.",
+    )
+    data_type = models.CharField(max_length=20, choices=DataType.choices, default=DataType.DECIMAL)
+    description = models.TextField(blank=True, default="")
+
+    # Value bounds consumed by Spark for reject-on-ingest. Decimal so
+    # callers can express both integer counts and fractional values
+    # without separate columns.
+    min_value = models.DecimalField(
+        max_digits=24,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Hard lower cap. Values < min_value are rejected at ingestion.",
+    )
+    max_value = models.DecimalField(
+        max_digits=24,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Hard upper cap. Values > max_value are rejected at ingestion.",
+    )
+    monotonic = models.BooleanField(
+        default=False,
+        help_text="True for cumulative counters that must not decrease (e.g. total_energy, total_volume).",
+    )
+    aggregation = models.CharField(
+        max_length=10,
+        choices=Aggregation.choices,
+        default=Aggregation.AVG,
+        help_text=(
+            "How to collapse this metric into one value per time bucket "
+            "in charts. 'delta' for cumulative counters, 'avg' for "
+            "instantaneous quantities, 'last' for state telemetry."
+        ),
+    )
+
+    class Meta:
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.key
+
+    @property
+    def namespace(self) -> str:
+        return self.key.split(":", 1)[0] if ":" in self.key else ""
+
+    @property
+    def name(self) -> str:
+        return self.key.split(":", 1)[1] if ":" in self.key else self.key
+
+    def clean(self):
+        """Enforce ``min_value ≤ max_value`` when both are set."""
+        super().clean()
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and self.min_value > self.max_value
+        ):
+            raise ValidationError({"max_value": "max_value must be ≥ min_value."})
 
 
 class Vendor(TimeStampedModel):
@@ -31,23 +160,28 @@ class Vendor(TimeStampedModel):
 
 
 class DeviceType(TimeStampedModel):
-    """A first-class device type — water_meter, gas_meter, heat_meter, …
+    """L2 — Semantic profile for a class of device (water_meter, heat_meter, …).
 
-    Carries the shared *default field mappings* that VendorModels of this
-    type inherit when their own override list is empty. A mapping entry
-    has the shape ``{source, target, transform, primary?}`` — ``primary``
-    is a per-entry boolean (default false ⇒ secondary), so display tier
-    travels with the mapping itself instead of being maintained as a
-    separate ``primary_field_names`` list.
+    Declares **which** canonical metrics (L1 ``Metric`` keys) this device
+    type tracks, and the **tier** at which each should be rendered. No
+    sources, no transforms — those are decoder concerns that live on
+    individual ``VendorModel`` rows.
 
-    Per-meter knobs that genuinely vary between instances of the same
-    type — offline window, controllability — live on ``VendorModel`` and
-    ``ControlConfig`` instead.
+    Tier semantics (consumer-side rendering intent):
+
+    - ``primary``      — shown by default on charts and overviews
+    - ``secondary``    — hidden by default, user can toggle on
+    - ``diagnostic``   — admin-only, hidden from end users
 
     Identity is the ``code`` slug (matches the historical ``DeviceCategory``
     enum values used on ``VendorModel.device_type``); ``key`` is the UUID
     used by sync clients (Spark) to refer to this row across instances.
     """
+
+    class Tier(models.TextChoices):
+        PRIMARY = "primary", "Primary"
+        SECONDARY = "secondary", "Secondary"
+        DIAGNOSTIC = "diagnostic", "Diagnostic"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     key = models.UUIDField(default=uuid.uuid4, null=True, blank=True, unique=True)
@@ -60,16 +194,14 @@ class DeviceType(TimeStampedModel):
         default="",
         help_text="Lucide icon name used by clients to render this type (e.g. 'droplet', 'zap').",
     )
-    default_field_mappings = models.JSONField(
+    metrics = models.JSONField(
         default=list,
         blank=True,
         help_text=(
-            "Default codec → canonical-metric mappings shared by every "
-            "VendorModel of this type. Each entry is "
-            "{source, target, transform, primary?} — primary defaults to false "
-            "(⇒ secondary). VendorModels can replace the whole list via "
-            "ProcessorConfig.field_mappings or extend it via "
-            "ProcessorConfig.extra_field_mappings."
+            "L2 profile — list of {metric, tier} entries declaring which "
+            "L1 Metric keys this device type tracks, and at which display "
+            "tier. Tier ∈ {primary, secondary, diagnostic}. No sources or "
+            "transforms here — those are decoder concerns on VendorModel."
         ),
     )
 
@@ -141,32 +273,108 @@ class VendorModel(TimeStampedModel):
 
     @property
     def effective_field_mappings(self) -> list[dict]:
-        """Resolve the effective list of codec→metric mappings for this model.
+        """Resolved + merged view of L4 ``field_mappings`` and
+        ``extra_mappings``, annotated with metadata from L1 + L2.
 
-        ``ProcessorConfig.field_mappings`` (per-model) replaces the
-        ``DeviceType.default_field_mappings`` when non-empty, otherwise the
-        type defaults are used. ``ProcessorConfig.extra_field_mappings``
-        (vendor-specific extras) is always concatenated on top.
+        Each entry carries the raw L4 fields plus derived fields:
+
+        - ``label`` (from L1 ``Metric.label``)
+        - ``unit``  (from L1 ``Metric.unit``)
+        - ``tier``  — for ``field_mappings`` entries, resolved from
+          L2 ``DeviceType.metrics``; for ``extra_mappings`` entries,
+          taken from the entry's own ``tier`` field (default
+          ``secondary``).
+        - ``min_value`` / ``max_value`` / ``monotonic`` from L1
+          (omitted when null/false). Lets Spark validate readings
+          per-entry without doing its own L1 lookup.
+
+        ``target`` is kept as the per-entry key name so existing
+        decoder/Spark code that reads ``entry["target"]`` keeps working.
+
+        Multi-channel devices (3-phase meters, etc.) model each channel
+        as a separate metric (``elec:voltage_l1``, …) — no per-entry tags.
+
+        L1 lookups are batched once per call to avoid N+1.
         """
         proc = getattr(self, "processor_config", None)
-        base: list[dict] = []
-        if proc and proc.field_mappings:
-            base = list(proc.field_mappings)
-        elif self.device_type_fk_id:
-            base = list(self.device_type_fk.default_field_mappings or [])
-        if proc and proc.extra_field_mappings:
-            base.extend(proc.extra_field_mappings)
-        return base
+        base_entries: list[dict] = list(proc.field_mappings) if (proc and proc.field_mappings) else []
+        extra_entries: list[dict] = list(proc.extra_mappings) if (proc and proc.extra_mappings) else []
+        if not base_entries and not extra_entries:
+            return []
+
+        # Batch L1 lookup across both lists
+        target_keys = {
+            e.get("target")
+            for e in (*base_entries, *extra_entries)
+            if e.get("target")
+        }
+        metrics_by_key = {m.key: m for m in Metric.objects.filter(key__in=target_keys)}
+
+        # L2 tier resolution (only applies to ``field_mappings`` entries —
+        # extras carry tier per-entry).
+        tier_by_target: dict[str, str] = {}
+        if self.device_type_fk_id:
+            for entry in (self.device_type_fk.metrics or []):
+                if entry.get("metric") and entry.get("tier"):
+                    tier_by_target[entry["metric"]] = entry["tier"]
+
+        def _annotate(entry: dict, tier: str, prefer_entry_meta: bool) -> dict:
+            target_key = entry.get("target")
+            m = metrics_by_key.get(target_key)
+            # For extras, prefer the entry's own label/unit (set by the
+            # operator); fall back to L1 if the target happens to be in
+            # the catalogue; finally fall back to the bare target key /
+            # empty string.
+            if prefer_entry_meta:
+                label = entry.get("label") or (m.label if m else target_key)
+                unit = entry.get("unit") if entry.get("unit") is not None else (m.unit if m else "")
+            else:
+                label = m.label if m else target_key
+                unit = m.unit if m else ""
+            ann = {
+                "source": entry.get("source"),
+                "target": target_key,
+                "label": label,
+                "unit": unit,
+                "tier": tier,
+            }
+            if entry.get("scale") is not None and entry["scale"] != 1:
+                ann["scale"] = entry["scale"]
+            if entry.get("offset") is not None and entry["offset"] != 0:
+                ann["offset"] = entry["offset"]
+            # Denormalize L1 value bounds + monotonic flag so Spark can
+            # validate per-entry without a separate L1 lookup. Omit
+            # nulls/false to keep the wire shape compact.
+            if m is not None:
+                if m.min_value is not None:
+                    ann["min_value"] = m.min_value
+                if m.max_value is not None:
+                    ann["max_value"] = m.max_value
+                if m.monotonic:
+                    ann["monotonic"] = True
+                # ``avg`` is the default — only emit when non-default
+                # so the wire shape stays compact for the common case.
+                if m.aggregation and m.aggregation != Metric.Aggregation.AVG:
+                    ann["aggregation"] = m.aggregation
+            return ann
+
+        result: list[dict] = []
+        for entry in base_entries:
+            result.append(_annotate(entry, tier_by_target.get(entry.get("target"), "diagnostic"), prefer_entry_meta=False))
+        for entry in extra_entries:
+            result.append(_annotate(entry, entry.get("tier") or "secondary", prefer_entry_meta=True))
+        return result
 
     @property
-    def primary_targets(self) -> list[str]:
-        """Targets from ``effective_field_mappings`` flagged as primary."""
-        return [m.get("target") for m in self.effective_field_mappings if m.get("primary")]
+    def declared_metrics(self) -> list[dict]:
+        """L2 view: which metrics this model's DeviceType declares, with tier.
 
-    @property
-    def secondary_targets(self) -> list[str]:
-        """Targets from ``effective_field_mappings`` not flagged as primary."""
-        return [m.get("target") for m in self.effective_field_mappings if not m.get("primary")]
+        Useful for coverage reporting on the API + admin (compare declared
+        vs produced).
+        """
+        if not self.device_type_fk_id:
+            return []
+        return list(self.device_type_fk.metrics or [])
 
     def save(self, *args, **kwargs):
         """Keep ``device_type`` (charfield) aligned with ``device_type_fk.code``
@@ -377,20 +585,88 @@ class ProcessorConfig(TimeStampedModel):
         default=list,
         blank=True,
         help_text=(
-            "Per-model codec → canonical-metric mappings. When non-empty this "
-            "list REPLACES the DeviceType.default_field_mappings entirely. "
-            "Leave empty to inherit the type defaults."
+            "L4 — list of {source, target, scale?, offset?} entries "
+            "mapping this model's decoded fields onto canonical L1 Metric "
+            "keys declared on the parent DeviceType (L2 profile). Each "
+            "entry must have a ``target`` matching one of the type's "
+            "declared metrics; the editor scaffolds rows from L2 so this "
+            "is enforced visually. ``scale`` (default 1) and ``offset`` "
+            "(default 0) apply a linear conversion ``value * scale + "
+            "offset`` — used when the decoder can't emit canonical units. "
+            "For metrics not declared on the type, use ``extra_mappings``."
         ),
     )
-    extra_field_mappings = models.JSONField(
+    extra_mappings = models.JSONField(
         default=list,
         blank=True,
         help_text=(
-            "Vendor-specific extras always concatenated on top of the "
-            "effective base list (override or default). Use for telemetry "
-            "unique to this model — e.g. battery, signal strength."
+            "Per-model extras — metrics this specific VendorModel produces "
+            "that aren't declared on the parent DeviceType and that the "
+            "operator chose not to promote into the L1 catalogue. "
+            "Each entry: {source, target, tier, label?, unit?, scale?, "
+            "offset?}. ``tier`` is per-entry (primary / secondary / "
+            "diagnostic). ``label`` and ``unit`` live on the entry itself "
+            "(no L1 row required) — if the target happens to match an "
+            "existing L1 key, the catalogue's label/unit is used as a "
+            "fallback. Targets are NOT auto-created in L1 for this list."
         ),
     )
+
+    def save(self, *args, **kwargs):
+        """Auto-derive ``decoder_type`` from the parent VendorModel's
+        technology and auto-create any missing L1 Metric rows referenced
+        by entries.
+
+        Decoder-type derivation:
+        - wmbus  → ``wmbus_field_map``
+        - lorawan → ``js_codec`` if a payload codec is configured,
+                    else ``lorawan_field_map``
+        - modbus → left empty (modbus decodes via RegisterDefinition, not
+                   field_mappings; ProcessorConfig is rarely used)
+
+        Operators can still set a non-default ``decoder_type`` (e.g.
+        ``configurable``) explicitly via API/admin — auto-derive only fills
+        in when the field is blank.
+
+        Tolerant metric auto-create: a VendorModel can declare a metric
+        the catalogue doesn't know yet (e.g. ``temp:temperature_boiler``).
+        We create a minimal Metric row so downstream lookups don't fail;
+        the operator dials in label/unit/data_type later in admin.
+        """
+        if not self.decoder_type:
+            try:
+                technology = self.device_type.technology
+            except Exception:
+                technology = None
+            if technology == "wmbus":
+                self.decoder_type = self.DecoderType.WMBUS_FIELD_MAP
+            elif technology == "lorawan":
+                has_codec = False
+                try:
+                    has_codec = bool(self.device_type.lorawan_config.payload_codec)
+                except Exception:
+                    pass
+                self.decoder_type = (
+                    self.DecoderType.JS_CODEC if has_codec else self.DecoderType.LORAWAN_FIELD_MAP
+                )
+
+        # Auto-create L1 Metric rows for ``field_mappings`` entries only —
+        # those reference L2-declared metrics that need a catalogue anchor.
+        # ``extra_mappings`` entries are intentionally device-specific
+        # (label + unit live on each entry); we don't pollute the catalogue
+        # with one-off keys.
+        for entry in (self.field_mappings or []):
+            target_key = entry.get("target")
+            if not target_key:
+                continue
+            Metric.objects.get_or_create(
+                key=target_key,
+                defaults={
+                    "label": target_key.split(":", 1)[-1].replace("_", " ").title(),
+                    "data_type": Metric.DataType.DECIMAL,
+                },
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"ProcessorConfig for {self.device_type}"

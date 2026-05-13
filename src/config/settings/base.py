@@ -51,6 +51,8 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.admin",
+    # Required so FORM_RENDERER="TemplatesSetting" finds default widget templates
+    "django.forms",
 ]
 
 THIRD_PARTY_APPS = [
@@ -131,6 +133,11 @@ TEMPLATES = [
         },
     },
 ]
+
+# Make Django form widget rendering use the standard template loaders above
+# (default ``DjangoTemplates`` renderer has its own isolated form-template
+# namespace, which doesn't find custom widget templates inside app dirs).
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
 # SECURITY
 # ------------------------------------------------------------------------------

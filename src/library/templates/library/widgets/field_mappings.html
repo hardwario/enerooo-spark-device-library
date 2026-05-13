@@ -1,0 +1,404 @@
+{% spaceless %}
+<div class="field-mappings-editor" data-field-mappings-editor>
+    <div class="flex items-center gap-1 mb-2 bg-gray-100 rounded p-0.5 w-fit text-xs">
+        <button type="button" data-view-mode="table"
+                class="px-3 py-1 rounded bg-white shadow-sm font-medium" data-active>
+            <i class="bi bi-table mr-1"></i>Table
+        </button>
+        <button type="button" data-view-mode="json"
+                class="px-3 py-1 rounded text-gray-600 hover:text-gray-900">
+            <i class="bi bi-braces mr-1"></i>JSON
+        </button>
+    </div>
+    <div data-json-error class="hidden mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700"></div>
+
+    <div data-view-table>
+    <div class="border border-gray-300 rounded overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="text-left py-2 px-3 font-semibold">Source</th>
+                    <th class="text-left py-2 px-3 font-semibold">Metric (L1 key)</th>
+                    <th class="text-left py-2 px-3 font-semibold w-24" title="value × scale + offset">Scale</th>
+                    <th class="text-left py-2 px-3 font-semibold w-24">Offset</th>
+                    <th class="py-2 px-3 w-12"></th>
+                </tr>
+            </thead>
+            <tbody data-field-mappings-rows>
+                {# rows injected by JS #}
+            </tbody>
+        </table>
+    </div>
+    </div>
+
+    <div data-view-json class="hidden">
+        <textarea name="{{ widget.name }}"
+                  data-field-mappings-input
+                  rows="20"
+                  spellcheck="false"
+                  class="w-full text-sm font-mono p-3 border border-gray-300 rounded"
+                  style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;"
+                  {% if widget.attrs.required %}required{% endif %}>{{ widget.value }}</textarea>
+        <p class="text-xs text-gray-500 mt-1">
+            Direct JSON edit — bulk paste from another model, search/replace, etc.
+            Switch back to Table view to verify (re-render parses + validates).
+        </p>
+    </div>
+
+    <details class="mt-2 text-xs text-gray-500">
+        <summary class="cursor-pointer hover:text-gray-700 select-none">
+            <i class="bi bi-info-circle"></i> Help — entry shape, auto-create, scale/offset
+        </summary>
+        <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
+            <p>Rows are scaffolded from the parent DeviceType's L2 metrics profile — the <code class="bg-gray-100 px-1 rounded">target</code> column is locked (<i class="bi bi-lock"></i>). Fill in source / scale / offset per this model. Leave source empty to omit the metric from this model's output on save.</p>
+            <p>Anything not on the type belongs in <strong>Extra Mappings</strong> below — extras can declare their own tier and use any metric key.</p>
+            <p><strong>Scale / offset</strong> apply a linear conversion <code class="bg-gray-100 px-1 rounded">value × scale + offset</code> — used when the decoder can't emit canonical units (typical for vendor LoRaWAN codecs we don't fork). Defaults: scale 1, offset 0.</p>
+            <p><strong>Multi-channel devices</strong> (3-phase meters, multi-tariff, …) model each channel as a separate metric (e.g. <code class="bg-gray-100 px-1 rounded">elec:voltage_l1</code> / <code class="bg-gray-100 px-1 rounded">elec:voltage_l2</code>).</p>
+        </div>
+    </details>
+
+    <script type="application/json" data-available-metrics>{{ widget.available_metrics_json|safe }}</script>
+    <script type="application/json" data-declared-metrics>{{ widget.declared_metrics_json|safe }}</script>
+</div>
+<script>
+(function() {
+    const editor = document.currentScript.previousElementSibling;
+    const input = editor.querySelector('[data-field-mappings-input]');
+    const rowsContainer = editor.querySelector('[data-field-mappings-rows]');
+    const addBtn = editor.querySelector('[data-field-mappings-add]'); // null — no Add button on L2-scaffolded widget
+    const availableMetrics = JSON.parse(editor.querySelector('[data-available-metrics]').textContent);
+    const declaredMetrics = JSON.parse(editor.querySelector('[data-declared-metrics]').textContent);
+
+    let initialEntries = [];
+    try {
+        initialEntries = JSON.parse(input.value || '[]');
+        if (!Array.isArray(initialEntries)) initialEntries = [];
+    } catch (e) {
+        initialEntries = [];
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function parseNumber(s) {
+        if (s === '' || s == null) return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function syncToInput() {
+        const rows = Array.from(rowsContainer.children);
+        const data = rows.map(row => {
+            const source = row.querySelector('[data-source]').value.trim();
+            const target = (row.querySelector('[data-metric]').value || '').trim();
+            // Drop rows without a source: locked scaffolded rows still carry
+            // a target, but an empty source means "this model doesn't produce
+            // this metric" → omit from saved data.
+            if (!source) return null;
+            const entry = {source, target};
+            const scale = parseNumber(row.querySelector('[data-scale]').value);
+            if (scale !== null && scale !== 1) entry.scale = scale;
+            const offset = parseNumber(row.querySelector('[data-offset]').value);
+            if (offset !== null && offset !== 0) entry.offset = offset;
+            return entry;
+        }).filter(e => e);
+        input.value = JSON.stringify(data, null, 2);
+    }
+
+    // Custom dropdown combobox — wraps an <input> with a filtered list of
+    // metric keys. Free-text entry is allowed (auto-create on save).
+    // The list is rendered with position:fixed and reparented to <body> so
+    // it isn't clipped by ancestor ``overflow-x-auto`` containers.
+    function attachMetricCombo(wrapper, initialValue) {
+        const inputEl = wrapper.querySelector('[data-metric]');
+        const listEl = wrapper.querySelector('[data-metric-options]');
+        const statusEl = wrapper.querySelector('[data-metric-status]');
+        let highlightedIndex = -1;
+
+        // Reparent the dropdown to body so it escapes overflow clipping.
+        document.body.appendChild(listEl);
+        listEl.style.position = 'fixed';
+        listEl.style.zIndex = '1000';
+
+        function positionList() {
+            const rect = inputEl.getBoundingClientRect();
+            listEl.style.left = rect.left + 'px';
+            listEl.style.top = (rect.bottom + 2) + 'px';
+            listEl.style.width = rect.width + 'px';
+        }
+
+        function renderOptions(filter) {
+            const q = (filter || '').toLowerCase().trim();
+            const matches = availableMetrics.filter(m => {
+                if (!q) return true;
+                return m.key.toLowerCase().includes(q) || (m.label || '').toLowerCase().includes(q);
+            });
+            if (!matches.length) {
+                listEl.innerHTML = `<li class="px-3 py-2 text-xs text-gray-500 italic">No match — typing creates a new metric on save.</li>`;
+                highlightedIndex = -1;
+                return;
+            }
+            listEl.innerHTML = matches.map((m, i) => {
+                const unit = m.unit ? ` <span class="text-gray-400">(${escapeHtml(m.unit)})</span>` : '';
+                const label = m.label ? ` <span class="text-gray-500">— ${escapeHtml(m.label)}</span>` : '';
+                return `<li role="option" data-key="${escapeHtml(m.key)}"
+                            class="px-3 py-1.5 cursor-pointer text-xs hover:bg-blue-50 ${i === highlightedIndex ? 'bg-blue-100' : ''}">
+                    <span class="font-mono">${escapeHtml(m.key)}</span>${label}${unit}
+                </li>`;
+            }).join('');
+            listEl.querySelectorAll('li[data-key]').forEach(li => {
+                li.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    inputEl.value = li.dataset.key;
+                    updateStatus();
+                    syncToInput();
+                    closeList();
+                });
+            });
+        }
+
+        function openList() {
+            positionList();
+            listEl.classList.remove('hidden');
+            renderOptions(inputEl.value);
+            window.addEventListener('scroll', positionList, true);
+            window.addEventListener('resize', positionList);
+        }
+
+        function closeList() {
+            listEl.classList.add('hidden');
+            highlightedIndex = -1;
+            window.removeEventListener('scroll', positionList, true);
+            window.removeEventListener('resize', positionList);
+        }
+
+        function updateStatus() {
+            const v = inputEl.value.trim();
+            if (!v) {
+                statusEl.innerHTML = '';
+                return;
+            }
+            const match = availableMetrics.find(m => m.key === v);
+            if (match) {
+                const unit = match.unit ? ` (${escapeHtml(match.unit)})` : '';
+                statusEl.innerHTML = `<span class="text-green-700"><i class="bi bi-check-circle-fill"></i> ${escapeHtml(match.label || match.key)}${unit}</span>`;
+            } else {
+                statusEl.innerHTML = `<span class="text-blue-600"><i class="bi bi-stars"></i> new — will be auto-created on save</span>`;
+            }
+        }
+
+        inputEl.value = initialValue || '';
+        updateStatus();
+
+        inputEl.addEventListener('focus', openList);
+        inputEl.addEventListener('input', () => {
+            highlightedIndex = -1;
+            openList();
+            updateStatus();
+            syncToInput();
+        });
+        inputEl.addEventListener('blur', () => {
+            // Defer to allow click on option to register
+            setTimeout(closeList, 150);
+        });
+        inputEl.addEventListener('keydown', (e) => {
+            const visibleOptions = listEl.querySelectorAll('li[data-key]');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!visibleOptions.length) return;
+                highlightedIndex = Math.min(highlightedIndex + 1, visibleOptions.length - 1);
+                renderOptions(inputEl.value);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!visibleOptions.length) return;
+                highlightedIndex = Math.max(highlightedIndex - 1, 0);
+                renderOptions(inputEl.value);
+            } else if (e.key === 'Enter') {
+                if (highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+                    e.preventDefault();
+                    inputEl.value = visibleOptions[highlightedIndex].dataset.key;
+                    updateStatus();
+                    syncToInput();
+                    closeList();
+                }
+            } else if (e.key === 'Escape') {
+                closeList();
+            }
+        });
+
+        // Chevron click toggles the list
+        wrapper.querySelector('[data-metric-toggle]').addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (listEl.classList.contains('hidden')) {
+                inputEl.focus();
+                openList();
+            } else {
+                closeList();
+            }
+        });
+    }
+
+    function tierBadge(tier) {
+        if (tier === 'primary') return '<span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">primary</span>';
+        if (tier === 'diagnostic') return '<span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium">diagnostic</span>';
+        return '<span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">' + (tier || 'secondary') + '</span>';
+    }
+
+    function makeRow(entry, opts) {
+        entry = entry || {};
+        opts = opts || {};
+        const locked = !!opts.locked;
+        const tier = opts.tier || null;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-b-0' + (locked ? ' bg-blue-50/40' : '');
+
+        let metricCell;
+        if (locked) {
+            metricCell = `
+                <td class="py-1.5 px-3 align-top">
+                    <input data-metric type="hidden" value="${escapeHtml(entry.target || '')}">
+                    <div class="flex items-center gap-2">
+                        <code class="text-xs bg-gray-100 px-1 py-0.5 rounded font-mono">${escapeHtml(entry.target || '')}</code>
+                        ${tier ? tierBadge(tier) : ''}
+                    </div>
+                </td>`;
+        } else {
+            metricCell = `
+                <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
+                    <div class="relative">
+                        <input data-metric type="text" autocomplete="off"
+                               placeholder="select or type new metric key…"
+                               class="!w-full !py-1 !pr-7 !text-sm font-mono">
+                        <button type="button" data-metric-toggle
+                                class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
+                                tabindex="-1">
+                            <i class="bi bi-chevron-down text-xs"></i>
+                        </button>
+                    </div>
+                    <ul data-metric-options role="listbox"
+                        class="hidden max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg"></ul>
+                    <div data-metric-status class="text-xs mt-0.5 leading-tight"></div>
+                </td>`;
+        }
+
+        const removeCell = locked
+            ? `<td class="py-1.5 px-3 align-top"></td>`
+            : `<td class="py-1.5 px-3 text-right align-top"><button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove"><i class="bi bi-trash"></i></button></td>`;
+
+        tr.innerHTML = `
+            <td class="py-1.5 px-3 align-top">
+                <input data-source type="text" value="${escapeHtml(entry.source || '')}"
+                       placeholder="decoded field name"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            ${metricCell}
+            <td class="py-1.5 px-3 align-top">
+                <input data-scale type="number" step="any" value="${entry.scale != null ? entry.scale : ''}"
+                       placeholder="1"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-offset type="number" step="any" value="${entry.offset != null ? entry.offset : ''}"
+                       placeholder="0"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            ${removeCell}
+        `;
+
+        ['data-source', 'data-scale', 'data-offset'].forEach(sel => {
+            tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
+        });
+        if (!locked) {
+            attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.target || '');
+            tr.querySelector('[data-remove]').addEventListener('click', () => {
+                tr.remove();
+                ensureAtLeastOneRow();
+                syncToInput();
+            });
+        }
+        return tr;
+    }
+
+    function ensureAtLeastOneRow() {
+        if (rowsContainer.children.length === 0) {
+            rowsContainer.appendChild(makeRow());
+        }
+    }
+
+    function rebuildRows(entries) {
+        rowsContainer.innerHTML = '';
+        const existingByTarget = {};
+        for (const e of entries) {
+            if (e && e.target) existingByTarget[e.target] = e;
+        }
+        // Locked scaffolded rows for L2-declared metrics first, in profile order
+        const declaredKeys = new Set();
+        for (const d of declaredMetrics) {
+            if (!d || !d.metric) continue;
+            declaredKeys.add(d.metric);
+            const existing = existingByTarget[d.metric] || {target: d.metric};
+            rowsContainer.appendChild(makeRow(existing, {locked: true, tier: d.tier}));
+        }
+        // Then any entries whose target isn't declared on the type (extras)
+        for (const e of entries) {
+            if (!e || !e.target || declaredKeys.has(e.target)) continue;
+            rowsContainer.appendChild(makeRow(e, {locked: false}));
+        }
+        ensureAtLeastOneRow();
+        syncToInput();
+    }
+
+    rebuildRows(initialEntries);
+
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            rowsContainer.appendChild(makeRow({}, {locked: false}));
+            syncToInput();
+        });
+    }
+
+    // View mode toggle (Table ⇄ JSON)
+    const tableView = editor.querySelector('[data-view-table]');
+    const jsonView = editor.querySelector('[data-view-json]');
+    const errorEl = editor.querySelector('[data-json-error]');
+    const tableBtn = editor.querySelector('[data-view-mode="table"]');
+    const jsonBtn = editor.querySelector('[data-view-mode="json"]');
+
+    const ACTIVE_CLASS = 'px-3 py-1 rounded bg-white shadow-sm font-medium';
+    const INACTIVE_CLASS = 'px-3 py-1 rounded text-gray-600 hover:text-gray-900';
+
+    function setViewMode(mode) {
+        if (mode === 'json') {
+            syncToInput();
+            tableView.classList.add('hidden');
+            jsonView.classList.remove('hidden');
+            tableBtn.className = INACTIVE_CLASS;
+            jsonBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        } else {
+            let parsed;
+            try {
+                parsed = JSON.parse(input.value || '[]');
+                if (!Array.isArray(parsed)) {
+                    throw new Error('Expected a JSON array of entries.');
+                }
+            } catch (e) {
+                errorEl.textContent = 'JSON parse error: ' + e.message + ' — stay on JSON view, fix, then switch back.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            rebuildRows(parsed);
+            jsonView.classList.add('hidden');
+            tableView.classList.remove('hidden');
+            jsonBtn.className = INACTIVE_CLASS;
+            tableBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        }
+    }
+
+    tableBtn.addEventListener('click', () => setViewMode('table'));
+    jsonBtn.addEventListener('click', () => setViewMode('json'));
+})();
+</script>
+{% endspaceless %}
