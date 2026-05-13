@@ -1,0 +1,136 @@
+{% spaceless %}
+<div class="metrics-profile-editor" data-metrics-editor>
+    <textarea name="{{ widget.name }}"
+              data-metrics-input
+              style="display: none;"
+              {% if widget.attrs.required %}required{% endif %}>{{ widget.value }}</textarea>
+
+    <div class="border border-gray-300 rounded">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="text-left py-2 px-3 font-semibold">Metric (L1 key)</th>
+                    <th class="text-left py-2 px-3 font-semibold w-44">Tier</th>
+                    <th class="py-2 px-3 w-12"></th>
+                </tr>
+            </thead>
+            <tbody data-metrics-rows>
+                {# rows injected by JS #}
+            </tbody>
+            <tfoot class="bg-gray-50 border-t">
+                <tr>
+                    <td colspan="3" class="py-2 px-3">
+                        <button type="button"
+                                data-metrics-add
+                                class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
+                            <i class="bi bi-plus-lg mr-1"></i>Add metric
+                        </button>
+                        <a href="{% url 'library:metric-list' %}" target="_blank" class="ml-3 text-xs text-blue-600 hover:text-blue-800">
+                            Browse catalogue <i class="bi bi-arrow-up-right-square"></i>
+                        </a>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script type="application/json" data-available-metrics>{{ widget.available_metrics_json|safe }}</script>
+</div>
+<script>
+(function() {
+    const editor = document.currentScript.previousElementSibling;
+    const input = editor.querySelector('[data-metrics-input]');
+    const rowsContainer = editor.querySelector('[data-metrics-rows]');
+    const addBtn = editor.querySelector('[data-metrics-add]');
+    const availableMetrics = JSON.parse(editor.querySelector('[data-available-metrics]').textContent);
+
+    const TIERS = [
+        ['primary', 'Primary'],
+        ['secondary', 'Secondary'],
+        ['diagnostic', 'Diagnostic'],
+    ];
+
+    let initialEntries = [];
+    try {
+        initialEntries = JSON.parse(input.value || '[]');
+        if (!Array.isArray(initialEntries)) initialEntries = [];
+    } catch (e) {
+        initialEntries = [];
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function syncToInput() {
+        const rows = Array.from(rowsContainer.children);
+        const data = rows.map(row => ({
+            metric: row.querySelector('[data-metric-select]').value,
+            tier: row.querySelector('[data-tier-select]').value,
+        })).filter(e => e.metric);
+        input.value = JSON.stringify(data);
+    }
+
+    function makeRow(entry) {
+        entry = entry || {metric: '', tier: 'secondary'};
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-b-0';
+
+        const metricOptions = [
+            '<option value="">— select metric —</option>',
+            ...availableMetrics.map(m => {
+                const sel = m.key === entry.metric ? ' selected' : '';
+                const label = m.label ? ` — ${escapeHtml(m.label)}` : '';
+                return `<option value="${escapeHtml(m.key)}"${sel}>${escapeHtml(m.key)}${label}</option>`;
+            }),
+        ].join('');
+
+        const tierOptions = TIERS.map(([v, l]) => {
+            const sel = v === entry.tier ? ' selected' : '';
+            return `<option value="${v}"${sel}>${l}</option>`;
+        }).join('');
+
+        tr.innerHTML = `
+            <td class="py-1.5 px-3">
+                <select data-metric-select class="!w-full !py-1 !text-sm font-mono">${metricOptions}</select>
+            </td>
+            <td class="py-1.5 px-3">
+                <select data-tier-select class="!w-full !py-1 !text-sm">${tierOptions}</select>
+            </td>
+            <td class="py-1.5 px-3 text-right">
+                <button type="button" data-remove
+                        class="text-red-600 hover:text-red-800 p-1"
+                        title="Remove">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        tr.querySelector('[data-metric-select]').addEventListener('change', syncToInput);
+        tr.querySelector('[data-tier-select]').addEventListener('change', syncToInput);
+        tr.querySelector('[data-remove]').addEventListener('click', () => {
+            tr.remove();
+            ensureAtLeastOneRow();
+            syncToInput();
+        });
+        return tr;
+    }
+
+    function ensureAtLeastOneRow() {
+        if (rowsContainer.children.length === 0) {
+            rowsContainer.appendChild(makeRow());
+        }
+    }
+
+    initialEntries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+    ensureAtLeastOneRow();
+
+    addBtn.addEventListener('click', () => {
+        rowsContainer.appendChild(makeRow());
+        syncToInput();
+    });
+
+    syncToInput();
+})();
+</script>
+{% endspaceless %}

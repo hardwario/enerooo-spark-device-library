@@ -9,15 +9,27 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from library.exporters import snapshot_to_schema
-from library.models import DEFAULT_SCHEMA_VERSION, APIKey, DeviceHistory, DeviceType, GatewayAssignment, LibraryVersion, LibraryVersionDevice, Vendor, VendorModel
+from library.models import (
+    DEFAULT_SCHEMA_VERSION,
+    APIKey,
+    DeviceHistory,
+    DeviceType,
+    GatewayAssignment,
+    LibraryVersion,
+    LibraryVersionDevice,
+    Metric,
+    Vendor,
+    VendorModel,
+)
 
-from .permissions import HasAPIKey, HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
+from .permissions import HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
     DeviceTypeSerializer,
     GatewayAssignmentSerializer,
     LibraryVersionSerializer,
     ManifestSerializer,
+    MetricSerializer,
     VendorAdminSerializer,
     VendorModelAdminSerializer,
     VendorModelDetailSerializer,
@@ -25,7 +37,6 @@ from .serializers import (
     VendorSerializer,
     VendorWithDevicesSerializer,
 )
-
 
 # === Sync API viewsets (read-only, API key auth) ===
 
@@ -123,6 +134,7 @@ class SyncViewSet(viewsets.ViewSet):
         data = {
             "version": current.version if current else "0.0.0",
             "schema_version": current.schema_version if current else DEFAULT_SCHEMA_VERSION,
+            "metrics": MetricSerializer(Metric.objects.all(), many=True).data,
             "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
             "vendors": VendorWithDevicesSerializer(vendors, many=True).data,
         }
@@ -211,6 +223,7 @@ class LibraryContentViewSet(viewsets.ViewSet):
         return Response({
             "version": lib_version.version,
             "schema_version": lib_version.schema_version,
+            "metrics": MetricSerializer(Metric.objects.all(), many=True).data,
             "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
             "vendors": vendor_list,
         })

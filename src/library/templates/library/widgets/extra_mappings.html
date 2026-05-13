@@ -1,0 +1,347 @@
+{% spaceless %}
+<div class="extra-mappings-editor" data-extra-mappings-editor>
+    <div class="flex items-center gap-1 mb-2 bg-gray-100 rounded p-0.5 w-fit text-xs">
+        <button type="button" data-view-mode="table"
+                class="px-3 py-1 rounded bg-white shadow-sm font-medium" data-active>
+            <i class="bi bi-table mr-1"></i>Table
+        </button>
+        <button type="button" data-view-mode="json"
+                class="px-3 py-1 rounded text-gray-600 hover:text-gray-900">
+            <i class="bi bi-braces mr-1"></i>JSON
+        </button>
+    </div>
+    <div data-json-error class="hidden mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700"></div>
+
+    <div data-view-table>
+    <div class="border border-gray-300 rounded overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="text-left py-2 px-3 font-semibold">Source</th>
+                    <th class="text-left py-2 px-3 font-semibold">Metric key</th>
+                    <th class="text-left py-2 px-3 font-semibold">Label</th>
+                    <th class="text-left py-2 px-3 font-semibold w-20">Unit</th>
+                    <th class="text-left py-2 px-3 font-semibold w-32">Tier</th>
+                    <th class="text-left py-2 px-3 font-semibold w-20" title="value × scale + offset">Scale</th>
+                    <th class="text-left py-2 px-3 font-semibold w-20">Offset</th>
+                    <th class="py-2 px-3 w-12"></th>
+                </tr>
+            </thead>
+            <tbody data-extra-mappings-rows></tbody>
+            <tfoot class="bg-gray-50 border-t">
+                <tr>
+                    <td colspan="8" class="py-2 px-3">
+                        <button type="button"
+                                data-extra-mappings-add
+                                class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
+                            <i class="bi bi-plus-lg mr-1"></i>Add extra mapping
+                        </button>
+                        <a href="{% url 'library:metric-list' %}" target="_blank" class="ml-3 text-xs text-blue-600 hover:text-blue-800">
+                            Browse metric catalogue <i class="bi bi-arrow-up-right-square"></i>
+                        </a>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    </div>
+
+    <div data-view-json class="hidden">
+        <textarea name="{{ widget.name }}"
+                  data-extra-mappings-input
+                  rows="15"
+                  spellcheck="false"
+                  class="w-full text-sm font-mono p-3 border border-gray-300 rounded"
+                  style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;">{{ widget.value }}</textarea>
+        <p class="text-xs text-gray-500 mt-1">
+            Direct JSON edit. Switch back to Table view to verify.
+        </p>
+    </div>
+
+    <details class="mt-2 text-xs text-gray-500">
+        <summary class="cursor-pointer hover:text-gray-700 select-none">
+            <i class="bi bi-info-circle"></i> Help — when to use extra mappings
+        </summary>
+        <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
+            <p><strong>Extra mappings</strong> are for metrics this specific VendorModel produces that <em>aren't</em> declared on the parent DeviceType's L2 profile — e.g. a custom probe wired into a Modbus device, vendor-specific diagnostics, or one-off measurements you don't want to push into the type taxonomy.</p>
+            <p><strong>Tier / label / unit per row</strong> — these targets aren't in the L1 catalogue, so display metadata lives on the entry itself. Label is shown to users on charts; unit annotates the Y-axis.</p>
+            <p>If you later realize an extra metric is common across multiple models, you can <strong>promote</strong> it to the L1 catalogue via <a href="{% url 'library:metric-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/metrics/</a> + add it to the relevant DeviceType profile.</p>
+        </div>
+    </details>
+
+    <script type="application/json" data-available-metrics>{{ widget.available_metrics_json|safe }}</script>
+</div>
+<script>
+(function() {
+    const editor = document.currentScript.previousElementSibling;
+    const input = editor.querySelector('[data-extra-mappings-input]');
+    const rowsContainer = editor.querySelector('[data-extra-mappings-rows]');
+    const addBtn = editor.querySelector('[data-extra-mappings-add]');
+    const availableMetrics = JSON.parse(editor.querySelector('[data-available-metrics]').textContent);
+
+    let initialEntries = [];
+    try {
+        initialEntries = JSON.parse(input.value || '[]');
+        if (!Array.isArray(initialEntries)) initialEntries = [];
+    } catch (e) {
+        initialEntries = [];
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function parseNumber(s) {
+        if (s === '' || s == null) return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function syncToInput() {
+        const rows = Array.from(rowsContainer.children);
+        const data = rows.map(row => {
+            const source = row.querySelector('[data-source]').value.trim();
+            const target = row.querySelector('[data-metric]').value.trim();
+            if (!source && !target) return null;
+            const tier = row.querySelector('[data-tier]').value;
+            const entry = {source, target, tier};
+            const label = row.querySelector('[data-label]').value.trim();
+            if (label) entry.label = label;
+            const unit = row.querySelector('[data-unit]').value.trim();
+            if (unit) entry.unit = unit;
+            const scale = parseNumber(row.querySelector('[data-scale]').value);
+            if (scale !== null && scale !== 1) entry.scale = scale;
+            const offset = parseNumber(row.querySelector('[data-offset]').value);
+            if (offset !== null && offset !== 0) entry.offset = offset;
+            return entry;
+        }).filter(e => e);
+        input.value = JSON.stringify(data, null, 2);
+    }
+
+    function attachMetricCombo(wrapper, initialValue) {
+        const inputEl = wrapper.querySelector('[data-metric]');
+        const listEl = wrapper.querySelector('[data-metric-options]');
+        const statusEl = wrapper.querySelector('[data-metric-status]');
+        let highlightedIndex = -1;
+
+        document.body.appendChild(listEl);
+        listEl.style.position = 'fixed';
+        listEl.style.zIndex = '1000';
+
+        function positionList() {
+            const rect = inputEl.getBoundingClientRect();
+            listEl.style.left = rect.left + 'px';
+            listEl.style.top = (rect.bottom + 2) + 'px';
+            listEl.style.width = rect.width + 'px';
+        }
+
+        function renderOptions(filter) {
+            const q = (filter || '').toLowerCase().trim();
+            const matches = availableMetrics.filter(m => {
+                if (!q) return true;
+                return m.key.toLowerCase().includes(q) || (m.label || '').toLowerCase().includes(q);
+            });
+            if (!matches.length) {
+                listEl.innerHTML = `<li class="px-3 py-2 text-xs text-gray-500 italic">No match — typing creates a new metric on save.</li>`;
+                highlightedIndex = -1;
+                return;
+            }
+            listEl.innerHTML = matches.map((m, i) => {
+                const unit = m.unit ? ` <span class="text-gray-400">(${escapeHtml(m.unit)})</span>` : '';
+                const label = m.label ? ` <span class="text-gray-500">— ${escapeHtml(m.label)}</span>` : '';
+                return `<li role="option" data-key="${escapeHtml(m.key)}"
+                            class="px-3 py-1.5 cursor-pointer text-xs hover:bg-blue-50 ${i === highlightedIndex ? 'bg-blue-100' : ''}">
+                    <span class="font-mono">${escapeHtml(m.key)}</span>${label}${unit}
+                </li>`;
+            }).join('');
+            listEl.querySelectorAll('li[data-key]').forEach(li => {
+                li.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    inputEl.value = li.dataset.key;
+                    updateStatus();
+                    syncToInput();
+                    closeList();
+                });
+            });
+        }
+
+        function openList() {
+            positionList();
+            listEl.classList.remove('hidden');
+            renderOptions(inputEl.value);
+            window.addEventListener('scroll', positionList, true);
+            window.addEventListener('resize', positionList);
+        }
+
+        function closeList() {
+            listEl.classList.add('hidden');
+            highlightedIndex = -1;
+            window.removeEventListener('scroll', positionList, true);
+            window.removeEventListener('resize', positionList);
+        }
+
+        function updateStatus() {
+            const v = inputEl.value.trim();
+            if (!v) { statusEl.innerHTML = ''; return; }
+            const match = availableMetrics.find(m => m.key === v);
+            if (match) {
+                const unit = match.unit ? ` (${escapeHtml(match.unit)})` : '';
+                statusEl.innerHTML = `<span class="text-green-700"><i class="bi bi-check-circle-fill"></i> ${escapeHtml(match.label || match.key)}${unit}</span>`;
+            } else {
+                statusEl.innerHTML = `<span class="text-blue-600"><i class="bi bi-stars"></i> new — will be auto-created on save</span>`;
+            }
+        }
+
+        inputEl.value = initialValue || '';
+        updateStatus();
+
+        inputEl.addEventListener('focus', openList);
+        inputEl.addEventListener('input', () => {
+            highlightedIndex = -1;
+            openList();
+            updateStatus();
+            syncToInput();
+        });
+        inputEl.addEventListener('blur', () => setTimeout(closeList, 150));
+        inputEl.addEventListener('keydown', (e) => {
+            const visible = listEl.querySelectorAll('li[data-key]');
+            if (e.key === 'ArrowDown') { e.preventDefault(); if (!visible.length) return; highlightedIndex = Math.min(highlightedIndex + 1, visible.length - 1); renderOptions(inputEl.value); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); if (!visible.length) return; highlightedIndex = Math.max(highlightedIndex - 1, 0); renderOptions(inputEl.value); }
+            else if (e.key === 'Enter') { if (highlightedIndex >= 0 && visible[highlightedIndex]) { e.preventDefault(); inputEl.value = visible[highlightedIndex].dataset.key; updateStatus(); syncToInput(); closeList(); } }
+            else if (e.key === 'Escape') closeList();
+        });
+
+        wrapper.querySelector('[data-metric-toggle]').addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (listEl.classList.contains('hidden')) { inputEl.focus(); openList(); } else closeList();
+        });
+    }
+
+    function makeRow(entry) {
+        entry = entry || {};
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-b-0';
+
+        const tier = entry.tier || 'secondary';
+        const tierOptions = ['primary', 'secondary', 'diagnostic'].map(t =>
+            `<option value="${t}"${t === tier ? ' selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`
+        ).join('');
+
+        tr.innerHTML = `
+            <td class="py-1.5 px-3 align-top">
+                <input data-source type="text" value="${escapeHtml(entry.source || '')}"
+                       placeholder="decoded field name"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top" data-metric-combo style="position: relative;">
+                <div class="relative">
+                    <input data-metric type="text" autocomplete="off"
+                           placeholder="e.g. heat:boiler_temp"
+                           class="!w-full !py-1 !pr-7 !text-sm font-mono">
+                    <button type="button" data-metric-toggle
+                            class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
+                            tabindex="-1">
+                        <i class="bi bi-chevron-down text-xs"></i>
+                    </button>
+                </div>
+                <ul data-metric-options role="listbox"
+                    class="hidden max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg"></ul>
+                <div data-metric-status class="text-xs mt-0.5 leading-tight"></div>
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-label type="text" value="${escapeHtml(entry.label || '')}"
+                       placeholder="Boiler Temperature"
+                       class="!w-full !py-1 !text-sm">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-unit type="text" value="${escapeHtml(entry.unit || '')}"
+                       placeholder="°C"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <select data-tier class="!w-full !py-1 !text-sm">${tierOptions}</select>
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-scale type="number" step="any" value="${entry.scale != null ? entry.scale : ''}"
+                       placeholder="1" class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-offset type="number" step="any" value="${entry.offset != null ? entry.offset : ''}"
+                       placeholder="0" class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 text-right align-top">
+                <button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        ['data-source', 'data-label', 'data-unit', 'data-tier', 'data-scale', 'data-offset'].forEach(sel => {
+            tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
+            tr.querySelector(`[${sel}]`).addEventListener('change', syncToInput);
+        });
+        attachMetricCombo(tr.querySelector('[data-metric-combo]'), entry.target || '');
+        tr.querySelector('[data-remove]').addEventListener('click', () => {
+            tr.remove();
+            syncToInput();
+        });
+        return tr;
+    }
+
+    function rebuildRows(entries) {
+        rowsContainer.innerHTML = '';
+        entries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+        if (rowsContainer.children.length === 0) {
+            rowsContainer.appendChild(makeRow());
+        }
+        syncToInput();
+    }
+
+    rebuildRows(initialEntries);
+
+    addBtn.addEventListener('click', () => {
+        rowsContainer.appendChild(makeRow());
+        syncToInput();
+    });
+
+    // View mode toggle
+    const tableView = editor.querySelector('[data-view-table]');
+    const jsonView = editor.querySelector('[data-view-json]');
+    const errorEl = editor.querySelector('[data-json-error]');
+    const tableBtn = editor.querySelector('[data-view-mode="table"]');
+    const jsonBtn = editor.querySelector('[data-view-mode="json"]');
+    const ACTIVE_CLASS = 'px-3 py-1 rounded bg-white shadow-sm font-medium';
+    const INACTIVE_CLASS = 'px-3 py-1 rounded text-gray-600 hover:text-gray-900';
+
+    function setViewMode(mode) {
+        if (mode === 'json') {
+            syncToInput();
+            tableView.classList.add('hidden');
+            jsonView.classList.remove('hidden');
+            tableBtn.className = INACTIVE_CLASS;
+            jsonBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        } else {
+            let parsed;
+            try {
+                parsed = JSON.parse(input.value || '[]');
+                if (!Array.isArray(parsed)) throw new Error('Expected a JSON array of entries.');
+            } catch (e) {
+                errorEl.textContent = 'JSON parse error: ' + e.message + ' — stay on JSON view, fix, then switch back.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            rebuildRows(parsed);
+            jsonView.classList.add('hidden');
+            tableView.classList.remove('hidden');
+            jsonBtn.className = INACTIVE_CLASS;
+            tableBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        }
+    }
+
+    tableBtn.addEventListener('click', () => setViewMode('table'));
+    jsonBtn.addEventListener('click', () => setViewMode('json'));
+})();
+</script>
+{% endspaceless %}

@@ -8,6 +8,7 @@ from .models import (
     APIKey,
     ControlConfig,
     LoRaWANConfig,
+    Metric,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -31,6 +32,158 @@ class PrettyJSONWidget(forms.Textarea):
         elif value is not None:
             value = json.dumps(value, indent=2)
         return super().format_value(value)
+
+
+class FieldMappingsWidget(forms.Textarea):
+    """Tabular editor for L2-scaffolded ``ProcessorConfig.field_mappings``.
+
+    Rows are derived from the parent VendorModel's ``DeviceType.metrics`` —
+    one per declared metric, with the ``target`` column locked. Operator
+    fills in source / scale / offset per row. No "Add row" affordance —
+    anything beyond the L2 profile lives in ``extra_mappings``.
+    """
+
+    template_name = "library/widgets/field_mappings.html"
+    declared_metrics: list[dict] | None = None
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else []
+            except json.JSONDecodeError:
+                parsed = []
+        elif value is None:
+            parsed = []
+        else:
+            parsed = value
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+    def get_context(self, name, value, attrs):
+        import json
+
+        from .models import Metric
+
+        ctx = super().get_context(name, value, attrs)
+        available = list(Metric.objects.values("key", "label", "unit").order_by("key"))
+        ctx["widget"]["available_metrics_json"] = json.dumps(available)
+        ctx["widget"]["declared_metrics_json"] = json.dumps(self.declared_metrics or [])
+        return ctx
+
+
+class ExtraMappingsWidget(forms.Textarea):
+    """Tabular editor for ``ProcessorConfig.extra_mappings``.
+
+    Same shape as field_mappings + a ``tier`` dropdown per row, since
+    these targets aren't in the parent type's L2 profile (no tier to
+    inherit from). Free-form ``target`` column with autocomplete from
+    L1; typing a new key triggers auto-create on save.
+    """
+
+    template_name = "library/widgets/extra_mappings.html"
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else []
+            except json.JSONDecodeError:
+                parsed = []
+        elif value is None:
+            parsed = []
+        else:
+            parsed = value
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+    def get_context(self, name, value, attrs):
+        import json
+
+        from .models import Metric
+
+        ctx = super().get_context(name, value, attrs)
+        available = list(Metric.objects.values("key", "label", "unit").order_by("key"))
+        ctx["widget"]["available_metrics_json"] = json.dumps(available)
+        return ctx
+
+
+class MetricsProfileWidget(forms.Textarea):
+    """Tabular editor for DeviceType.metrics — one row per (metric, tier).
+
+    Renders a hidden textarea (Django form serialization stays JSON-based)
+    plus an interactive table with a select for ``metric`` (autocompleted
+    from the L1 ``Metric`` catalogue) and a dropdown for ``tier``. A small
+    inline script syncs row edits back to the textarea so submit just works.
+    """
+
+    template_name = "library/widgets/metrics_profile.html"
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else []
+            except json.JSONDecodeError:
+                parsed = []
+        elif value is None:
+            parsed = []
+        else:
+            parsed = value
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+    def get_context(self, name, value, attrs):
+        import json
+
+        from .models import Metric
+
+        ctx = super().get_context(name, value, attrs)
+        available = list(Metric.objects.values("key", "label").order_by("key"))
+        ctx["widget"]["available_metrics_json"] = json.dumps(available)
+        return ctx
+
+
+class MetricForm(forms.ModelForm):
+    class Meta:
+        model = Metric
+        fields = [
+            "key",
+            "label",
+            "unit",
+            "data_type",
+            "description",
+            "min_value",
+            "max_value",
+            "monotonic",
+            "aggregation",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "key": forms.TextInput(attrs={"placeholder": "e.g. heat:total_energy"}),
+            "unit": forms.TextInput(attrs={"placeholder": "e.g. kWh"}),
+            "min_value": forms.NumberInput(attrs={"step": "any", "placeholder": "leave blank for no lower cap"}),
+            "max_value": forms.NumberInput(attrs={"step": "any", "placeholder": "leave blank for no upper cap"}),
+        }
+        help_texts = {
+            "key": "Namespaced canonical key, format '<namespace>:<name>' (e.g. heat:total_energy, device:battery).",
+            "unit": "Canonical unit symbol (kWh, m³, dBm, …). Empty for dimensionless metrics.",
+        }
+
+    def clean_key(self):
+        key = (self.cleaned_data.get("key") or "").strip()
+        if not key:
+            raise forms.ValidationError("Key is required.")
+        if ":" not in key:
+            raise forms.ValidationError("Key must be namespaced as '<namespace>:<name>' (e.g. heat:total_energy).")
+        namespace, _, name = key.partition(":")
+        if not namespace or not name:
+            raise forms.ValidationError("Both namespace and name parts must be non-empty.")
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", namespace):
+            raise forms.ValidationError("Namespace must be lowercase, start with a letter, and contain only letters, digits, underscores.")
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+            raise forms.ValidationError("Name must be lowercase, start with a letter, and contain only letters, digits, underscores.")
+        return key
 
 
 class VendorForm(forms.ModelForm):
@@ -66,12 +219,16 @@ class DeviceTypeForm(forms.ModelForm):
             "label",
             "description",
             "icon",
-            "default_field_mappings",
+            "metrics",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
-            "default_field_mappings": PrettyJSONWidget(attrs={"rows": 12, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "metrics": MetricsProfileWidget(),
         }
+
+    def clean_metrics(self):
+        val = self.cleaned_data.get("metrics")
+        return val if val is not None else []
 
 
 class ModbusConfigForm(forms.ModelForm):
@@ -99,6 +256,10 @@ class LoRaWANConfigForm(forms.ModelForm):
             }),
             "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
+
+    def clean_field_map(self):
+        val = self.cleaned_data.get("field_map")
+        return val if val is not None else {}
 
 
 class WMBusConfigForm(forms.ModelForm):
@@ -130,6 +291,14 @@ class WMBusConfigForm(forms.ModelForm):
             raise forms.ValidationError("Must be exactly 32 hex characters (0-9, A-F).")
         return key
 
+    def clean_data_record_mapping(self):
+        val = self.cleaned_data.get("data_record_mapping")
+        return val if val is not None else []
+
+    def clean_field_map(self):
+        val = self.cleaned_data.get("field_map")
+        return val if val is not None else {}
+
 
 class ControlConfigForm(forms.ModelForm):
     class Meta:
@@ -139,16 +308,43 @@ class ControlConfigForm(forms.ModelForm):
             "capabilities": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
 
+    def clean_capabilities(self):
+        val = self.cleaned_data.get("capabilities")
+        return val if val is not None else {}
+
 
 class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "extra_config", "field_mappings", "extra_field_mappings"]
+        # ``decoder_type`` is auto-derived from VendorModel.technology in
+        # ProcessorConfig.save(). ``extra_config`` stays on the model for
+        # legacy Spark consumers (``measurement_type``) but is hidden from
+        # the editor — replaced by the structured ``extra_mappings``.
+        fields = ["field_mappings", "extra_mappings"]
         widgets = {
-            "extra_config": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
-            "field_mappings": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
-            "extra_field_mappings": PrettyJSONWidget(attrs={"rows": 10, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "field_mappings": FieldMappingsWidget(),
+            "extra_mappings": ExtraMappingsWidget(),
         }
+        help_texts = {
+            "field_mappings": "",
+            "extra_mappings": "",
+        }
+
+    def __init__(self, *args, **kwargs):
+        vendor_model = kwargs.pop("vendor_model", None)
+        super().__init__(*args, **kwargs)
+        declared = []
+        if vendor_model and vendor_model.device_type_fk_id:
+            declared = list(vendor_model.device_type_fk.metrics or [])
+        self.fields["field_mappings"].widget.declared_metrics = declared
+
+    def clean_field_mappings(self):
+        val = self.cleaned_data.get("field_mappings")
+        return val if val is not None else []
+
+    def clean_extra_mappings(self):
+        val = self.cleaned_data.get("extra_mappings")
+        return val if val is not None else []
 
 
 class APIKeyForm(forms.ModelForm):

@@ -1,11 +1,47 @@
 """Template filters for JSON formatting."""
 
 import json
+from decimal import Decimal
 
 from django import template
 from django.utils.safestring import mark_safe
 
 register = template.Library()
+
+
+@register.filter
+def num(value):
+    """Render a Decimal/number without trailing zeros (5.00 → 5, 1.230 → 1.23).
+
+    Returns ``value`` unchanged for non-numeric input. Use on plausibility
+    envelope columns where the stored Decimal has 6 dp but the display
+    should look like an integer when it is one.
+    """
+    if value is None or value == "":
+        return value
+    if isinstance(value, Decimal):
+        normalized = value.normalize()
+        # Avoid scientific notation for whole numbers like 1E+12
+        if normalized == normalized.to_integral():
+            return str(normalized.quantize(Decimal(1)))
+        return format(normalized, "f")
+    return value
+
+
+@register.filter
+def raw_json(value):
+    """Dump a dict/list as plain indented JSON (no HTML highlighting).
+
+    Use for HTML attribute values (``data-json='{{ x|raw_json }}'``) where
+    auto-escaping turns embedded ``"`` into ``&quot;`` — JS reads via
+    ``dataset.json`` and gets the unescaped string back.
+    """
+    if not value:
+        return ""
+    try:
+        return json.dumps(value, indent=2, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 @register.filter

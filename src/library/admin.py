@@ -12,6 +12,7 @@ from .models import (
     LibraryVersion,
     LibraryVersionDevice,
     LoRaWANConfig,
+    Metric,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -19,6 +20,43 @@ from .models import (
     VendorModel,
     WMBusConfig,
 )
+
+
+@admin.register(Metric)
+class MetricAdmin(admin.ModelAdmin):
+    list_display = ["key", "label", "unit", "data_type", "monotonic", "aggregation", "min_value", "max_value"]
+    list_filter = ["data_type", "monotonic", "aggregation"]
+    search_fields = ["key", "label"]
+    readonly_fields = ["id", "created", "modified"]
+    fieldsets = [
+        (None, {
+            "fields": ["key", "label", "unit", "data_type", "description"],
+        }),
+        ("Value bounds", {
+            "fields": ["min_value", "max_value", "monotonic"],
+            "description": (
+                "Optional bounds consumed by Spark's ingestion pipeline. "
+                "Values outside [min_value, max_value] are rejected. "
+                "Leave either bound null to skip that check. "
+                "Monotonic flags cumulative counters that must not decrease."
+            ),
+        }),
+        ("Chart aggregation", {
+            "fields": ["aggregation"],
+            "description": (
+                "How to collapse the metric into one value per time "
+                "bucket in charts. 'delta' = consumption per bucket "
+                "(cumulative counters); 'avg' = instantaneous average "
+                "(temperature, voltage); 'last' = latest reading "
+                "(battery, status). 'Current value' widgets always "
+                "read the latest raw point regardless of this field."
+            ),
+        }),
+        ("Identity", {
+            "fields": ["id", "created", "modified"],
+            "classes": ["collapse"],
+        }),
+    ]
 
 
 @admin.register(DeviceType)
@@ -33,13 +71,14 @@ class DeviceTypeAdmin(admin.ModelAdmin):
         (None, {
             "fields": ["code", "label", "description", "icon"],
         }),
-        ("Default field mappings (inherited by VendorModels of this type)", {
-            "fields": ["default_field_mappings"],
+        ("Metrics profile (L2)", {
+            "fields": ["metrics"],
             "description": (
-                "Each entry: {source, target, transform, primary?}. ``primary`` "
-                "missing or false ⇒ secondary. VendorModels can replace the whole "
-                "list via ProcessorConfig.field_mappings or extend it via "
-                "ProcessorConfig.extra_field_mappings."
+                "List of {metric, tier} entries declaring which canonical "
+                "L1 Metric keys this device type tracks, and at which "
+                "display tier (primary / secondary / diagnostic). No sources "
+                "or transforms here — those are decoder concerns on each "
+                "VendorModel's ProcessorConfig.field_mappings."
             ),
         }),
         ("Identity", {
@@ -131,8 +170,10 @@ class VendorModelAdmin(admin.ModelAdmin):
             "fields": ["offline_window_seconds"],
             "description": (
                 "Override the DeviceType defaults for this specific meter. "
-                "Field mappings live on ProcessorConfig (override list "
-                "field_mappings, extras list extra_field_mappings)."
+                "Field mappings live on ProcessorConfig.field_mappings — "
+                "each entry maps a decoded ``source`` field to a canonical "
+                "L1 ``metric`` key (with optional ``transform`` for unit "
+                "conversion and ``tags`` for multi-channel disambiguation)."
             ),
         }),
         ("Identity", {

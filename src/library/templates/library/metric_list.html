@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% load sorting %}
+{% load json_filters %}
+
+{% block title %}Metrics - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold">Metrics</h2>
+        <p class="text-sm text-gray-600 mt-1">
+            L1 canonical metric catalogue. Each entry defines a global key, label, unit and data type.
+            VendorModel field mappings reference these by <code class="text-xs bg-gray-100 px-1 rounded">key</code>.
+        </p>
+    </div>
+    {% if user.is_admin_role %}
+    <a href="{% url 'library:metric-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+        <i class="bi bi-plus-lg mr-1"></i>Add Metric
+    </a>
+    {% endif %}
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="p-6">
+        <form method="get" class="flex items-end gap-4">
+            {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="key or label…">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Search</button>
+                <a href="{% url 'library:metric-list' %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Clear</a>
+            </div>
+        </form>
+        {% if namespaces %}
+        <div class="mt-3 flex flex-wrap gap-2">
+            <span class="text-xs text-gray-500 py-1">Namespaces:</span>
+            {% for ns in namespaces %}
+                <a href="?q={{ ns }}:" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded font-mono">{{ ns }}:</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "key" "Key" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "label" "Label" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "unit" "Unit" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "data_type" "Data Type" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">Bounds</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "aggregation" "Aggregation" %}</th>
+                    <th class="text-right py-3 px-2 font-semibold">{% sort_header "type_count" "Types" "right" %}</th>
+                    <th class="text-right py-3 px-2 font-semibold">{% sort_header "model_count" "Models" "right" %}</th>
+                    {% if user.is_admin_role %}<th class="py-3 px-2"></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in metrics %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-3 px-2"><a href="{% url 'library:metric-detail' m.pk %}" class="text-sm bg-gray-100 hover:bg-blue-100 hover:text-blue-700 px-1 rounded font-mono">{{ m.key }}</a></td>
+                    <td class="py-3 px-2">{{ m.label }}</td>
+                    <td class="py-3 px-2">
+                        {% if m.unit %}
+                            <code class="text-xs bg-gray-100 px-1 rounded">{{ m.unit }}</code>
+                        {% else %}
+                            <span class="text-gray-300">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2">
+                        <span class="inline-block text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{{ m.get_data_type_display }}</span>
+                    </td>
+                    <td class="py-3 px-2 text-xs text-gray-600 whitespace-nowrap">
+                        {% if m.min_value is not None or m.max_value is not None %}
+                            <span title="Hard range (reject)"><code class="bg-gray-100 px-1 rounded">{% if m.min_value is not None %}{{ m.min_value|num }}{% else %}−∞{% endif %}</code><span class="text-gray-400 mx-0.5">…</span><code class="bg-gray-100 px-1 rounded">{% if m.max_value is not None %}{{ m.max_value|num }}{% else %}+∞{% endif %}</code></span>
+                        {% else %}
+                            <span class="text-gray-300">—</span>
+                        {% endif %}
+                        {% if m.monotonic %}
+                            <span title="Monotonic counter" class="inline-block bg-blue-100 text-blue-700 px-1 py-0.5 rounded text-xs ml-1">↑</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2">
+                        {% if m.aggregation == "delta" %}
+                            <span title="Chart bucket = last − first" class="inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-xs font-medium">delta</span>
+                        {% elif m.aggregation == "last" %}
+                            <span title="Chart bucket = latest reading" class="inline-block bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-medium">last</span>
+                        {% elif m.aggregation == "min" %}
+                            <span title="Chart bucket = minimum" class="inline-block bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded text-xs font-medium">min</span>
+                        {% elif m.aggregation == "max" %}
+                            <span title="Chart bucket = maximum" class="inline-block bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs font-medium">max</span>
+                        {% elif m.aggregation == "sum" %}
+                            <span title="Chart bucket = sum of raw" class="inline-block bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded text-xs font-medium">sum</span>
+                        {% else %}
+                            <span title="Chart bucket = arithmetic mean (default)" class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">avg</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2 text-right">
+                        {% if m.type_count %}
+                            <span class="inline-block bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{{ m.type_count }}</span>
+                        {% else %}
+                            <span class="text-gray-300">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2 text-right">
+                        {% if m.model_count %}
+                            <span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">{{ m.model_count }}</span>
+                        {% else %}
+                            <span class="text-gray-300">0</span>
+                        {% endif %}
+                    </td>
+                    {% if user.is_admin_role %}
+                    <td class="py-3 px-2 flex gap-1">
+                        <a href="{% url 'library:metric-edit' m.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'library:metric-delete' m.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="py-3 px-2 text-gray-500">No metrics in catalogue yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<p class="text-xs text-gray-500 mt-4">
+    {{ metrics|length }} metrics shown.
+    <span class="font-medium">Types</span> = number of DeviceType profiles declaring this metric (L2);
+    <span class="font-medium">Models</span> = number of VendorModels mapping a decoded field to this metric (L4).
+    {% if unused_count %}<strong class="text-amber-700">{{ unused_count }} unused</strong> (no L2/L4 references — cleanup candidates).{% endif %}
+</p>
+{% endblock %}

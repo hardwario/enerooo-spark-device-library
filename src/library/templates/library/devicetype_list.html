@@ -6,9 +6,11 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold">Models</h2>
+    {% if user.is_editor %}
     <a href="{% url 'library:model-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
         <i class="bi bi-plus-lg mr-1"></i>Add Model
     </a>
+    {% endif %}
 </div>
 
 <!-- Filters -->
@@ -74,9 +76,11 @@
                     <td class="py-3 px-2"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if model.technology == 'modbus' %}bg-[#0d6efd]{% elif model.technology == 'lorawan' %}bg-[#198754]{% elif model.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ model.get_technology_display }}</span></td>
                     <td class="py-3 px-2 text-gray-500">{% if model.current_version %}v{{ model.current_version }}{% else %}—{% endif %}</td>
                     <td class="py-3 px-2">
+                        {% if user.is_editor %}
                         <a href="{% url 'library:model-edit' model.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50 inline-block">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

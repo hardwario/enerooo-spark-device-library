@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load json_filters %}
+
+{% block title %}{{ metric.key }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:metric-list' %}" class="hover:text-gray-700">Metrics</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">{{ metric.key }}</span>
+</nav>
+
+<div class="flex justify-between items-start mb-6">
+    <div>
+        <h2 class="text-2xl font-bold font-mono">{{ metric.key }}</h2>
+        <p class="text-sm text-gray-600 mt-1">{{ metric.label }}</p>
+    </div>
+    {% if user.is_admin_role %}
+    <div class="flex gap-2">
+        <a href="{% url 'library:metric-edit' metric.pk %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+            <i class="bi bi-pencil mr-1"></i>Edit
+        </a>
+        <a href="{% url 'library:metric-delete' metric.pk %}" class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
+            <i class="bi bi-trash mr-1"></i>Delete
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">L1 — Catalogue entry</h5></div>
+    <div class="p-6">
+        <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <dt class="font-medium text-gray-600">Namespace</dt>
+            <dd class="col-span-2"><code class="text-xs bg-gray-100 px-1 rounded">{{ metric.namespace|default:"—" }}</code></dd>
+            <dt class="font-medium text-gray-600">Name</dt>
+            <dd class="col-span-2"><code class="text-xs bg-gray-100 px-1 rounded">{{ metric.name }}</code></dd>
+            <dt class="font-medium text-gray-600">Unit</dt>
+            <dd class="col-span-2">{% if metric.unit %}<code class="text-xs bg-gray-100 px-1 rounded">{{ metric.unit }}</code>{% else %}<span class="text-gray-400">— (dimensionless)</span>{% endif %}</dd>
+            <dt class="font-medium text-gray-600">Data type</dt>
+            <dd class="col-span-2"><span class="inline-block text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{{ metric.get_data_type_display }}</span></dd>
+            {% if metric.description %}
+            <dt class="font-medium text-gray-600">Description</dt>
+            <dd class="col-span-2">{{ metric.description }}</dd>
+            {% endif %}
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">Value bounds</h5>
+        <p class="text-xs text-gray-500 mt-1">
+            Consumed by Spark's ingestion pipeline — values outside the range
+            are rejected. Leave either bound blank to skip that check.
+        </p>
+    </div>
+    <div class="p-6">
+        <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <dt class="font-medium text-gray-600">Range (reject outside)</dt>
+            <dd class="col-span-2">
+                {% if metric.min_value is not None or metric.max_value is not None %}
+                    <code class="text-xs bg-gray-100 px-1 rounded">{% if metric.min_value is not None %}{{ metric.min_value|num }}{% else %}−∞{% endif %}</code>
+                    <span class="text-gray-400 mx-1">…</span>
+                    <code class="text-xs bg-gray-100 px-1 rounded">{% if metric.max_value is not None %}{{ metric.max_value|num }}{% else %}+∞{% endif %}</code>
+                    {% if metric.unit %}<span class="text-xs text-gray-500 ml-1">{{ metric.unit }}</span>{% endif %}
+                {% else %}
+                    <span class="text-gray-400">— (no bounds)</span>
+                {% endif %}
+            </dd>
+            <dt class="font-medium text-gray-600">Monotonic</dt>
+            <dd class="col-span-2">
+                {% if metric.monotonic %}
+                    <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">cumulative — must not decrease</span>
+                {% else %}
+                    <span class="text-gray-400">— (free-running)</span>
+                {% endif %}
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">Chart aggregation</h5>
+        <p class="text-xs text-gray-500 mt-1">
+            How chart engines collapse this metric into one value per time
+            bucket. "Current value" widgets always read the latest raw
+            reading regardless of this setting.
+        </p>
+    </div>
+    <div class="p-6">
+        <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <dt class="font-medium text-gray-600">Per-bucket aggregation</dt>
+            <dd class="col-span-2">
+                {% if metric.aggregation == "delta" %}
+                    <span class="inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-xs font-medium">delta — last − first per bucket</span>
+                    <span class="text-xs text-gray-500 ml-2">cumulative counter → consumption per window</span>
+                {% elif metric.aggregation == "last" %}
+                    <span class="inline-block bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-medium">last — latest reading in bucket</span>
+                    <span class="text-xs text-gray-500 ml-2">state telemetry (battery, status, …)</span>
+                {% elif metric.aggregation == "min" %}
+                    <span class="inline-block bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded text-xs font-medium">min — minimum per bucket</span>
+                {% elif metric.aggregation == "max" %}
+                    <span class="inline-block bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs font-medium">max — maximum per bucket</span>
+                {% elif metric.aggregation == "sum" %}
+                    <span class="inline-block bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded text-xs font-medium">sum — sum of raw values</span>
+                {% else %}
+                    <span class="inline-block bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-xs font-medium">avg — arithmetic mean per bucket</span>
+                    <span class="text-xs text-gray-500 ml-2">default — instantaneous quantities</span>
+                {% endif %}
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b">
+            <h5 class="font-semibold">L2 — Declared on Device Types
+                <span class="text-xs font-normal text-gray-500 ml-1">({{ declared_in|length }})</span>
+            </h5>
+        </div>
+        <div class="p-6">
+            {% if declared_in %}
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b text-left text-gray-500">
+                        <th class="py-2 px-2 font-medium">Device Type</th>
+                        <th class="py-2 px-2 font-medium">Tier</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in declared_in %}
+                    <tr class="border-b last:border-b-0">
+                        <td class="py-2 px-2">
+                            <a href="{% url 'library:devicetype-detail' d.device_type.pk %}" class="text-blue-600 hover:text-blue-800">{{ d.device_type.label }}</a>
+                        </td>
+                        <td class="py-2 px-2">
+                            {% if d.tier == "primary" %}
+                                <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">primary</span>
+                            {% elif d.tier == "diagnostic" %}
+                                <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">diagnostic</span>
+                            {% else %}
+                                <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">{{ d.tier }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-sm text-gray-500">No DeviceType declares this metric. It exists in the catalogue but no type tracks it — VendorModel entries pointing here fall back to <code class="bg-gray-100 px-1 rounded">tier: diagnostic</code>.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b">
+            <h5 class="font-semibold">L4 — Mapped by Vendor Models
+                <span class="text-xs font-normal text-gray-500 ml-1">({{ mapped_by|length }})</span>
+            </h5>
+        </div>
+        <div class="p-6">
+            {% if mapped_by %}
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b text-left text-gray-500">
+                        <th class="py-2 px-2 font-medium">Model</th>
+                        <th class="py-2 px-2 font-medium">Source(s)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in mapped_by %}
+                    <tr class="border-b last:border-b-0">
+                        <td class="py-2 px-2">
+                            <a href="{% url 'library:model-detail' m.vendor_model.pk %}" class="text-blue-600 hover:text-blue-800">{{ m.vendor_model.vendor.name }} {{ m.vendor_model.model_number }}</a>
+                        </td>
+                        <td class="py-2 px-2">
+                            <ul class="space-y-1">
+                                {% for entry in m.entries %}
+                                <li>
+                                    <code class="text-xs bg-gray-100 px-1 rounded">{{ entry.source|default:"—" }}</code>
+                                    {% if entry.scale %}<span class="text-xs text-gray-500 ml-1">× {{ entry.scale }}</span>{% endif %}
+                                    {% if entry.offset %}<span class="text-xs text-gray-500 ml-1">+ {{ entry.offset }}</span>{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-sm text-gray-500">No VendorModel maps a decoded field to this metric. It's defined but unproduced — candidate for cleanup unless a type still expects it.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

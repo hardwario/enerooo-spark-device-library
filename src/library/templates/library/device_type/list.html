@@ -8,7 +8,7 @@
                 Catalogue holding the <strong>default field mappings</strong> shared across VendorModels of the same type. Per-meter knobs (offline window, controllability, overrides) live on each VendorModel.
             </p>
         </div>
-        {% if user.is_superuser %}
+        {% if user.is_admin_role %}
             <a href="{% url 'library:devicetype-create' %}"
                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
                 <i class="bi bi-plus-lg mr-1"></i>Add Device Type
@@ -23,7 +23,7 @@
                         <th class="text-left py-3 px-2 font-semibold">Label</th>
                         <th class="text-left py-3 px-2 font-semibold">Code</th>
                         <th class="text-left py-3 px-2 font-semibold">Icon</th>
-                        <th class="text-right py-3 px-2 font-semibold">Mappings</th>
+                        <th class="text-right py-3 px-2 font-semibold">Metrics</th>
                         <th class="text-right py-3 px-2 font-semibold">Models</th>
                     </tr>
                 </thead>
@@ -44,7 +44,7 @@
                                     <span class="text-gray-300">—</span>
                                 {% endif %}
                             </td>
-                            <td class="py-3 px-2 text-right text-gray-600">{{ dt.default_field_mappings|length }}</td>
+                            <td class="py-3 px-2 text-right text-gray-600">{{ dt.metrics|length }}</td>
                             <td class="py-3 px-2 text-right font-medium">{{ dt.vendor_model_count }}</td>
                         </tr>
                     {% empty %}
