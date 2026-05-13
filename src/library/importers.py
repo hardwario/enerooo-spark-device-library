@@ -118,15 +118,34 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
 
 
 def _import_metric(data: dict) -> Metric:
-    """Upsert an L1 Metric row from YAML."""
+    """Upsert an L1 Metric row from YAML.
+
+    Value bounds (``min_value`` / ``max_value`` / ``monotonic``) are
+    optional; missing keys leave the column null (no opinion) rather
+    than zeroing a previously-configured bound.
+    """
+    from decimal import Decimal, InvalidOperation
+
     key = (data.get("key") or "").strip()
     if not key:
         raise ValueError("metric entry is missing 'key'")
+
+    def _decimal_or_none(raw):
+        if raw is None or raw == "":
+            return None
+        try:
+            return Decimal(str(raw))
+        except (InvalidOperation, ValueError):
+            return None
+
     defaults = {
         "label": data.get("label") or key.split(":", 1)[-1].replace("_", " ").title(),
         "unit": data.get("unit", "") or "",
         "data_type": data.get("data_type", "decimal"),
         "description": data.get("description", "") or "",
+        "min_value": _decimal_or_none(data.get("min_value")),
+        "max_value": _decimal_or_none(data.get("max_value")),
+        "monotonic": bool(data.get("monotonic", False)),
     }
     obj, _ = Metric.objects.update_or_create(key=key, defaults=defaults)
     return obj

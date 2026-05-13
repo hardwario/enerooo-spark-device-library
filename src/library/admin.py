@@ -24,10 +24,28 @@ from .models import (
 
 @admin.register(Metric)
 class MetricAdmin(admin.ModelAdmin):
-    list_display = ["key", "label", "unit", "data_type"]
-    list_filter = ["data_type"]
+    list_display = ["key", "label", "unit", "data_type", "monotonic", "min_value", "max_value"]
+    list_filter = ["data_type", "monotonic"]
     search_fields = ["key", "label"]
     readonly_fields = ["id", "created", "modified"]
+    fieldsets = [
+        (None, {
+            "fields": ["key", "label", "unit", "data_type", "description"],
+        }),
+        ("Value bounds", {
+            "fields": ["min_value", "max_value", "monotonic"],
+            "description": (
+                "Optional bounds consumed by Spark's ingestion pipeline. "
+                "Values outside [min_value, max_value] are rejected. "
+                "Leave either bound null to skip that check. "
+                "Monotonic flags cumulative counters that must not decrease."
+            ),
+        }),
+        ("Identity", {
+            "fields": ["id", "created", "modified"],
+            "classes": ["collapse"],
+        }),
+    ]
 
 
 @admin.register(DeviceType)

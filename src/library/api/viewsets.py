@@ -17,6 +17,7 @@ from library.models import (
     GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
+    Metric,
     Vendor,
     VendorModel,
 )
@@ -28,6 +29,7 @@ from .serializers import (
     GatewayAssignmentSerializer,
     LibraryVersionSerializer,
     ManifestSerializer,
+    MetricSerializer,
     VendorAdminSerializer,
     VendorModelAdminSerializer,
     VendorModelDetailSerializer,
@@ -132,6 +134,7 @@ class SyncViewSet(viewsets.ViewSet):
         data = {
             "version": current.version if current else "0.0.0",
             "schema_version": current.schema_version if current else DEFAULT_SCHEMA_VERSION,
+            "metrics": MetricSerializer(Metric.objects.all(), many=True).data,
             "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
             "vendors": VendorWithDevicesSerializer(vendors, many=True).data,
         }
@@ -220,6 +223,7 @@ class LibraryContentViewSet(viewsets.ViewSet):
         return Response({
             "version": lib_version.version,
             "schema_version": lib_version.schema_version,
+            "metrics": MetricSerializer(Metric.objects.all(), many=True).data,
             "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
             "vendors": vendor_list,
         })

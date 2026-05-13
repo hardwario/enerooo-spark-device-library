@@ -82,14 +82,27 @@ def export_to_yaml(output_dir: str | Path) -> dict:
 
 
 def _export_metric(m) -> dict:
-    """Export a single L1 Metric row to a YAML-compatible dict."""
-    return {
+    """Export a single L1 Metric row to a YAML-compatible dict.
+
+    Value bounds + monotonic flag are emitted only when set, keeping the
+    YAML readable when a metric relies on seeded defaults from the
+    migration. Decimal bounds are serialized as strings to preserve
+    precision across YAML round-trips.
+    """
+    data = {
         "key": m.key,
         "label": m.label,
         "unit": m.unit or "",
         "data_type": m.data_type,
         "description": m.description or "",
     }
+    if m.min_value is not None:
+        data["min_value"] = str(m.min_value)
+    if m.max_value is not None:
+        data["max_value"] = str(m.max_value)
+    if m.monotonic:
+        data["monotonic"] = True
+    return data
 
 
 def _export_device_type(dt: DeviceType) -> dict:

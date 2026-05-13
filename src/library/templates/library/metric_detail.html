@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load json_filters %}
 
 {% block title %}{{ metric.key }} - {{ COMPANY_NAME }}{% endblock %}
 
@@ -42,6 +43,39 @@
             <dt class="font-medium text-gray-600">Description</dt>
             <dd class="col-span-2">{{ metric.description }}</dd>
             {% endif %}
+        </dl>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">Value bounds</h5>
+        <p class="text-xs text-gray-500 mt-1">
+            Consumed by Spark's ingestion pipeline — values outside the range
+            are rejected. Leave either bound blank to skip that check.
+        </p>
+    </div>
+    <div class="p-6">
+        <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <dt class="font-medium text-gray-600">Range (reject outside)</dt>
+            <dd class="col-span-2">
+                {% if metric.min_value is not None or metric.max_value is not None %}
+                    <code class="text-xs bg-gray-100 px-1 rounded">{% if metric.min_value is not None %}{{ metric.min_value|num }}{% else %}−∞{% endif %}</code>
+                    <span class="text-gray-400 mx-1">…</span>
+                    <code class="text-xs bg-gray-100 px-1 rounded">{% if metric.max_value is not None %}{{ metric.max_value|num }}{% else %}+∞{% endif %}</code>
+                    {% if metric.unit %}<span class="text-xs text-gray-500 ml-1">{{ metric.unit }}</span>{% endif %}
+                {% else %}
+                    <span class="text-gray-400">— (no bounds)</span>
+                {% endif %}
+            </dd>
+            <dt class="font-medium text-gray-600">Monotonic</dt>
+            <dd class="col-span-2">
+                {% if metric.monotonic %}
+                    <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">cumulative — must not decrease</span>
+                {% else %}
+                    <span class="text-gray-400">— (free-running)</span>
+                {% endif %}
+            </dd>
         </dl>
     </div>
 </div>

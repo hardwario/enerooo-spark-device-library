@@ -21,11 +21,20 @@ from library.models import (
 
 
 class MetricSerializer(serializers.ModelSerializer):
-    """L1 — Catalogue entry."""
+    """L1 — Catalogue entry (incl. value bounds + monotonic flag)."""
 
     class Meta:
         model = Metric
-        fields = ["key", "label", "unit", "data_type", "description"]
+        fields = [
+            "key",
+            "label",
+            "unit",
+            "data_type",
+            "description",
+            "min_value",
+            "max_value",
+            "monotonic",
+        ]
 
 
 # === Sync API serializers (read-only, nested) ===

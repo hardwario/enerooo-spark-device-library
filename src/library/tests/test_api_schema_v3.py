@@ -93,6 +93,59 @@ class TestSyncEndpoint:
         assert model["device_type"] == "water_meter"
         assert model["device_type_key"] is not None
 
+    def test_sync_carries_l1_metric_catalogue_with_bounds(self, staff_client):
+        """Spark and other consumers pull L1 metric bounds from the sync
+        endpoint — same payload as the YAML manifest, so an instance can
+        replace its hardcoded METRIC_LIMITS / NON_NEGATIVE_METRICS tables."""
+        response = staff_client.get("/api/v1/sync/")
+        body = response.json()
+        assert "metrics" in body
+        by_key = {m["key"]: m for m in body["metrics"]}
+        assert "heat:total_energy" in by_key
+        # Seeded cumulative counter: monotonic + non-negative floor
+        heat = by_key["heat:total_energy"]
+        assert heat["monotonic"] is True
+        assert heat["min_value"] is not None
+        # Instantaneous quantity: bounded, not monotonic
+        temp = by_key["env:temperature"]
+        assert temp["monotonic"] is False
+        assert temp["min_value"] is not None
+        assert temp["max_value"] is not None
+
+    def test_effective_field_mappings_carry_bounds_per_entry(
+        self, staff_client, water_vendor_model
+    ):
+        """Spark reads ranges per-entry from ``effective_field_mappings``
+        without a separate L1 lookup."""
+        from library.models import ProcessorConfig
+
+        water_vendor_model.device_type_fk.metrics = [
+            {"metric": "water:total_volume", "tier": "primary"},
+            {"metric": "water:flow_rate", "tier": "primary"},
+        ]
+        water_vendor_model.device_type_fk.save(update_fields=["metrics"])
+        ProcessorConfig.objects.create(
+            device_type=water_vendor_model,
+            field_mappings=[
+                {"source": "vol_m3", "target": "water:total_volume"},
+                {"source": "q", "target": "water:flow_rate"},
+            ],
+        )
+        response = staff_client.get("/api/v1/sync/")
+        body = response.json()
+        vendor_block = next(v for v in body["vendors"] if v["name"] == "Acme Water")
+        model = vendor_block["models"][0]
+        entries = {e["target"]: e for e in model["effective_field_mappings"]}
+        # water:total_volume is monotonic + non-negative
+        vol = entries["water:total_volume"]
+        assert vol["monotonic"] is True
+        assert vol["min_value"] is not None
+        # water:flow_rate is not monotonic — flag omitted, bounds present
+        flow = entries["water:flow_rate"]
+        assert "monotonic" not in flow
+        assert flow["min_value"] is not None
+        assert flow["max_value"] is not None
+
 
 class TestDeviceTypesEndpoint:
     def test_lists_existing_types(self, staff_client, water_meter_type, heat_meter_type, gas_meter_type):

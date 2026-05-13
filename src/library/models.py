@@ -19,10 +19,12 @@ class Metric(TimeStampedModel):
 
     Each VendorModel field mapping points at one of these via ``metric=key``.
     The catalogue is the single source of truth for **what** a metric is —
-    its label, canonical unit, and data type. Tier (primary / secondary /
-    diagnostic) is *not* on the metric itself; it lives on each DeviceType's
-    profile (L2), because the same metric can be primary on one device type
-    and diagnostic on another.
+    its label, canonical unit, data type, and *value bounds* (``min_value``
+    / ``max_value`` hard caps, ``monotonic`` flag for cumulative
+    counters). Tier (primary / secondary / diagnostic) is *not* on the
+    metric itself; it lives on each DeviceType's profile (L2), because
+    the same metric can be primary on one device type and diagnostic on
+    another.
 
     Key convention: ``<namespace>:<name>``. The namespace prefix is
     **semantic**, not cosmetic — ``heat:total_energy`` (calorific, kWh) and
@@ -30,6 +32,19 @@ class Metric(TimeStampedModel):
     quantities even though both share kWh as the unit. Cross-domain
     prefixes (``device:``, ``radio:``) carry metrics that aren't tied to a
     measurement domain (battery level, signal strength, firmware health).
+
+    Validation policy (consumed by Spark's ingestion pipeline):
+
+    - Outside ``[min_value, max_value]`` → **reject** (data is physically
+      impossible, e.g. negative cumulative volume, voltage above 1 kV
+      on a residential meter).
+    - ``monotonic=True`` flags cumulative counters that must never
+      decrease between consecutive readings of the same device.
+
+    Bounds are optional — null means *no opinion* at the catalogue
+    layer (the consumer applies its own default or skips the check).
+    Mirrors Spark's existing ``METRIC_LIMITS`` + ``NON_NEGATIVE_METRICS``
+    so it can replace those hardcoded tables 1:1.
     """
 
     class DataType(models.TextChoices):
@@ -54,6 +69,28 @@ class Metric(TimeStampedModel):
     data_type = models.CharField(max_length=20, choices=DataType.choices, default=DataType.DECIMAL)
     description = models.TextField(blank=True, default="")
 
+    # Value bounds consumed by Spark for reject-on-ingest. Decimal so
+    # callers can express both integer counts and fractional values
+    # without separate columns.
+    min_value = models.DecimalField(
+        max_digits=24,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Hard lower cap. Values < min_value are rejected at ingestion.",
+    )
+    max_value = models.DecimalField(
+        max_digits=24,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Hard upper cap. Values > max_value are rejected at ingestion.",
+    )
+    monotonic = models.BooleanField(
+        default=False,
+        help_text="True for cumulative counters that must not decrease (e.g. total_energy, total_volume).",
+    )
+
     class Meta:
         ordering = ["key"]
 
@@ -67,6 +104,16 @@ class Metric(TimeStampedModel):
     @property
     def name(self) -> str:
         return self.key.split(":", 1)[1] if ":" in self.key else self.key
+
+    def clean(self):
+        """Enforce ``min_value ≤ max_value`` when both are set."""
+        super().clean()
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and self.min_value > self.max_value
+        ):
+            raise ValidationError({"max_value": "max_value must be ≥ min_value."})
 
 
 class Vendor(TimeStampedModel):
@@ -201,7 +248,7 @@ class VendorModel(TimeStampedModel):
         """Resolved + merged view of L4 ``field_mappings`` and
         ``extra_mappings``, annotated with metadata from L1 + L2.
 
-        Each entry carries the raw L4 fields plus three derived fields:
+        Each entry carries the raw L4 fields plus derived fields:
 
         - ``label`` (from L1 ``Metric.label``)
         - ``unit``  (from L1 ``Metric.unit``)
@@ -209,6 +256,9 @@ class VendorModel(TimeStampedModel):
           L2 ``DeviceType.metrics``; for ``extra_mappings`` entries,
           taken from the entry's own ``tier`` field (default
           ``secondary``).
+        - ``min_value`` / ``max_value`` / ``monotonic`` from L1
+          (omitted when null/false). Lets Spark validate readings
+          per-entry without doing its own L1 lookup.
 
         ``target`` is kept as the per-entry key name so existing
         decoder/Spark code that reads ``entry["target"]`` keeps working.
@@ -264,6 +314,16 @@ class VendorModel(TimeStampedModel):
                 ann["scale"] = entry["scale"]
             if entry.get("offset") is not None and entry["offset"] != 0:
                 ann["offset"] = entry["offset"]
+            # Denormalize L1 value bounds + monotonic flag so Spark can
+            # validate per-entry without a separate L1 lookup. Omit
+            # nulls/false to keep the wire shape compact.
+            if m is not None:
+                if m.min_value is not None:
+                    ann["min_value"] = m.min_value
+                if m.max_value is not None:
+                    ann["max_value"] = m.max_value
+                if m.monotonic:
+                    ann["monotonic"] = True
             return ann
 
         result: list[dict] = []

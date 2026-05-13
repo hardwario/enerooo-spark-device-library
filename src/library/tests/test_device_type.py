@@ -76,6 +76,73 @@ class TestMetricCatalogue:
         assert Metric.objects.get(key="device:rssi").unit == "dBm"
 
 
+class TestMetricValueBounds:
+    """L1 value bounds — min/max hard caps + monotonic flag for cumulative
+    counters. Migration 0031 seeds conservative defaults so Spark can
+    replace its hardcoded METRIC_LIMITS / NON_NEGATIVE_METRICS tables."""
+
+    def test_cumulative_counters_marked_monotonic(self):
+        # Migration 0031 marks the canonical cumulative counters monotonic.
+        assert Metric.objects.get(key="heat:total_energy").monotonic is True
+        assert Metric.objects.get(key="water:total_volume").monotonic is True
+        assert Metric.objects.get(key="gas:total_volume").monotonic is True
+        assert Metric.objects.get(key="elec:total_energy").monotonic is True
+        # Instantaneous quantities are not monotonic.
+        assert Metric.objects.get(key="env:temperature").monotonic is False
+        assert Metric.objects.get(key="elec:active_power").monotonic is False
+
+    def test_seeded_bounds_for_temperature(self):
+        # env:temperature seeded with −100..150 °C.
+        t = Metric.objects.get(key="env:temperature")
+        assert t.min_value == -100
+        assert t.max_value == 150
+
+    def test_seeded_cumulative_counters_have_non_negative_floor(self):
+        # Anything monotonic should also have min_value=0 — a cumulative
+        # counter going negative is physically impossible.
+        for key in ["heat:total_energy", "water:total_volume", "gas:total_volume", "elec:total_energy"]:
+            m = Metric.objects.get(key=key)
+            assert m.min_value == 0, f"{key} cumulative counter must have min_value=0"
+
+    def test_clean_rejects_min_greater_than_max(self):
+        from django.core.exceptions import ValidationError
+
+        m = Metric(key="x:bad", label="Bad", data_type="decimal", min_value=10, max_value=5)
+        with pytest.raises(ValidationError):
+            m.full_clean()
+
+    def test_clean_allows_null_bounds(self):
+        # Nulls = no opinion → no cross-field check should fire.
+        m = Metric(key="x:freeform", label="Free", data_type="decimal")
+        m.full_clean()  # should not raise
+
+    def test_clean_allows_one_sided_cap(self):
+        # Only min, no max — valid (consumer just skips the upper check).
+        m = Metric(key="x:onesided", label="One-sided", data_type="decimal", min_value=0)
+        m.full_clean()
+
+    def test_auto_created_metrics_have_null_bounds(self, heat_meter_type):
+        """ProcessorConfig.save() auto-creates Metric rows for unknown
+        targets — they should start with no bounds opinion."""
+        vendor = Vendor.objects.create(name="Auto", slug="auto")
+        vm = VendorModel.objects.create(
+            vendor=vendor,
+            model_number="A-1",
+            name="Auto A-1",
+            device_type="heat_meter",
+            device_type_fk=heat_meter_type,
+            technology=VendorModel.Technology.WMBUS,
+        )
+        ProcessorConfig.objects.create(
+            device_type=vm,
+            field_mappings=[{"source": "raw", "target": "heat:novel_metric"}],
+        )
+        m = Metric.objects.get(key="heat:novel_metric")
+        assert m.min_value is None
+        assert m.max_value is None
+        assert m.monotonic is False
+
+
 class TestDeviceTypeProfile:
     """L2 — DeviceType.metrics declares which canonical metrics this type
     tracks and at which tier (primary / secondary / diagnostic)."""

@@ -147,11 +147,22 @@ class MetricsProfileWidget(forms.Textarea):
 class MetricForm(forms.ModelForm):
     class Meta:
         model = Metric
-        fields = ["key", "label", "unit", "data_type", "description"]
+        fields = [
+            "key",
+            "label",
+            "unit",
+            "data_type",
+            "description",
+            "min_value",
+            "max_value",
+            "monotonic",
+        ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "key": forms.TextInput(attrs={"placeholder": "e.g. heat:total_energy"}),
             "unit": forms.TextInput(attrs={"placeholder": "e.g. kWh"}),
+            "min_value": forms.NumberInput(attrs={"step": "any", "placeholder": "leave blank for no lower cap"}),
+            "max_value": forms.NumberInput(attrs={"step": "any", "placeholder": "leave blank for no upper cap"}),
         }
         help_texts = {
             "key": "Namespaced canonical key, format '<namespace>:<name>' (e.g. heat:total_energy, device:battery).",
