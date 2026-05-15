@@ -27,7 +27,7 @@
 <div class="bg-white rounded-lg shadow mb-6">
     <div class="px-6 py-4 border-b"><h5 class="font-semibold">Details</h5></div>
     <div class="p-6">
-        <dl class="grid grid-cols-2 md:grid-cols-4 gap-y-3 gap-x-6 text-sm">
+        <dl class="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-sm mb-4">
             <div>
                 <dt class="font-medium text-gray-600">Version</dt>
                 <dd class="mt-1">v{{ version.version }}</dd>
@@ -40,16 +40,173 @@
                 <dt class="font-medium text-gray-600">Published By</dt>
                 <dd class="mt-1">{{ version.published_by|default:"—" }}</dd>
             </div>
+        </dl>
+        <dl class="grid grid-cols-3 gap-x-6 text-sm pt-3 border-t">
             <div>
-                <dt class="font-medium text-gray-600">Models</dt>
-                <dd class="mt-1">{{ device_count }}{% if changed_count %} <span class="text-gray-500">({{ changed_count }} changed)</span>{% endif %}</dd>
+                <dt class="font-medium text-gray-600">Metrics (L1)</dt>
+                <dd class="mt-1">
+                    <a href="#metric-manifest" class="text-blue-600 hover:underline">{{ metric_count }}</a>
+                    {% if metric_changed_count %}<span class="text-gray-500">({{ metric_changed_count }} changed)</span>{% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Device Types (L2)</dt>
+                <dd class="mt-1">
+                    <a href="#devicetype-manifest" class="text-blue-600 hover:underline">{{ device_type_count }}</a>
+                    {% if device_type_changed_count %}<span class="text-gray-500">({{ device_type_changed_count }} changed)</span>{% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Models (L4)</dt>
+                <dd class="mt-1">
+                    <a href="#model-manifest" class="text-blue-600 hover:underline">{{ device_count }}</a>
+                    {% if changed_count %}<span class="text-gray-500">({{ changed_count }} changed)</span>{% endif %}
+                </dd>
             </div>
         </dl>
     </div>
 </div>
 
-<div class="bg-white rounded-lg shadow">
-    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Model Manifest</h5></div>
+{# Status badge — shared markup across all three manifests. #}
+{% comment %}
+The same {added/modified/removed/unchanged} ChangeType enum is reused
+on LibraryVersionDevice / LibraryVersionMetric / LibraryVersionDeviceType,
+so the badge styles are identical — we just inline them per-table to
+keep this template flat and templatetag-free.
+{% endcomment %}
+
+<div id="metric-manifest" class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+        <h5 class="font-semibold">
+            Metric Manifest <span class="text-sm font-normal text-gray-500">— L1 catalogue</span>
+            <span class="text-xs font-normal text-gray-500 ml-1">({{ metric_count }}{% if metric_changed_count %}, {{ metric_changed_count }} changed{% endif %})</span>
+        </h5>
+        {% if metric_unchanged_count and not show_unchanged %}
+        <a href="?show_unchanged=1#metric-manifest" class="text-xs text-blue-600 hover:underline">{{ metric_unchanged_count }} unchanged hidden — show all</a>
+        {% elif show_unchanged and metric_unchanged_count %}
+        <a href="?#metric-manifest" class="text-xs text-blue-600 hover:underline">Hide unchanged</a>
+        {% endif %}
+    </div>
+    <div class="p-6">
+        {% if metric_manifest %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-2 px-2 font-semibold">Key</th>
+                    <th class="text-left py-2 px-2 font-semibold">Label</th>
+                    <th class="text-left py-2 px-2 font-semibold">Metric Version</th>
+                    <th class="text-left py-2 px-2 font-semibold">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in metric_manifest %}
+                <tr class="border-b {% if entry.change_type == 'unchanged' %}text-gray-400{% endif %}">
+                    <td class="py-2 px-2 font-mono">
+                        {% if entry.metric %}
+                            <a href="{% url 'library:metric-history-snapshot' entry.metric.pk entry.metric_version %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.metric_key }}</a>
+                        {% else %}
+                            {{ entry.metric_key }}
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2">{% if entry.metric %}{{ entry.metric.label }}{% else %}—{% endif %}</td>
+                    <td class="py-2 px-2">v{{ entry.metric_version }}</td>
+                    <td class="py-2 px-2">
+                        {% if entry.change_type == "added" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Added</span>
+                        {% elif entry.change_type == "modified" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Modified</span>
+                        {% elif entry.change_type == "removed" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Removed</span>
+                        {% elif entry.change_type == "unchanged" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">Unchanged</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {% if metric_count %}
+        <p class="text-gray-500 text-sm">No metric changes in this version — every L1 entry is unchanged from the previous publish.</p>
+        {% else %}
+        <p class="text-gray-500 text-sm">No metric manifest entries — this LibraryVersion was published before migration 0035 (L1/L2 versioning parity). Republish to populate.</p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div id="devicetype-manifest" class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+        <h5 class="font-semibold">
+            Device Type Manifest <span class="text-sm font-normal text-gray-500">— L2 profiles</span>
+            <span class="text-xs font-normal text-gray-500 ml-1">({{ device_type_count }}{% if device_type_changed_count %}, {{ device_type_changed_count }} changed{% endif %})</span>
+        </h5>
+        {% if device_type_unchanged_count and not show_unchanged %}
+        <a href="?show_unchanged=1#devicetype-manifest" class="text-xs text-blue-600 hover:underline">{{ device_type_unchanged_count }} unchanged hidden — show all</a>
+        {% elif show_unchanged and device_type_unchanged_count %}
+        <a href="?#devicetype-manifest" class="text-xs text-blue-600 hover:underline">Hide unchanged</a>
+        {% endif %}
+    </div>
+    <div class="p-6">
+        {% if device_type_manifest %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-2 px-2 font-semibold">Code</th>
+                    <th class="text-left py-2 px-2 font-semibold">Label</th>
+                    <th class="text-left py-2 px-2 font-semibold">Type Version</th>
+                    <th class="text-left py-2 px-2 font-semibold">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in device_type_manifest %}
+                <tr class="border-b {% if entry.change_type == 'unchanged' %}text-gray-400{% endif %}">
+                    <td class="py-2 px-2 font-mono">
+                        {% if entry.device_type %}
+                            <a href="{% url 'library:devicetype-history-snapshot' entry.device_type.pk entry.device_type_version %}" class="{% if entry.change_type == 'unchanged' %}text-gray-400 hover:text-gray-600{% else %}text-blue-600 hover:text-blue-800{% endif %}">{{ entry.device_type_code }}</a>
+                        {% else %}
+                            {{ entry.device_type_code }}
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2">{% if entry.device_type %}{{ entry.device_type.label }}{% else %}—{% endif %}</td>
+                    <td class="py-2 px-2">v{{ entry.device_type_version }}</td>
+                    <td class="py-2 px-2">
+                        {% if entry.change_type == "added" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Added</span>
+                        {% elif entry.change_type == "modified" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Modified</span>
+                        {% elif entry.change_type == "removed" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Removed</span>
+                        {% elif entry.change_type == "unchanged" %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">Unchanged</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        {% if device_type_count %}
+        <p class="text-gray-500 text-sm">No device type changes in this version — every L2 profile is unchanged from the previous publish.</p>
+        {% else %}
+        <p class="text-gray-500 text-sm">No device type manifest entries — this LibraryVersion was published before migration 0035. Republish to populate.</p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div id="model-manifest" class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+        <h5 class="font-semibold">
+            Model Manifest <span class="text-sm font-normal text-gray-500">— L4 vendor devices</span>
+            <span class="text-xs font-normal text-gray-500 ml-1">({{ device_count }}{% if changed_count %}, {{ changed_count }} changed{% endif %})</span>
+        </h5>
+        {% if unchanged_count and not show_unchanged %}
+        <a href="?show_unchanged=1#model-manifest" class="text-xs text-blue-600 hover:underline">{{ unchanged_count }} unchanged hidden — show all</a>
+        {% elif show_unchanged and unchanged_count %}
+        <a href="?#model-manifest" class="text-xs text-blue-600 hover:underline">Hide unchanged</a>
+        {% endif %}
+    </div>
     <div class="p-6">
         {% if manifest %}
         <table class="w-full text-sm">
@@ -91,7 +248,11 @@
             </tbody>
         </table>
         {% else %}
+        {% if device_count %}
+        <p class="text-gray-500 text-sm">No model changes in this version — every L4 vendor model is unchanged from the previous publish.</p>
+        {% else %}
         <p class="text-gray-500">No models in this version.</p>
+        {% endif %}
         {% endif %}
     </div>
 </div>

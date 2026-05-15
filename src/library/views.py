@@ -1150,10 +1150,47 @@ class VersionDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        entries = self.object.device_changes.select_related("device_type", "device_type__vendor").all()
-        ctx["manifest"] = entries
-        ctx["device_count"] = entries.exclude(change_type=LibraryVersionDevice.ChangeType.REMOVED).count()
-        ctx["changed_count"] = entries.exclude(change_type=LibraryVersionDevice.ChangeType.UNCHANGED).count()
+
+        # ``?show_unchanged=1`` switches the page from "diff view" (only
+        # added/modified/removed — the story of this version) to "full
+        # inventory" mode. Default is diff view because that's almost
+        # always what brings an operator to a version detail page.
+        show_unchanged = self.request.GET.get("show_unchanged") in {"1", "true", "yes"}
+        ctx["show_unchanged"] = show_unchanged
+
+        def _filter(qs, change_type_enum):
+            """Total / changed counts come from the unfiltered queryset
+            so the section headers are accurate regardless of view mode."""
+            total = qs.exclude(change_type=change_type_enum.REMOVED).count()
+            changed = qs.exclude(change_type=change_type_enum.UNCHANGED).count()
+            unchanged = total - (changed - qs.filter(change_type=change_type_enum.REMOVED).count())
+            visible = qs if show_unchanged else qs.exclude(change_type=change_type_enum.UNCHANGED)
+            return visible, total, changed, unchanged
+
+        # Model manifest (VendorModel).
+        device_qs = self.object.device_changes.select_related("device_type", "device_type__vendor").all()
+        visible, total, changed, unchanged = _filter(device_qs, LibraryVersionDevice.ChangeType)
+        ctx["manifest"] = visible
+        ctx["device_count"] = total
+        ctx["changed_count"] = changed
+        ctx["unchanged_count"] = unchanged
+
+        # Metric manifest (L1).
+        metric_qs = self.object.metric_changes.select_related("metric").all()
+        visible, total, changed, unchanged = _filter(metric_qs, LibraryVersionMetric.ChangeType)
+        ctx["metric_manifest"] = visible
+        ctx["metric_count"] = total
+        ctx["metric_changed_count"] = changed
+        ctx["metric_unchanged_count"] = unchanged
+
+        # DeviceType manifest (L2).
+        device_type_qs = self.object.device_type_changes.select_related("device_type").all()
+        visible, total, changed, unchanged = _filter(device_type_qs, LibraryVersionDeviceType.ChangeType)
+        ctx["device_type_manifest"] = visible
+        ctx["device_type_count"] = total
+        ctx["device_type_changed_count"] = changed
+        ctx["device_type_unchanged_count"] = unchanged
+
         return ctx
 
 
