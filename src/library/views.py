@@ -32,18 +32,30 @@ from .forms import (
     WMBusConfigForm,
     YAMLImportForm,
 )
-from .history import diff_snapshots, record_history, snapshot_device
+from .history import (
+    diff_snapshots,
+    record_device_type_history,
+    record_history,
+    record_metric_history,
+    snapshot_device,
+    snapshot_device_type,
+    snapshot_metric,
+)
 from .importers import import_from_yaml
 from .models import (
     APIKey,
     ControlConfig,
     DeviceHistory,
     DeviceType,
+    DeviceTypeHistory,
     GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
+    LibraryVersionDeviceType,
+    LibraryVersionMetric,
     LoRaWANConfig,
     Metric,
+    MetricHistory,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -240,6 +252,10 @@ class MetricDetailView(LoginRequiredMixin, DetailView):
         mapped_by.sort(key=lambda m: (m["vendor_model"].vendor.name, m["vendor_model"].model_number))
         ctx["mapped_by"] = mapped_by
 
+        # Change history — same shape/cap as VendorModelDetailView for
+        # consistency across the three versioned entity types.
+        ctx["history"] = self.object.history.select_related("user").all()[:20]
+
         return ctx
 
 
@@ -262,6 +278,7 @@ class MetricCreateView(RoleRequiredMixin, CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        record_metric_history(self.object, MetricHistory.Action.CREATED, self.request.user)
         log_action(self.request, "created", self.object)
         messages.success(self.request, f"Metric '{self.object.key}' created.")
         return response
@@ -276,8 +293,21 @@ class MetricUpdateView(RoleRequiredMixin, UpdateView):
     form_class = MetricForm
     template_name = "library/metric_form.html"
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        # Capture pre-edit snapshot so the diff in record_metric_history
+        # has something to compare against.
+        self._old_snapshot = snapshot_metric(obj)
+        return obj
+
     def form_valid(self, form):
         response = super().form_valid(form)
+        record_metric_history(
+            self.object,
+            MetricHistory.Action.UPDATED,
+            self.request.user,
+            previous_snapshot=self._old_snapshot,
+        )
         log_action(self.request, "updated", self.object)
         messages.success(self.request, f"Metric '{self.object.key}' updated.")
         return response
@@ -304,6 +334,18 @@ class MetricDeleteView(RoleRequiredMixin, View):
             )
             return redirect("library:metric-delete", pk=metric.pk)
         key = metric.key
+        # Capture pre-delete snapshot for the audit trail before the row
+        # vanishes. ``record_metric_history`` writes the entry with FK
+        # ``metric`` populated; the post-delete SET_NULL kicks in after
+        # the row is gone, leaving the history row with a NULL FK but
+        # the ``metric_key`` column preserved for grep-ability.
+        old_snapshot = snapshot_metric(metric)
+        record_metric_history(
+            metric,
+            MetricHistory.Action.DELETED,
+            request.user,
+            previous_snapshot=old_snapshot,
+        )
         log_action(request, "deleted", metric)
         metric.delete()
         messages.success(request, f"Metric '{key}' deleted.")
@@ -345,6 +387,7 @@ class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
         ctx["vendor_models"] = self.object.vendor_models.select_related("vendor").order_by(
             "vendor__name", "model_number",
         )
+        ctx["history"] = self.object.history.select_related("user").all()[:20]
         return ctx
 
 
@@ -356,6 +399,7 @@ class DeviceTypeCreateView(RoleRequiredMixin, CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        record_device_type_history(self.object, DeviceTypeHistory.Action.CREATED, self.request.user)
         log_action(self.request, "created", self.object)
         return response
 
@@ -369,8 +413,19 @@ class DeviceTypeUpdateView(RoleRequiredMixin, UpdateView):
     form_class = DeviceTypeForm
     template_name = "library/device_type/form.html"
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        self._old_snapshot = snapshot_device_type(obj)
+        return obj
+
     def form_valid(self, form):
         response = super().form_valid(form)
+        record_device_type_history(
+            self.object,
+            DeviceTypeHistory.Action.UPDATED,
+            self.request.user,
+            previous_snapshot=self._old_snapshot,
+        )
         log_action(self.request, "updated", self.object)
         return response
 
@@ -391,6 +446,14 @@ class DeviceTypeDeleteView(RoleRequiredMixin, View):
             )
             return redirect("library:devicetype-detail", pk=dt.pk)
         label = dt.label
+        # Snapshot for audit trail before the row is gone (see MetricDeleteView).
+        old_snapshot = snapshot_device_type(dt)
+        record_device_type_history(
+            dt,
+            DeviceTypeHistory.Action.DELETED,
+            request.user,
+            previous_snapshot=old_snapshot,
+        )
         log_action(request, "deleted", dt)
         dt.delete()
         messages.success(request, f"Device type \"{label}\" deleted.")
@@ -607,8 +670,11 @@ class ControlConfigUpdateView(RoleRequiredMixin, UpdateView):
         return obj
 
     def get_context_data(self, **kwargs):
+        from .control_examples import archetypes_for_template
+
         ctx = super().get_context_data(**kwargs)
         ctx["device"] = self._device
+        ctx["control_archetypes"] = archetypes_for_template()
         return ctx
 
     def form_valid(self, form):
@@ -832,6 +898,117 @@ class DeviceHistoryDiffView(LoginRequiredMixin, TemplateView):
         ctx["to_entry"] = to_entry
         ctx["diff"] = diff_snapshots(from_entry.snapshot, to_entry.snapshot)
 
+        return ctx
+
+
+class MetricHistoryDiffView(LoginRequiredMixin, TemplateView):
+    """Side-by-side diff between two ``MetricHistory`` versions of the
+    same Metric row. Mirrors ``DeviceHistoryDiffView`` for parity."""
+
+    template_name = "library/metric_history_diff.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        metric = get_object_or_404(Metric, pk=self.kwargs["pk"])
+        from_version = int(self.request.GET.get("from", 0))
+        to_version = int(self.request.GET.get("to", 0))
+
+        from_entry = get_object_or_404(MetricHistory, metric=metric, version=from_version)
+        to_entry = get_object_or_404(MetricHistory, metric=metric, version=to_version)
+
+        ctx["metric"] = metric
+        ctx["from_entry"] = from_entry
+        ctx["to_entry"] = to_entry
+        ctx["diff"] = diff_snapshots(from_entry.snapshot, to_entry.snapshot)
+        return ctx
+
+
+class MetricHistorySnapshotView(LoginRequiredMixin, TemplateView):
+    """Read-only view of a Metric at a specific history version."""
+
+    template_name = "library/metric_history_snapshot.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        metric = get_object_or_404(Metric, pk=self.kwargs["pk"])
+        version = self.kwargs["version"]
+        entry = get_object_or_404(MetricHistory, metric=metric, version=version)
+
+        ctx["metric"] = metric
+        ctx["entry"] = entry
+        ctx["snapshot"] = entry.snapshot
+
+        all_versions = list(
+            MetricHistory.objects.filter(metric=metric)
+            .order_by("version")
+            .values_list("version", flat=True)
+        )
+        ctx["all_versions"] = all_versions
+        ctx["latest_version"] = all_versions[-1] if all_versions else version
+        idx = all_versions.index(version) if version in all_versions else -1
+        ctx["prev_version"] = all_versions[idx - 1] if idx > 0 else None
+        ctx["next_version"] = all_versions[idx + 1] if 0 <= idx < len(all_versions) - 1 else None
+
+        ctx["history"] = (
+            MetricHistory.objects.filter(metric=metric)
+            .select_related("user")
+            .order_by("-version")
+        )
+        return ctx
+
+
+class DeviceTypeHistoryDiffView(LoginRequiredMixin, TemplateView):
+    """Side-by-side diff between two ``DeviceTypeHistory`` versions."""
+
+    template_name = "library/devicetype_kind_history_diff.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        dt = get_object_or_404(DeviceType, pk=self.kwargs["pk"])
+        from_version = int(self.request.GET.get("from", 0))
+        to_version = int(self.request.GET.get("to", 0))
+
+        from_entry = get_object_or_404(DeviceTypeHistory, device_type=dt, version=from_version)
+        to_entry = get_object_or_404(DeviceTypeHistory, device_type=dt, version=to_version)
+
+        ctx["device_type"] = dt
+        ctx["from_entry"] = from_entry
+        ctx["to_entry"] = to_entry
+        ctx["diff"] = diff_snapshots(from_entry.snapshot, to_entry.snapshot)
+        return ctx
+
+
+class DeviceTypeHistorySnapshotView(LoginRequiredMixin, TemplateView):
+    """Read-only view of a DeviceType at a specific history version."""
+
+    template_name = "library/devicetype_kind_history_snapshot.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        dt = get_object_or_404(DeviceType, pk=self.kwargs["pk"])
+        version = self.kwargs["version"]
+        entry = get_object_or_404(DeviceTypeHistory, device_type=dt, version=version)
+
+        ctx["device_type"] = dt
+        ctx["entry"] = entry
+        ctx["snapshot"] = entry.snapshot
+
+        all_versions = list(
+            DeviceTypeHistory.objects.filter(device_type=dt)
+            .order_by("version")
+            .values_list("version", flat=True)
+        )
+        ctx["all_versions"] = all_versions
+        ctx["latest_version"] = all_versions[-1] if all_versions else version
+        idx = all_versions.index(version) if version in all_versions else -1
+        ctx["prev_version"] = all_versions[idx - 1] if idx > 0 else None
+        ctx["next_version"] = all_versions[idx + 1] if 0 <= idx < len(all_versions) - 1 else None
+
+        ctx["history"] = (
+            DeviceTypeHistory.objects.filter(device_type=dt)
+            .select_related("user")
+            .order_by("-version")
+        )
         return ctx
 
 
@@ -1153,9 +1330,122 @@ class VersionCreateView(RoleRequiredMixin, View):
                         change_type=LibraryVersionDevice.ChangeType.REMOVED,
                     )
 
+        # -----------------------------------------------------------------
+        # L1 Metric + L2 DeviceType manifest entries — same publish flow
+        # as VendorModel above, applied to the two other versioned entity
+        # types. Without these, retrieve(version=N) would have to fall
+        # back to ``Metric.objects.all()`` and serve the *current* state
+        # rather than the v=N snapshot — see ``LibraryContentViewSet``.
+        # -----------------------------------------------------------------
+        self._publish_entities(
+            lib_version,
+            prev_version,
+            Metric, MetricHistory,
+            LibraryVersionMetric,
+            link_attr="metric",
+            label_attr="key",
+            version_attr="metric_version",
+            label_field="metric_key",
+            prev_relation="metric_changes",
+        )
+        self._publish_entities(
+            lib_version,
+            prev_version,
+            DeviceType, DeviceTypeHistory,
+            LibraryVersionDeviceType,
+            link_attr="device_type",
+            label_attr="code",
+            version_attr="device_type_version",
+            label_field="device_type_code",
+            prev_relation="device_type_changes",
+        )
+
         log_action(request, "created", lib_version)
         messages.success(request, f"Library version v{new_version} created.")
         return redirect("library:version-detail", pk=lib_version.pk)
+
+    def _publish_entities(
+        self,
+        lib_version,
+        prev_version,
+        entity_model,
+        history_model,
+        link_model,
+        *,
+        link_attr,         # FK name on link_model ("metric" / "device_type")
+        label_attr,        # field on entity_model used as label ("key" / "code")
+        version_attr,      # version field on link_model ("metric_version" / …)
+        label_field,       # label field on link_model ("metric_key" / "device_type_code")
+        prev_relation,     # reverse FK on LibraryVersion ("metric_changes" / …)
+    ):
+        """Generic publish step for an L1/L2 entity that mirrors the
+        VendorModel block above. Factored out to keep the two new
+        entity types from duplicating ~30 lines each."""
+        # Backfill: any entity row without a history entry gets a v1
+        # CREATED snapshot so the publish flow can reference it.
+        record_fn = (
+            record_metric_history if entity_model is Metric else record_device_type_history
+        )
+        action_created = (
+            MetricHistory.Action.CREATED
+            if entity_model is Metric
+            else DeviceTypeHistory.Action.CREATED
+        )
+        for ent in entity_model.objects.filter(history__isnull=True):
+            record_fn(ent, action_created, user=None)
+
+        # Previous manifest: which entity → which history version was pinned
+        prev_manifest: dict = {}
+        if prev_version:
+            for entry in getattr(prev_version, prev_relation).all():
+                fk_id = getattr(entry, f"{link_attr}_id")
+                if fk_id and entry.change_type != link_model.ChangeType.REMOVED:
+                    prev_manifest[fk_id] = getattr(entry, version_attr)
+
+        current_ids: set = set()
+        for ent in entity_model.objects.all():
+            current_ids.add(ent.pk)
+            latest_version = (
+                history_model.objects.filter(**{link_attr: ent})
+                .order_by("-version")
+                .values_list("version", flat=True)
+                .first()
+            ) or 1
+
+            if ent.pk in prev_manifest:
+                change_type = (
+                    link_model.ChangeType.UNCHANGED
+                    if prev_manifest[ent.pk] == latest_version
+                    else link_model.ChangeType.MODIFIED
+                )
+            else:
+                change_type = link_model.ChangeType.ADDED
+
+            link_model.objects.create(
+                library_version=lib_version,
+                **{link_attr: ent},
+                **{version_attr: latest_version},
+                **{label_field: getattr(ent, label_attr)},
+                change_type=change_type,
+            )
+
+        if prev_version:
+            for prev_id, prev_ver in prev_manifest.items():
+                if prev_id in current_ids:
+                    continue
+                prev_entry = (
+                    getattr(prev_version, prev_relation)
+                    .filter(**{f"{link_attr}_id": prev_id})
+                    .first()
+                )
+                label = getattr(prev_entry, label_field) if prev_entry else f"Deleted {label_attr}"
+                link_model.objects.create(
+                    library_version=lib_version,
+                    **{link_attr: None},
+                    **{version_attr: prev_ver},
+                    **{label_field: label},
+                    change_type=link_model.ChangeType.REMOVED,
+                )
 
 
 class VersionExportView(LoginRequiredMixin, View):

@@ -1,8 +1,16 @@
-"""Device history helpers — snapshot, diff, and recording."""
+"""Audit/versioning helpers — snapshot, diff, and recording.
+
+Originally device-only (``DeviceHistory`` on ``VendorModel``). Extended
+in schema-v5 to also track ``Metric`` (L1) and ``DeviceType`` (L2)
+changes so a published ``LibraryVersion`` can faithfully reproduce the
+catalogue + per-type profiles at that point in time. The three entity
+types share the same pattern — per-row history table with full
+snapshots and computed diffs against the previous version.
+"""
 
 import logging
 
-from .models import DeviceHistory
+from .models import DeviceHistory, DeviceTypeHistory, MetricHistory
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +85,7 @@ def snapshot_device(device):
         cc = device.control_config
         data["control_config"] = {
             "controllable": cc.controllable,
-            "capabilities": cc.capabilities,
+            "controls": cc.controls,
         }
     except Exception:
         pass
@@ -207,4 +215,115 @@ def record_history(device, action, user, previous_snapshot=None):
         )
     except Exception:
         logger.exception("Failed to record device history")
+        return None
+
+
+# -----------------------------------------------------------------------------
+# L1 Metric history
+# -----------------------------------------------------------------------------
+
+
+def snapshot_metric(metric) -> dict:
+    """Serialize a Metric row into a JSON-safe dict.
+
+    Decimal fields are stringified to preserve precision across the
+    JSONField round-trip; null bounds emit as null (no opinion). Tier
+    is *not* on Metric — it lives on L2 ``DeviceType.metrics`` — so
+    metric snapshots are stable across tier changes.
+    """
+    return {
+        "key": metric.key,
+        "label": metric.label,
+        "unit": metric.unit or "",
+        "data_type": metric.data_type,
+        "description": metric.description or "",
+        "min_value": str(metric.min_value) if metric.min_value is not None else None,
+        "max_value": str(metric.max_value) if metric.max_value is not None else None,
+        "monotonic": bool(metric.monotonic),
+        "aggregation": metric.aggregation or "avg",
+        "kind": metric.kind or "measurement",
+    }
+
+
+def record_metric_history(metric, action, user, previous_snapshot=None):
+    """Take a snapshot of ``metric`` and create a ``MetricHistory`` entry.
+
+    Mirrors ``record_history`` for VendorModel — same version bump
+    semantics (last + 1, or 1 when no prior history), same diff
+    convention (empty dict on CREATED).
+    """
+    try:
+        current_snapshot = snapshot_metric(metric)
+
+        last_version = (
+            MetricHistory.objects.filter(metric=metric)
+            .order_by("-version")
+            .values_list("version", flat=True)
+            .first()
+        )
+        version = (last_version or 0) + 1
+
+        changes = {}
+        if previous_snapshot and action != MetricHistory.Action.CREATED:
+            changes = diff_snapshots(previous_snapshot, current_snapshot)
+
+        return MetricHistory.objects.create(
+            metric=metric,
+            metric_key=metric.key,
+            version=version,
+            action=action,
+            user=user if user and user.is_authenticated else None,
+            snapshot=current_snapshot,
+            changes=changes,
+        )
+    except Exception:
+        logger.exception("Failed to record metric history")
+        return None
+
+
+# -----------------------------------------------------------------------------
+# L2 DeviceType history
+# -----------------------------------------------------------------------------
+
+
+def snapshot_device_type(dt) -> dict:
+    """Serialize a DeviceType row into a JSON-safe dict."""
+    return {
+        "code": dt.code,
+        "key": str(dt.key) if dt.key else None,
+        "label": dt.label,
+        "description": dt.description or "",
+        "icon": dt.icon or "",
+        "metrics": list(dt.metrics or []),
+    }
+
+
+def record_device_type_history(dt, action, user, previous_snapshot=None):
+    """Take a snapshot of ``dt`` and create a ``DeviceTypeHistory`` entry."""
+    try:
+        current_snapshot = snapshot_device_type(dt)
+
+        last_version = (
+            DeviceTypeHistory.objects.filter(device_type=dt)
+            .order_by("-version")
+            .values_list("version", flat=True)
+            .first()
+        )
+        version = (last_version or 0) + 1
+
+        changes = {}
+        if previous_snapshot and action != DeviceTypeHistory.Action.CREATED:
+            changes = diff_snapshots(previous_snapshot, current_snapshot)
+
+        return DeviceTypeHistory.objects.create(
+            device_type=dt,
+            device_type_code=dt.code,
+            version=version,
+            action=action,
+            user=user if user and user.is_authenticated else None,
+            snapshot=current_snapshot,
+            changes=changes,
+        )
+    except Exception:
+        logger.exception("Failed to record device type history")
         return None

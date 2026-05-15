@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load json_filters %}
+
+{% block title %}{{ metric.key }} @ v{{ entry.version }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:metric-list' %}" class="hover:text-gray-700">Metrics</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:metric-detail' metric.pk %}" class="hover:text-gray-700">{{ metric.key }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">v{{ entry.version }}</span>
+</nav>
+
+<div class="flex justify-between items-start mb-6">
+    <div>
+        <h2 class="text-2xl font-bold font-mono">{{ metric.key }}</h2>
+        <p class="text-sm text-gray-600 mt-1">
+            Snapshot at <span class="font-semibold">v{{ entry.version }}</span>
+            {% if entry.version == latest_version %}
+                <span class="ml-1 inline-block bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-medium">current</span>
+            {% else %}
+                <span class="ml-1 inline-block bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-medium">historical</span>
+            {% endif %}
+            — {{ entry.created|date:"Y-m-d H:i" }} ({{ entry.created|timesince }} ago)
+            by {% if entry.user %}{{ entry.user.get_full_name|default:entry.user.username }}{% else %}System{% endif %}
+        </p>
+    </div>
+    <div class="flex gap-2">
+        {% if prev_version %}
+        <a href="{% url 'library:metric-history-snapshot' metric.pk prev_version %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="v{{ prev_version }}">&larr; Prev</a>
+        {% endif %}
+        {% if next_version %}
+        <a href="{% url 'library:metric-history-snapshot' metric.pk next_version %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="v{{ next_version }}">Next &rarr;</a>
+        {% endif %}
+        {% if entry.version != latest_version %}
+        <a href="{% url 'library:metric-history-diff' metric.pk %}?from={{ entry.version }}&to={{ latest_version }}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
+            Compare with current
+        </a>
+        {% endif %}
+        <a href="{% url 'library:metric-detail' metric.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+            Back to current
+        </a>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b"><h5 class="font-semibold">Snapshot fields</h5></div>
+    <div class="p-6">
+        <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <dt class="font-medium text-gray-600">Key</dt>
+            <dd class="col-span-2"><code class="text-xs bg-gray-100 px-1 rounded">{{ snapshot.key }}</code></dd>
+            <dt class="font-medium text-gray-600">Label</dt>
+            <dd class="col-span-2">{{ snapshot.label }}</dd>
+            <dt class="font-medium text-gray-600">Unit</dt>
+            <dd class="col-span-2">{% if snapshot.unit %}<code class="text-xs bg-gray-100 px-1 rounded">{{ snapshot.unit }}</code>{% else %}<span class="text-gray-400">— (dimensionless)</span>{% endif %}</dd>
+            <dt class="font-medium text-gray-600">Data type</dt>
+            <dd class="col-span-2"><code class="text-xs bg-gray-100 px-1 rounded">{{ snapshot.data_type }}</code></dd>
+            <dt class="font-medium text-gray-600">Kind</dt>
+            <dd class="col-span-2">
+                {% if snapshot.kind == "state" %}
+                    <span class="inline-block bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-medium">state</span>
+                {% else %}
+                    <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">{{ snapshot.kind|default:"measurement" }}</span>
+                {% endif %}
+            </dd>
+            <dt class="font-medium text-gray-600">Range</dt>
+            <dd class="col-span-2">
+                {% if snapshot.min_value is not None or snapshot.max_value is not None %}
+                    <code class="text-xs bg-gray-100 px-1 rounded">{% if snapshot.min_value is not None %}{{ snapshot.min_value|num }}{% else %}−∞{% endif %}</code>
+                    <span class="text-gray-400 mx-1">…</span>
+                    <code class="text-xs bg-gray-100 px-1 rounded">{% if snapshot.max_value is not None %}{{ snapshot.max_value|num }}{% else %}+∞{% endif %}</code>
+                {% else %}
+                    <span class="text-gray-400">— (no bounds)</span>
+                {% endif %}
+            </dd>
+            <dt class="font-medium text-gray-600">Monotonic</dt>
+            <dd class="col-span-2">
+                {% if snapshot.monotonic %}
+                    <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">true</span>
+                {% else %}
+                    <span class="text-gray-400">false</span>
+                {% endif %}
+            </dd>
+            <dt class="font-medium text-gray-600">Aggregation</dt>
+            <dd class="col-span-2"><code class="text-xs bg-gray-100 px-1 rounded">{{ snapshot.aggregation|default:"avg" }}</code></dd>
+            {% if snapshot.description %}
+            <dt class="font-medium text-gray-600">Description</dt>
+            <dd class="col-span-2">{{ snapshot.description }}</dd>
+            {% endif %}
+        </dl>
+    </div>
+</div>
+
+{% if history %}
+<div class="bg-white rounded-lg shadow mt-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">All versions</h5>
+        <p class="text-xs text-gray-500 mt-1">Click v# to jump to that snapshot. Select two and Compare for a diff.</p>
+    </div>
+    <div class="p-6">
+        <form id="history-diff-form" method="get" action="{% url 'library:metric-history-diff' metric.pk %}">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b">
+                        <th class="text-left py-2 px-2 font-semibold w-10"><span class="text-xs text-gray-400">Diff</span></th>
+                        <th class="text-left py-2 px-2 font-semibold">Version</th>
+                        <th class="text-left py-2 px-2 font-semibold">Time</th>
+                        <th class="text-left py-2 px-2 font-semibold">User</th>
+                        <th class="text-left py-2 px-2 font-semibold">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr class="border-b hover:bg-gray-50 {% if h.version == entry.version %}bg-blue-50{% endif %}">
+                        <td class="py-2 px-2">
+                            <input type="checkbox" class="history-check" value="{{ h.version }}" {% if h.version == entry.version %}checked{% endif %}>
+                        </td>
+                        <td class="py-2 px-2">
+                            <a href="{% url 'library:metric-history-snapshot' metric.pk h.version %}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">v{{ h.version }}</a>
+                        </td>
+                        <td class="py-2 px-2 text-gray-600">{{ h.created|timesince }} ago</td>
+                        <td class="py-2 px-2">{% if h.user %}{{ h.user.get_full_name|default:h.user.username }}{% else %}System{% endif %}</td>
+                        <td class="py-2 px-2">
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                                {% if h.action == 'created' %}bg-green-100 text-green-700
+                                {% elif h.action == 'updated' %}bg-blue-100 text-blue-700
+                                {% elif h.action == 'deleted' %}bg-red-100 text-red-700
+                                {% endif %}">{{ h.get_action_display }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="mt-3 flex items-center gap-3">
+                <button type="submit" id="compare-btn" disabled class="border border-blue-600 text-blue-600 px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">Compare Selected</button>
+                <span id="compare-hint" class="text-xs text-gray-400">Select exactly 2 versions to compare</span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    const checks = document.querySelectorAll('.history-check');
+    const btn = document.getElementById('compare-btn');
+    const hint = document.getElementById('compare-hint');
+    const form = document.getElementById('history-diff-form');
+
+    function updateState() {
+        const selected = Array.from(checks).filter(c => c.checked);
+        btn.disabled = selected.length !== 2;
+        hint.textContent = selected.length === 2 ? '' : (selected.length > 2 ? 'Select exactly 2 versions' : 'Select exactly 2 versions to compare');
+    }
+    checks.forEach(c => c.addEventListener('change', function() {
+        const selected = Array.from(checks).filter(c => c.checked);
+        if (selected.length > 2) { this.checked = false; }
+        updateState();
+    }));
+    updateState();
+    form.addEventListener('submit', function(e) {
+        const selected = Array.from(checks).filter(c => c.checked).map(c => parseInt(c.value));
+        if (selected.length !== 2) { e.preventDefault(); return; }
+        const [a, b] = selected.sort((x, y) => x - y);
+        form.action = form.action + '?from=' + a + '&to=' + b;
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

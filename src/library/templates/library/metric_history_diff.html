@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ metric.key }} diff v{{ from_entry.version }} → v{{ to_entry.version }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:metric-list' %}" class="hover:text-gray-700">Metrics</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:metric-detail' metric.pk %}" class="hover:text-gray-700">{{ metric.key }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">diff v{{ from_entry.version }} → v{{ to_entry.version }}</span>
+</nav>
+
+<h2 class="text-2xl font-bold mb-6 font-mono">{{ metric.key }}</h2>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">
+            v{{ from_entry.version }}
+            <span class="text-gray-400 mx-1">→</span>
+            v{{ to_entry.version }}
+        </h5>
+        <p class="text-xs text-gray-500 mt-1">
+            {{ from_entry.created|date:"Y-m-d H:i" }}
+            <span class="mx-1">→</span>
+            {{ to_entry.created|date:"Y-m-d H:i" }}
+        </p>
+    </div>
+    <div class="p-6">
+        {% if diff %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b text-left text-gray-500">
+                    <th class="py-2 px-2 font-medium">Field</th>
+                    <th class="py-2 px-2 font-medium">v{{ from_entry.version }}</th>
+                    <th class="py-2 px-2 font-medium">v{{ to_entry.version }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field, change in diff.items %}
+                <tr class="border-b last:border-b-0">
+                    <td class="py-2 px-2 font-medium">{{ field }}</td>
+                    <td class="py-2 px-2 text-red-600">{{ change.old|default:"—" }}</td>
+                    <td class="py-2 px-2 text-green-700">{{ change.new|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-sm text-gray-500">No differences — the two versions have identical snapshots.</p>
+        {% endif %}
+    </div>
+</div>
+
+<a href="{% url 'library:metric-detail' metric.pk %}" class="text-sm text-blue-600 hover:underline">&larr; Back to {{ metric.key }}</a>
+{% endblock %}
