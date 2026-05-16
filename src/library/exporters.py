@@ -105,6 +105,9 @@ def _export_metric(m) -> dict:
     # Default is 'avg' — only emit when non-default to keep YAML tidy.
     if m.aggregation and m.aggregation != "avg":
         data["aggregation"] = m.aggregation
+    # Default kind is 'measurement' — only emit when non-default.
+    if m.kind and m.kind != "measurement":
+        data["kind"] = m.kind
     return data
 
 
@@ -217,15 +220,20 @@ def _export_tech_config(device: VendorModel) -> dict:
 
 
 def _export_control_config(device: VendorModel) -> dict:
-    """Export control config."""
+    """Export control config.
+
+    Emits the typed ``controls`` list only when populated, so the YAML
+    stays tidy for the common ``controllable=False`` / no-controls case.
+    """
     try:
         ctrl = device.control_config
-        return {
-            "capabilities": ctrl.capabilities,
-            "controllable": ctrl.controllable,
-        }
     except VendorModel.control_config.RelatedObjectDoesNotExist:
         return {}
+
+    out = {"controllable": ctrl.controllable}
+    if ctrl.controls:
+        out["controls"] = ctrl.controls
+    return out
 
 
 def _export_processor_config(device: VendorModel) -> dict:
@@ -313,7 +321,7 @@ def snapshot_to_schema(snapshot: dict) -> dict:
     }
 
     ctrl = snapshot.get("control_config", {})
-    if ctrl and (ctrl.get("controllable") or ctrl.get("capabilities")):
+    if ctrl and (ctrl.get("controllable") or ctrl.get("controls")):
         device["control_config"] = ctrl
 
     proc = snapshot.get("processor_config", {})

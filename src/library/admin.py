@@ -24,13 +24,13 @@ from .models import (
 
 @admin.register(Metric)
 class MetricAdmin(admin.ModelAdmin):
-    list_display = ["key", "label", "unit", "data_type", "monotonic", "aggregation", "min_value", "max_value"]
-    list_filter = ["data_type", "monotonic", "aggregation"]
+    list_display = ["key", "label", "unit", "kind", "data_type", "monotonic", "aggregation", "min_value", "max_value"]
+    list_filter = ["kind", "data_type", "monotonic", "aggregation"]
     search_fields = ["key", "label"]
     readonly_fields = ["id", "created", "modified"]
     fieldsets = [
         (None, {
-            "fields": ["key", "label", "unit", "data_type", "description"],
+            "fields": ["key", "label", "unit", "data_type", "kind", "description"],
         }),
         ("Value bounds", {
             "fields": ["min_value", "max_value", "monotonic"],
@@ -227,11 +227,30 @@ class WMBusConfigAdmin(admin.ModelAdmin):
 
 @admin.register(ControlConfig)
 class ControlConfigAdmin(admin.ModelAdmin):
-    list_display = ["device_type", "controllable"]
+    list_display = ["device_type", "controllable", "control_count"]
+    list_filter = ["controllable"]
     raw_id_fields = ["device_type"]
     formfield_overrides = {
         models.JSONField: {"widget": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"})},
     }
+    fieldsets = [
+        (None, {
+            "fields": ["device_type", "controllable"],
+        }),
+        ("Typed controls", {
+            "fields": ["controls"],
+            "description": (
+                "List of typed control widgets. Each entry: id, label, "
+                "widget (toggle/enum/slider/button), wire encoding, and "
+                "an optional ``feedback_metric`` pointing at an L1 "
+                "Metric with kind=state."
+            ),
+        }),
+    ]
+
+    @admin.display(description="Controls")
+    def control_count(self, obj):
+        return len(obj.controls or [])
 
 
 @admin.register(ProcessorConfig)

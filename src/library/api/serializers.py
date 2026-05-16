@@ -21,7 +21,7 @@ from library.models import (
 
 
 class MetricSerializer(serializers.ModelSerializer):
-    """L1 — Catalogue entry (incl. value bounds + monotonic + aggregation)."""
+    """L1 — Catalogue entry (bounds + monotonic + aggregation + kind)."""
 
     class Meta:
         model = Metric
@@ -35,6 +35,7 @@ class MetricSerializer(serializers.ModelSerializer):
             "max_value",
             "monotonic",
             "aggregation",
+            "kind",
         ]
 
 
@@ -85,7 +86,7 @@ class WMBusConfigSerializer(serializers.ModelSerializer):
 class ControlConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = ControlConfig
-        fields = ["controllable", "capabilities"]
+        fields = ["controllable", "controls"]
 
 
 class ProcessorConfigSerializer(serializers.ModelSerializer):

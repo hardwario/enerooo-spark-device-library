@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device_type.label }} diff v{{ from_entry.version }} → v{{ to_entry.version }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:devicetype-list' %}" class="hover:text-gray-700">Device Types</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:devicetype-detail' device_type.pk %}" class="hover:text-gray-700">{{ device_type.label }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">diff v{{ from_entry.version }} → v{{ to_entry.version }}</span>
+</nav>
+
+<h2 class="text-2xl font-bold mb-6">{{ device_type.label }}</h2>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-6 py-4 border-b">
+        <h5 class="font-semibold">
+            v{{ from_entry.version }}
+            <span class="text-gray-400 mx-1">→</span>
+            v{{ to_entry.version }}
+        </h5>
+        <p class="text-xs text-gray-500 mt-1">
+            {{ from_entry.created|date:"Y-m-d H:i" }}
+            <span class="mx-1">→</span>
+            {{ to_entry.created|date:"Y-m-d H:i" }}
+        </p>
+    </div>
+    <div class="p-6">
+        {% if diff %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b text-left text-gray-500">
+                    <th class="py-2 px-2 font-medium">Field</th>
+                    <th class="py-2 px-2 font-medium">v{{ from_entry.version }}</th>
+                    <th class="py-2 px-2 font-medium">v{{ to_entry.version }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field, change in diff.items %}
+                <tr class="border-b last:border-b-0">
+                    <td class="py-2 px-2 font-medium">{{ field }}</td>
+                    <td class="py-2 px-2 text-red-600">
+                        {% if field == "metrics" %}
+                            <code class="text-xs">{{ change.old|truncatechars:120 }}</code>
+                        {% else %}
+                            {{ change.old|default:"—" }}
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2 text-green-700">
+                        {% if field == "metrics" %}
+                            <code class="text-xs">{{ change.new|truncatechars:120 }}</code>
+                        {% else %}
+                            {{ change.new|default:"—" }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-sm text-gray-500">No differences — the two versions have identical snapshots.</p>
+        {% endif %}
+    </div>
+</div>
+
+<a href="{% url 'library:devicetype-detail' device_type.pk %}" class="text-sm text-blue-600 hover:underline">&larr; Back to {{ device_type.label }}</a>
+{% endblock %}

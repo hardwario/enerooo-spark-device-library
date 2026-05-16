@@ -152,6 +152,7 @@ class MetricForm(forms.ModelForm):
             "label",
             "unit",
             "data_type",
+            "kind",
             "description",
             "min_value",
             "max_value",
@@ -303,14 +304,14 @@ class WMBusConfigForm(forms.ModelForm):
 class ControlConfigForm(forms.ModelForm):
     class Meta:
         model = ControlConfig
-        fields = ["controllable", "capabilities"]
+        fields = ["controllable", "controls"]
         widgets = {
-            "capabilities": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "controls": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
 
-    def clean_capabilities(self):
-        val = self.cleaned_data.get("capabilities")
-        return val if val is not None else {}
+    def clean_controls(self):
+        val = self.cleaned_data.get("controls")
+        return val if val is not None else []
 
 
 class ProcessorConfigForm(forms.ModelForm):
