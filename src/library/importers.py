@@ -6,13 +6,22 @@ from pathlib import Path
 import yaml
 from django.utils.text import slugify
 
-from .history import record_history, snapshot_device
+from .history import (
+    record_device_type_history,
+    record_history,
+    record_metric_history,
+    snapshot_device,
+    snapshot_device_type,
+    snapshot_metric,
+)
 from .models import (
     ControlConfig,
     DeviceHistory,
     DeviceType,
+    DeviceTypeHistory,
     LoRaWANConfig,
     Metric,
+    MetricHistory,
     ModbusConfig,
     ProcessorConfig,
     RegisterDefinition,
@@ -147,8 +156,19 @@ def _import_metric(data: dict) -> Metric:
         "max_value": _decimal_or_none(data.get("max_value")),
         "monotonic": bool(data.get("monotonic", False)),
         "aggregation": data.get("aggregation") or "avg",
+        "kind": data.get("kind") or "measurement",
     }
-    obj, _ = Metric.objects.update_or_create(key=key, defaults=defaults)
+    existing = Metric.objects.filter(key=key).first()
+    old_snapshot = snapshot_metric(existing) if existing else None
+    obj, created = Metric.objects.update_or_create(key=key, defaults=defaults)
+    # Record history so importing the same manifest into a fresh DB
+    # yields the same audit trail as creating each metric via the UI.
+    if created:
+        record_metric_history(obj, MetricHistory.Action.CREATED, user=None)
+    elif old_snapshot != snapshot_metric(obj):
+        record_metric_history(
+            obj, MetricHistory.Action.UPDATED, user=None, previous_snapshot=old_snapshot,
+        )
     return obj
 
 
@@ -249,8 +269,16 @@ def _import_device_type(data: dict, stats: dict) -> DeviceType:
     if data.get("key"):
         defaults["key"] = data["key"]
 
+    existing = DeviceType.objects.filter(code=code).first()
+    old_snapshot = snapshot_device_type(existing) if existing else None
     obj, created = DeviceType.objects.update_or_create(code=code, defaults=defaults)
     stats["device_types_created" if created else "device_types_updated"] += 1
+    if created:
+        record_device_type_history(obj, DeviceTypeHistory.Action.CREATED, user=None)
+    elif old_snapshot != snapshot_device_type(obj):
+        record_device_type_history(
+            obj, DeviceTypeHistory.Action.UPDATED, user=None, previous_snapshot=old_snapshot,
+        )
     logger.info("%s device_type %s", "Created" if created else "Updated", code)
     return obj
 
@@ -317,14 +345,20 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
     elif technology == "wmbus":
         _import_wmbus_config(device, tech_config)
 
-    # Import control config (only if meaningful data present)
+    # Import control config (only if meaningful data present). Older
+    # manifests may still ship a ``capabilities`` blob — we accept it
+    # silently and discard, since migration 0033 already converted the
+    # known shapes into typed ``controls`` and migration 0034 dropped
+    # the column.
     control_data = data.get("control_config", {})
-    if control_data and (control_data.get("controllable") or control_data.get("capabilities")):
+    if control_data and (
+        control_data.get("controllable") or control_data.get("controls")
+    ):
         ControlConfig.objects.update_or_create(
             device_type=device,
             defaults={
                 "controllable": control_data.get("controllable", False),
-                "capabilities": control_data.get("capabilities", {}),
+                "controls": control_data.get("controls", []) or [],
             },
         )
 

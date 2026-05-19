@@ -55,6 +55,24 @@ class Metric(TimeStampedModel):
     extremes and non-monotonic event counts. This is **bucketing
     semantics only** — "current value" widgets always read the latest
     raw point regardless of this field.
+
+    ``kind`` classifies what role the metric plays in the system:
+
+    - ``measurement`` *(default)* — observed quantity from the device
+      (temperature, energy, voltage). Rendered as chart series, alerts
+      may compare against it.
+    - ``state`` — mirror of a controllable property (relay on/off,
+      target setpoint, HVAC mode). Paired with a control widget on the
+      VendorModel via ``feedback_metric``; client UIs render it next
+      to the toggle/slider/enum so the user sees the live state, not
+      just the command they sent. Hidden by default from chart metric
+      pickers (it's not interesting as a trend by itself).
+
+    Future ``kind`` values (alert thresholds, composite metrics, …) slot
+    in here without a schema migration. This is **a sibling concern to
+    `tier`**: tier decides *where* to show a metric (primary / secondary
+    / diagnostic UX slot); kind decides *what kind of thing* it is
+    (data vs controllable state vs …).
     """
 
     class DataType(models.TextChoices):
@@ -70,6 +88,10 @@ class Metric(TimeStampedModel):
         SUM = "sum", "Sum"
         MIN = "min", "Minimum"
         MAX = "max", "Maximum"
+
+    class Kind(models.TextChoices):
+        MEASUREMENT = "measurement", "Measurement"
+        STATE = "state", "Control state"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     key = models.CharField(
@@ -116,6 +138,16 @@ class Metric(TimeStampedModel):
             "How to collapse this metric into one value per time bucket "
             "in charts. 'delta' for cumulative counters, 'avg' for "
             "instantaneous quantities, 'last' for state telemetry."
+        ),
+    )
+    kind = models.CharField(
+        max_length=20,
+        choices=Kind.choices,
+        default=Kind.MEASUREMENT,
+        help_text=(
+            "What role this metric plays: 'measurement' for observed "
+            "quantities (default), 'state' for mirrors of controllable "
+            "device properties paired with a control widget."
         ),
     )
 
@@ -553,15 +585,156 @@ class WMBusConfig(TimeStampedModel):
 
 
 class ControlConfig(TimeStampedModel):
-    """Control capabilities for a device type."""
+    """L4-control — Per-VendorModel control widgets (the inverse direction
+    of ``ProcessorConfig.field_mappings``: user actions → wire commands).
+
+    Each device that can be controlled (``controllable=True``) carries a
+    typed list of ``controls`` declaring **what** can be controlled
+    (widget kind), **how** it's encoded on the wire (per technology),
+    and **what L1 metric reflects the resulting state** so client UIs
+    can render live feedback next to the widget.
+
+    Schema of a single control entry::
+
+        {
+          "id":               <str>,           # stable handle (e.g. "power", "target_temp")
+          "label":            <str>,
+          "widget":           "toggle" | "enum" | "slider" | "button",
+          "feedback_metric":  <metric.key>,    # L1 Metric with kind="state", optional for buttons
+          "requires_confirmation": <bool>,     # optional, default false
+          "group":            <str>,           # optional grouping for UI
+          # ---- widget-specific ----
+          "states":   {<name>: {"wire": {...}}, ...}  # toggle
+          "options":  [{"value": ..., "label": ..., "wire": {...}}, ...]  # enum
+          "min":/"max":/"step":/"unit":/"default": ...; "wire": {..., "payload_template": "..."}  # slider
+          "wire":     {...}  # button
+        }
+
+    The ``wire`` object's shape depends on the parent VendorModel's
+    technology — see ``docs/architecture/controls-architecture.md`` for
+    the per-technology vocabulary (LoRaWAN ``f_port`` + ``payload_hex``,
+    MQTT ``topic`` + ``payload``, Modbus ``register`` + ``value``).
+    """
+
+    class Widget(models.TextChoices):
+        TOGGLE = "toggle", "Toggle (on/off)"
+        ENUM = "enum", "Enum (pick one)"
+        SLIDER = "slider", "Slider (continuous)"
+        BUTTON = "button", "Button (momentary)"
+
+    VALID_WIDGETS = {w.value for w in Widget}
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="control_config")
     controllable = models.BooleanField(default=False)
-    capabilities = models.JSONField(default=dict, blank=True)
+    controls = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of typed control widgets. Each entry has id/label/"
+            "widget/wire + widget-specific fields. See ControlConfig "
+            "docstring for the full schema."
+        ),
+    )
 
     def __str__(self):
         return f"ControlConfig for {self.device_type}"
+
+    def clean(self):
+        """Validate the structured ``controls`` list.
+
+        Per-widget required fields:
+
+        - ``toggle`` → ``states`` dict (at least one named state with ``wire``)
+        - ``enum``   → ``options`` list (each with ``value`` + ``wire``)
+        - ``slider`` → ``min``, ``max`` (numeric) + ``wire`` with ``payload_template``
+        - ``button`` → ``wire``
+
+        ``feedback_metric`` (when set) must reference an existing Metric
+        with ``kind=state`` — validated lazily so legacy data doesn't
+        break ``full_clean()``.
+        """
+        super().clean()
+        if not isinstance(self.controls, list):
+            raise ValidationError({"controls": "Must be a list of control entries."})
+
+        seen_ids: set[str] = set()
+        for idx, entry in enumerate(self.controls):
+            if not isinstance(entry, dict):
+                raise ValidationError({"controls": f"Entry #{idx} must be an object."})
+            cid = entry.get("id")
+            if not cid or not isinstance(cid, str):
+                raise ValidationError({"controls": f"Entry #{idx} missing string ``id``."})
+            if cid in seen_ids:
+                raise ValidationError({"controls": f"Duplicate control id ``{cid}``."})
+            seen_ids.add(cid)
+            widget = entry.get("widget")
+            if widget not in self.VALID_WIDGETS:
+                raise ValidationError({"controls": (
+                    f"Entry ``{cid}``: widget must be one of "
+                    f"{sorted(self.VALID_WIDGETS)}, got {widget!r}."
+                )})
+
+            if widget == self.Widget.TOGGLE:
+                states = entry.get("states")
+                if not isinstance(states, dict) or not states:
+                    raise ValidationError({"controls": (
+                        f"Toggle ``{cid}`` requires a non-empty ``states`` dict."
+                    )})
+                for name, st in states.items():
+                    if not isinstance(st, dict) or "wire" not in st:
+                        raise ValidationError({"controls": (
+                            f"Toggle ``{cid}`` state ``{name}`` must have a ``wire`` object."
+                        )})
+
+            elif widget == self.Widget.ENUM:
+                options = entry.get("options")
+                if not isinstance(options, list) or not options:
+                    raise ValidationError({"controls": (
+                        f"Enum ``{cid}`` requires a non-empty ``options`` list."
+                    )})
+                seen_values = set()
+                for opt in options:
+                    if not isinstance(opt, dict) or "value" not in opt or "wire" not in opt:
+                        raise ValidationError({"controls": (
+                            f"Enum ``{cid}`` each option must have ``value`` and ``wire``."
+                        )})
+                    if opt["value"] in seen_values:
+                        raise ValidationError({"controls": (
+                            f"Enum ``{cid}`` duplicate option value ``{opt['value']}``."
+                        )})
+                    seen_values.add(opt["value"])
+
+            elif widget == self.Widget.SLIDER:
+                if "min" not in entry or "max" not in entry:
+                    raise ValidationError({"controls": (
+                        f"Slider ``{cid}`` requires numeric ``min`` and ``max``."
+                    )})
+                try:
+                    lo = float(entry["min"])
+                    hi = float(entry["max"])
+                except (TypeError, ValueError):
+                    raise ValidationError({"controls": (
+                        f"Slider ``{cid}`` ``min``/``max`` must be numeric."
+                    )}) from None
+                if lo > hi:
+                    raise ValidationError({"controls": (
+                        f"Slider ``{cid}`` ``min`` must be <= ``max``."
+                    )})
+                wire = entry.get("wire")
+                if not isinstance(wire, dict) or not any(
+                    k in wire for k in ("payload_template", "register", "topic")
+                ):
+                    raise ValidationError({"controls": (
+                        f"Slider ``{cid}`` wire must include payload_template/"
+                        f"register/topic for value binding."
+                    )})
+
+            elif widget == self.Widget.BUTTON:
+                if not isinstance(entry.get("wire"), dict):
+                    raise ValidationError({"controls": (
+                        f"Button ``{cid}`` requires a ``wire`` object."
+                    )})
 
 
 class ProcessorConfig(TimeStampedModel):
@@ -764,6 +937,158 @@ class LibraryVersionDevice(TimeStampedModel):
 
     def __str__(self):
         return f"{self.get_change_type_display()}: {self.device_label}"
+
+
+# -----------------------------------------------------------------------------
+# L1 / L2 versioning — same audit pattern as DeviceHistory / LibraryVersionDevice
+# above, applied to Metric and DeviceType. Without these, a published
+# LibraryVersion couldn't faithfully reproduce the L1 catalogue and L2 type
+# profiles at that point in time — operators editing a metric's bounds or a
+# type's tier list would retroactively change every historical version. The
+# four models below close that gap.
+# -----------------------------------------------------------------------------
+
+
+class MetricHistory(TimeStampedModel):
+    """Full snapshot of an L1 Metric on every change. Mirrors
+    ``DeviceHistory`` row-for-row so the publish / retrieve flow has
+    one access pattern across the three entity types it tracks."""
+
+    class Action(models.TextChoices):
+        CREATED = "created", "Created"
+        UPDATED = "updated", "Updated"
+        DELETED = "deleted", "Deleted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    metric = models.ForeignKey(
+        Metric,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="history",
+    )
+    metric_key = models.CharField(max_length=128, default="")
+    version = models.PositiveIntegerField()
+    action = models.CharField(max_length=10, choices=Action.choices)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="metric_history",
+    )
+    snapshot = models.JSONField(default=dict)
+    changes = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-created"]
+        unique_together = [("metric", "version")]
+        indexes = [
+            models.Index(fields=["metric", "-created"]),
+        ]
+
+    def __str__(self):
+        return f"v{self.version} {self.action} — {self.metric_key}"
+
+
+class DeviceTypeHistory(TimeStampedModel):
+    """Full snapshot of an L2 DeviceType profile on every change.
+    Same shape as ``DeviceHistory`` / ``MetricHistory`` — version
+    bumps on every save, snapshot carries the row state, changes
+    carries a diff against the previous snapshot."""
+
+    class Action(models.TextChoices):
+        CREATED = "created", "Created"
+        UPDATED = "updated", "Updated"
+        DELETED = "deleted", "Deleted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device_type = models.ForeignKey(
+        DeviceType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="history",
+    )
+    device_type_code = models.CharField(max_length=64, default="")
+    version = models.PositiveIntegerField()
+    action = models.CharField(max_length=10, choices=Action.choices)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="device_type_history",
+    )
+    snapshot = models.JSONField(default=dict)
+    changes = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-created"]
+        unique_together = [("device_type", "version")]
+        indexes = [
+            models.Index(fields=["device_type", "-created"]),
+        ]
+
+    def __str__(self):
+        return f"v{self.version} {self.action} — {self.device_type_code}"
+
+
+class LibraryVersionMetric(TimeStampedModel):
+    """Per-LibraryVersion manifest entry for a Metric — points at the
+    ``MetricHistory.version`` snapshot that was the row's state when
+    this LibraryVersion was published. Mirrors ``LibraryVersionDevice``."""
+
+    class ChangeType(models.TextChoices):
+        ADDED = "added", "Added"
+        MODIFIED = "modified", "Modified"
+        REMOVED = "removed", "Removed"
+        UNCHANGED = "unchanged", "Unchanged"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    library_version = models.ForeignKey(
+        LibraryVersion, on_delete=models.CASCADE, related_name="metric_changes",
+    )
+    metric = models.ForeignKey(
+        Metric, on_delete=models.SET_NULL, null=True, blank=True, related_name="version_changes",
+    )
+    metric_version = models.PositiveIntegerField(default=1)
+    metric_key = models.CharField(max_length=128, default="")
+    change_type = models.CharField(max_length=20, choices=ChangeType.choices)
+
+    class Meta:
+        ordering = ["change_type", "metric_key"]
+
+    def __str__(self):
+        return f"{self.get_change_type_display()}: {self.metric_key}"
+
+
+class LibraryVersionDeviceType(TimeStampedModel):
+    """Per-LibraryVersion manifest entry for a DeviceType. Mirrors
+    ``LibraryVersionDevice`` and ``LibraryVersionMetric``."""
+
+    class ChangeType(models.TextChoices):
+        ADDED = "added", "Added"
+        MODIFIED = "modified", "Modified"
+        REMOVED = "removed", "Removed"
+        UNCHANGED = "unchanged", "Unchanged"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    library_version = models.ForeignKey(
+        LibraryVersion, on_delete=models.CASCADE, related_name="device_type_changes",
+    )
+    device_type = models.ForeignKey(
+        DeviceType, on_delete=models.SET_NULL, null=True, blank=True, related_name="version_changes",
+    )
+    device_type_version = models.PositiveIntegerField(default=1)
+    device_type_code = models.CharField(max_length=64, default="")
+    change_type = models.CharField(max_length=20, choices=ChangeType.choices)
+
+    class Meta:
+        ordering = ["change_type", "device_type_code"]
+
+    def __str__(self):
+        return f"{self.get_change_type_display()}: {self.device_type_code}"
 
 
 def generate_api_key():

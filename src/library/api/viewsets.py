@@ -14,10 +14,14 @@ from library.models import (
     APIKey,
     DeviceHistory,
     DeviceType,
+    DeviceTypeHistory,
     GatewayAssignment,
     LibraryVersion,
     LibraryVersionDevice,
+    LibraryVersionDeviceType,
+    LibraryVersionMetric,
     Metric,
+    MetricHistory,
     Vendor,
     VendorModel,
 )
@@ -220,13 +224,75 @@ class LibraryContentViewSet(viewsets.ViewSet):
             for name, info in sorted(vendors.items())
         ]
 
+        # Resolve L1 + L2 from the per-version manifest tables so the
+        # response reflects state-at-publish-time, not current state.
+        # Falls back to ``.objects.all()`` for LibraryVersions published
+        # before migration 0035 — those have no metric_changes /
+        # device_type_changes rows; their content is best-effort current.
+        metrics_payload = self._resolve_metric_snapshots(lib_version)
+        device_types_payload = self._resolve_device_type_snapshots(lib_version)
+
         return Response({
             "version": lib_version.version,
             "schema_version": lib_version.schema_version,
-            "metrics": MetricSerializer(Metric.objects.all(), many=True).data,
-            "device_types": DeviceTypeSerializer(DeviceType.objects.all(), many=True).data,
+            "metrics": metrics_payload,
+            "device_types": device_types_payload,
             "vendors": vendor_list,
         })
+
+    def _resolve_metric_snapshots(self, lib_version):
+        """Return the list of L1 Metric snapshots pinned to this library
+        version. Each entry has the same shape as the MetricSerializer
+        output — bounds/aggregation/kind included. ``REMOVED`` entries
+        are filtered out (they describe deletions, not content)."""
+        entries = lib_version.metric_changes.exclude(
+            change_type=LibraryVersionMetric.ChangeType.REMOVED,
+        )
+        if not entries.exists():
+            # Pre-0035 LibraryVersion (no manifest entries). Best-effort:
+            # serve current state. Operators bump-publish post-migration
+            # to get proper pinning.
+            return MetricSerializer(Metric.objects.all(), many=True).data
+
+        out = []
+        for entry in entries:
+            if not entry.metric_id:
+                continue
+            snap = (
+                MetricHistory.objects.filter(
+                    metric_id=entry.metric_id,
+                    version=entry.metric_version,
+                )
+                .values_list("snapshot", flat=True)
+                .first()
+            )
+            if snap:
+                out.append(snap)
+        return out
+
+    def _resolve_device_type_snapshots(self, lib_version):
+        """L2 sibling of ``_resolve_metric_snapshots``."""
+        entries = lib_version.device_type_changes.exclude(
+            change_type=LibraryVersionDeviceType.ChangeType.REMOVED,
+        )
+        if not entries.exists():
+            return DeviceTypeSerializer(DeviceType.objects.all(), many=True).data
+
+        out = []
+        for entry in entries:
+            if not entry.device_type_id:
+                continue
+            snap = (
+                DeviceTypeHistory.objects.filter(
+                    device_type_id=entry.device_type_id,
+                    version=entry.device_type_version,
+                )
+                .values_list("snapshot", flat=True)
+                .first()
+            )
+            if snap:
+                out.append(snap)
+        return out
 
 
 class SyncDeviceTypeViewSet(viewsets.ReadOnlyModelViewSet):

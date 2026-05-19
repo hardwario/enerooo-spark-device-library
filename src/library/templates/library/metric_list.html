@@ -53,6 +53,7 @@
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "label" "Label" %}</th>
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "unit" "Unit" %}</th>
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "data_type" "Data Type" %}</th>
+                    <th class="text-left py-3 px-2 font-semibold">{% sort_header "kind" "Kind" %}</th>
                     <th class="text-left py-3 px-2 font-semibold">Bounds</th>
                     <th class="text-left py-3 px-2 font-semibold">{% sort_header "aggregation" "Aggregation" %}</th>
                     <th class="text-right py-3 px-2 font-semibold">{% sort_header "type_count" "Types" "right" %}</th>
@@ -74,6 +75,13 @@
                     </td>
                     <td class="py-3 px-2">
                         <span class="inline-block text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{{ m.get_data_type_display }}</span>
+                    </td>
+                    <td class="py-3 px-2">
+                        {% if m.kind == "state" %}
+                            <span title="Mirror of a controllable device property" class="inline-block bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-medium">state</span>
+                        {% else %}
+                            <span title="Observed measurement (default)" class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">measurement</span>
+                        {% endif %}
                     </td>
                     <td class="py-3 px-2 text-xs text-gray-600 whitespace-nowrap">
                         {% if m.min_value is not None or m.max_value is not None %}
@@ -127,7 +135,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="py-3 px-2 text-gray-500">No metrics in catalogue yet.</td>
+                    <td colspan="10" class="py-3 px-2 text-gray-500">No metrics in catalogue yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>

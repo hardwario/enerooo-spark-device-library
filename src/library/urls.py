@@ -20,12 +20,16 @@ urlpatterns = [
     path("metrics/<uuid:pk>/", views.MetricDetailView.as_view(), name="metric-detail"),
     path("metrics/<uuid:pk>/edit/", views.MetricUpdateView.as_view(), name="metric-edit"),
     path("metrics/<uuid:pk>/delete/", views.MetricDeleteView.as_view(), name="metric-delete"),
+    path("metrics/<uuid:pk>/history/<int:version>/", views.MetricHistorySnapshotView.as_view(), name="metric-history-snapshot"),
+    path("metrics/<uuid:pk>/history/diff/", views.MetricHistoryDiffView.as_view(), name="metric-history-diff"),
     # Device Types
     path("device-types/", views.DeviceTypeListView.as_view(), name="devicetype-list"),
     path("device-types/create/", views.DeviceTypeCreateView.as_view(), name="devicetype-create"),
     path("device-types/<uuid:pk>/", views.DeviceTypeDetailView.as_view(), name="devicetype-detail"),
     path("device-types/<uuid:pk>/edit/", views.DeviceTypeUpdateView.as_view(), name="devicetype-edit"),
     path("device-types/<uuid:pk>/delete/", views.DeviceTypeDeleteView.as_view(), name="devicetype-delete"),
+    path("device-types/<uuid:pk>/history/<int:version>/", views.DeviceTypeHistorySnapshotView.as_view(), name="devicetype-history-snapshot"),
+    path("device-types/<uuid:pk>/history/diff/", views.DeviceTypeHistoryDiffView.as_view(), name="devicetype-history-diff"),
     # Models
     path("models/", views.VendorModelListView.as_view(), name="model-list"),
     path("models/create/", views.VendorModelCreateView.as_view(), name="model-create"),
