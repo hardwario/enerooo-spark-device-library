@@ -17,6 +17,112 @@
     {% endif %}
 </div>
 
+{% if unpublished_changes.total %}
+<div class="bg-white rounded-lg shadow mb-6 border-l-4 border-amber-400">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div>
+            <h3 class="font-semibold text-amber-900">
+                Unpublished changes
+                {% if unpublished_changes.current_version %}
+                    since v{{ unpublished_changes.current_version }}
+                {% else %}
+                    (no version published yet)
+                {% endif %}
+            </h3>
+            <p class="text-xs text-gray-600 mt-1">
+                These edits live in the editor's database but Spark instances still receive the v{{ unpublished_changes.current_version|default:"—" }} snapshot. Publish a new version to roll them out.
+            </p>
+        </div>
+        {% if request.user.is_admin_role %}
+        <button
+            data-confirm-action="Publish v{{ unpublished_changes.next_version }}?"
+            data-confirm-text="This will snapshot the current state of every model, metric, and device type."
+            data-action-url="{% url 'library:version-create' %}"
+            data-confirm-button="Publish v{{ unpublished_changes.next_version }}"
+            class="shrink-0 bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 text-sm font-medium">
+            Publish v{{ unpublished_changes.next_version }}
+        </button>
+        {% endif %}
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% with models=unpublished_changes.models metrics=unpublished_changes.metrics device_types=unpublished_changes.device_types %}
+        <section>
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Models ({{ models|length }})</h4>
+            {% if models %}
+            <ul class="space-y-1 text-sm">
+                {% for entry in models %}
+                <li class="flex items-center gap-2">
+                    <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase
+                        {% if entry.change_type == 'added' %}bg-green-100 text-green-800
+                        {% elif entry.change_type == 'modified' %}bg-amber-100 text-amber-800
+                        {% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ entry.change_type }}
+                    </span>
+                    {% if entry.detail_url_name %}
+                    <a href="{% url entry.detail_url_name entry.pk %}" class="text-blue-600 hover:text-blue-800">{{ entry.label }}</a>
+                    {% else %}
+                    <span class="text-gray-600">{{ entry.label }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400">No changes.</p>
+            {% endif %}
+        </section>
+        <section>
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Metrics ({{ metrics|length }})</h4>
+            {% if metrics %}
+            <ul class="space-y-1 text-sm">
+                {% for entry in metrics %}
+                <li class="flex items-center gap-2">
+                    <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase
+                        {% if entry.change_type == 'added' %}bg-green-100 text-green-800
+                        {% elif entry.change_type == 'modified' %}bg-amber-100 text-amber-800
+                        {% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ entry.change_type }}
+                    </span>
+                    {% if entry.detail_url_name %}
+                    <a href="{% url entry.detail_url_name entry.pk %}" class="text-blue-600 hover:text-blue-800">{{ entry.label }}</a>
+                    {% else %}
+                    <span class="text-gray-600">{{ entry.label }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400">No changes.</p>
+            {% endif %}
+        </section>
+        <section>
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Device Types ({{ device_types|length }})</h4>
+            {% if device_types %}
+            <ul class="space-y-1 text-sm">
+                {% for entry in device_types %}
+                <li class="flex items-center gap-2">
+                    <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase
+                        {% if entry.change_type == 'added' %}bg-green-100 text-green-800
+                        {% elif entry.change_type == 'modified' %}bg-amber-100 text-amber-800
+                        {% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ entry.change_type }}
+                    </span>
+                    {% if entry.detail_url_name %}
+                    <a href="{% url entry.detail_url_name entry.pk %}" class="text-blue-600 hover:text-blue-800">{{ entry.label }}</a>
+                    {% else %}
+                    <span class="text-gray-600">{{ entry.label }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400">No changes.</p>
+            {% endif %}
+        </section>
+        {% endwith %}
+    </div>
+</div>
+{% endif %}
+
 <div class="bg-white rounded-lg shadow">
     <div class="p-6">
         <table class="w-full text-sm">
