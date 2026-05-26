@@ -195,6 +195,33 @@
                 {% endfor %}
             {% endif %}
 
+            {% if unpublished_changes.total %}
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded mb-4 flex items-start justify-between gap-4" role="status">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 shrink-0"></i>
+                        <div class="text-sm text-amber-900">
+                            <p class="font-semibold">
+                                {{ unpublished_changes.total }} unpublished change{{ unpublished_changes.total|pluralize }}
+                                {% if unpublished_changes.current_version %}
+                                    since v{{ unpublished_changes.current_version }}
+                                {% else %}
+                                    (no version published yet)
+                                {% endif %}
+                            </p>
+                            <p class="text-amber-800">
+                                {{ unpublished_changes.models_count }} model{{ unpublished_changes.models_count|pluralize }},
+                                {{ unpublished_changes.metrics_count }} metric{{ unpublished_changes.metrics_count|pluralize }},
+                                {{ unpublished_changes.device_types_count }} device type{{ unpublished_changes.device_types_count|pluralize }}.
+                                Spark instances will see them only after a new version is published.
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{% url 'library:version-list' %}" class="shrink-0 bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-amber-700 whitespace-nowrap">
+                        Publish v{{ unpublished_changes.next_version }}
+                    </a>
+                </div>
+            {% endif %}
+
             {% block content %}{% endblock %}
         </main>
     </div>
