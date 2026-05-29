@@ -329,3 +329,26 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         device["processor_config"] = proc
 
     return device
+
+
+def effective_field_mappings_from_config(processor_config: dict) -> list[dict]:
+    """Merge ``field_mappings`` + ``extra_mappings`` into the single resolved
+    list consumers (Spark) ingest as the device's field mappings.
+
+    Mirrors ``VendorModel.effective_field_mappings`` but operates on a plain
+    config dict (e.g. a frozen version snapshot) rather than a live model, so
+    the bulk content API can publish the merged list — extra mappings would
+    otherwise be lost, since the snapshot keeps the two lists separate and
+    consumers only read ``field_mappings``.
+
+    Scaffold rows without a ``source``/``target`` are skipped. Annotation keys
+    (``tier``, ``label``, …) pass through unchanged.
+    """
+    merged: list[dict] = []
+    for entry in (
+        *(processor_config.get("field_mappings") or []),
+        *(processor_config.get("extra_mappings") or []),
+    ):
+        if entry.get("source") and entry.get("target"):
+            merged.append(entry)
+    return merged
