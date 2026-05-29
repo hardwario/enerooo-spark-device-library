@@ -97,6 +97,7 @@ def snapshot_device(device):
             "decoder_type": pc.decoder_type,
             "extra_config": pc.extra_config,
             "field_mappings": pc.field_mappings,
+            "extra_mappings": pc.extra_mappings,
         }
     except Exception:
         pass
