@@ -8,7 +8,7 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from library.exporters import snapshot_to_schema
+from library.exporters import effective_field_mappings_from_config, snapshot_to_schema
 from library.models import (
     DEFAULT_SCHEMA_VERSION,
     APIKey,
@@ -217,7 +217,16 @@ class LibraryContentViewSet(viewsets.ViewSet):
             vendor_key = snap.get("vendor_key", "")
             if vendor_name not in vendors:
                 vendors[vendor_name] = {"key": vendor_key, "models": []}
-            vendors[vendor_name]["models"].append(snapshot_to_schema(snap))
+            model_schema = snapshot_to_schema(snap)
+            proc = model_schema.get("processor_config")
+            if proc:
+                # Publish the merged field+extra list so instances ingest both
+                # (consumers read ``effective_field_mappings`` and fall back to
+                # ``field_mappings``; extra mappings would otherwise be dropped).
+                model_schema["effective_field_mappings"] = (
+                    effective_field_mappings_from_config(proc)
+                )
+            vendors[vendor_name]["models"].append(model_schema)
 
         vendor_list = [
             {"key": info["key"], "name": name, "models": info["models"]}
