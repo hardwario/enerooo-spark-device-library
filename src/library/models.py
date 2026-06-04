@@ -748,7 +748,6 @@ class ProcessorConfig(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
-    decoder_type = models.CharField(max_length=255, choices=DecoderType.choices, blank=True, default="")
     extra_config = models.JSONField(
         default=dict,
         blank=True,
@@ -785,44 +784,56 @@ class ProcessorConfig(TimeStampedModel):
         ),
     )
 
-    def save(self, *args, **kwargs):
-        """Auto-derive ``decoder_type`` from the parent VendorModel's
-        technology and auto-create any missing L1 Metric rows referenced
-        by entries.
+    @property
+    def decoder_type(self) -> str:
+        """Decode strategy (L3) — derived from technology, never stored.
 
-        Decoder-type derivation:
         - wmbus  → ``wmbus_field_map``
-        - lorawan → ``js_codec`` if a payload codec is configured,
+        - lorawan → ``js_codec`` when a payload codec is attached,
                     else ``lorawan_field_map``
-        - modbus → left empty (modbus decodes via RegisterDefinition, not
-                   field_mappings; ProcessorConfig is rarely used)
+        - modbus (and anything decoded structurally) → empty
 
-        Operators can still set a non-default ``decoder_type`` (e.g.
-        ``configurable``) explicitly via API/admin — auto-derive only fills
-        in when the field is blank.
+        Decode strategy is an L3 concern that follows from the model's
+        technology + technology_config. It is intentionally NOT a stored,
+        editable field: every model with the same technology decodes the
+        same way, and the availability of L4 ``field_mappings`` must never
+        be gated on it — that coupling silently dropped Modbus mappings
+        from published content.
+        """
+        try:
+            technology = self.device_type.technology
+        except Exception:
+            return ""
+        # Return plain ``str`` values (``.value``), not TextChoices members —
+        # the members are str subclasses that yaml.dump tags as Python
+        # objects, which breaks the YAML export round-trip.
+        if technology == "wmbus":
+            return self.DecoderType.WMBUS_FIELD_MAP.value
+        if technology == "lorawan":
+            has_codec = False
+            try:
+                has_codec = bool(self.device_type.lorawan_config.payload_codec)
+            except Exception:
+                pass
+            return (
+                self.DecoderType.JS_CODEC.value
+                if has_codec
+                else self.DecoderType.LORAWAN_FIELD_MAP.value
+            )
+        return ""
+
+    def save(self, *args, **kwargs):
+        """Auto-create any missing L1 Metric rows referenced by
+        ``field_mappings`` entries.
+
+        ``decoder_type`` is not stored — it is a derived property (see
+        :pyattr:`decoder_type`); decode strategy follows from technology.
 
         Tolerant metric auto-create: a VendorModel can declare a metric
         the catalogue doesn't know yet (e.g. ``temp:temperature_boiler``).
         We create a minimal Metric row so downstream lookups don't fail;
         the operator dials in label/unit/data_type later in admin.
         """
-        if not self.decoder_type:
-            try:
-                technology = self.device_type.technology
-            except Exception:
-                technology = None
-            if technology == "wmbus":
-                self.decoder_type = self.DecoderType.WMBUS_FIELD_MAP
-            elif technology == "lorawan":
-                has_codec = False
-                try:
-                    has_codec = bool(self.device_type.lorawan_config.payload_codec)
-                except Exception:
-                    pass
-                self.decoder_type = (
-                    self.DecoderType.JS_CODEC if has_codec else self.DecoderType.LORAWAN_FIELD_MAP
-                )
-
         # Auto-create L1 Metric rows for ``field_mappings`` entries only —
         # those reference L2-declared metrics that need a catalogue anchor.
         # ``extra_mappings`` entries are intentionally device-specific

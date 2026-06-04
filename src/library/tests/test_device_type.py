@@ -423,8 +423,8 @@ class TestEffectiveFieldMappings:
         assert all(entry["tier"] == "primary" for entry in result)
 
     def test_decoder_type_autoderived_from_technology(self, water_meter_type):
-        """``ProcessorConfig.save()`` auto-fills ``decoder_type`` based on
-        VendorModel.technology so operators don't have to."""
+        """``ProcessorConfig.decoder_type`` is a derived property computed
+        from VendorModel.technology, so operators never set it."""
         vendor = Vendor.objects.create(name="AutoDeriveVendor", slug="autoderive")
         # wmbus model
         wmbus_vm = VendorModel.objects.create(

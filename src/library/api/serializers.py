@@ -90,6 +90,10 @@ class ControlConfigSerializer(serializers.ModelSerializer):
 
 
 class ProcessorConfigSerializer(serializers.ModelSerializer):
+    # ``decoder_type`` is a derived property (computed from technology), not a
+    # stored field — expose it read-only so the published shape is unchanged.
+    decoder_type = serializers.ReadOnlyField()
+
     class Meta:
         model = ProcessorConfig
         fields = ["decoder_type", "extra_config", "field_mappings"]
