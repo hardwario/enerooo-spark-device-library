@@ -374,10 +374,12 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
         or processor_data.get("extra_field_mappings")
         or processor_data.get("extra_config")
     ):
+        # ``decoder_type`` is a derived property now (computed from
+        # technology), so it is neither imported nor stored — any value in
+        # the payload is ignored.
         ProcessorConfig.objects.update_or_create(
             device_type=device,
             defaults={
-                "decoder_type": processor_data.get("decoder_type", ""),
                 "extra_config": processor_data.get("extra_config", {}),
                 "field_mappings": _convert_legacy_field_mappings(
                     processor_data.get("field_mappings") or [],

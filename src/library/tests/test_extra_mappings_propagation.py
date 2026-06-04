@@ -123,7 +123,6 @@ def sticker_model(db):
     )
     ProcessorConfig.objects.create(
         device_type=model,
-        decoder_type=ProcessorConfig.DecoderType.JS_CODEC,
         extra_config={"measurement_type": "environment"},
         field_mappings=FIELD_MAPPINGS,
         extra_mappings=EXTRA_MAPPINGS,

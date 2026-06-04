@@ -317,8 +317,9 @@ class ControlConfigForm(forms.ModelForm):
 class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
-        # ``decoder_type`` is auto-derived from VendorModel.technology in
-        # ProcessorConfig.save(). ``extra_config`` stays on the model for
+        # ``decoder_type`` is a derived property (computed from
+        # VendorModel.technology), not an editable field. ``extra_config``
+        # stays on the model for
         # legacy Spark consumers (``measurement_type``) but is hidden from
         # the editor — replaced by the structured ``extra_mappings``.
         fields = ["field_mappings", "extra_mappings"]

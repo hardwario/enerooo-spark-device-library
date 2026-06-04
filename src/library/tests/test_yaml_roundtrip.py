@@ -86,7 +86,6 @@ def test_round_trip_preserves_processor_field_mappings(tmp_path, water_meter_typ
     )
     ProcessorConfig.objects.create(
         device_type=vm,
-        decoder_type="js_codec",
         field_mappings=[
             {"source": "volume_m3", "target": "water:total_volume"},
             {"source": "battery_mv", "target": "device:battery"},
