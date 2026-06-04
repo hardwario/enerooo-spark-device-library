@@ -54,6 +54,58 @@ class TestEffectiveHelper:
         assert effective_field_mappings_from_config({}) == []
 
 
+MODBUS_FIELD_MAPPINGS = [
+    {"source": "instant_power", "target": "power:active"},
+    {"source": "energy_import", "target": "power:total_energy"},
+    {"source": "voltage_l1", "target": "elec:voltage_l1"},
+]
+
+
+@pytest.fixture
+def modbus_meter_model(db):
+    dt, _ = DeviceType.objects.get_or_create(
+        code="power_meter_3p",
+        defaults={"label": "3-Phase Power Meter", "icon": "zap"},
+    )
+    vendor = Vendor.objects.create(name="ENEROOO-MB", slug="enerooo-mb")
+    model = VendorModel.objects.create(
+        vendor=vendor,
+        model_number="ER-TEST-M",
+        name="Test Modbus Meter",
+        device_type="power_meter_3p",
+        device_type_fk=dt,
+        technology=VendorModel.Technology.MODBUS,
+    )
+    ProcessorConfig.objects.create(
+        device_type=model,
+        field_mappings=MODBUS_FIELD_MAPPINGS,
+    )
+    return model
+
+
+class TestModbusPublish:
+    def test_modbus_decoder_type_is_blank(self, modbus_meter_model):
+        # Modbus leaves decoder_type empty by convention (decodes via
+        # RegisterDefinition) — this is the precondition for the regression.
+        assert modbus_meter_model.processor_config.decoder_type == ""
+
+    def test_modbus_processor_config_survives_publish(self, modbus_meter_model):
+        # Regression: snapshot_to_schema gated processor_config on a non-empty
+        # decoder_type, silently dropping Modbus field_mappings from the
+        # published content — so instances never received the mappings and
+        # left every Modbus reading unprocessed.
+        snap = snapshot_device(modbus_meter_model)
+        schema = snapshot_to_schema(snap)
+        assert "processor_config" in schema, (
+            "Modbus processor_config dropped from published schema"
+        )
+        targets = [m["target"] for m in schema["processor_config"]["field_mappings"]]
+        assert "power:active" in targets
+        # content-API path merges field+extra into the consumed effective list
+        eff = effective_field_mappings_from_config(schema["processor_config"])
+        assert any(e["target"] == "power:active" for e in eff)
+
+
 @pytest.fixture
 def sticker_model(db):
     dt, _ = DeviceType.objects.get_or_create(
