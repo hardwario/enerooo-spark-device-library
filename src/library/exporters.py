@@ -324,8 +324,17 @@ def snapshot_to_schema(snapshot: dict) -> dict:
     if ctrl and (ctrl.get("controllable") or ctrl.get("controls")):
         device["control_config"] = ctrl
 
+    # Publish processor_config whenever it carries anything a consumer can use
+    # — a decoder OR field/extra mappings. Gating on ``decoder_type`` alone
+    # dropped it for Modbus models, whose ``decoder_type`` is empty by
+    # convention (they decode via RegisterDefinition) even though they DO
+    # define ``field_mappings``. Treat every technology the same.
     proc = snapshot.get("processor_config", {})
-    if proc and proc.get("decoder_type"):
+    if proc and (
+        proc.get("decoder_type")
+        or proc.get("field_mappings")
+        or proc.get("extra_mappings")
+    ):
         device["processor_config"] = proc
 
     return device
