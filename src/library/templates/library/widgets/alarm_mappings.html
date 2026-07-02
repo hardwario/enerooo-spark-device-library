@@ -1,0 +1,204 @@
+{% spaceless %}
+<div class="alarm-mappings-editor" data-alarm-mappings-editor>
+    <div class="flex items-center gap-1 mb-2 bg-gray-100 rounded p-0.5 w-fit text-xs">
+        <button type="button" data-view-mode="table"
+                class="px-3 py-1 rounded bg-white shadow-sm font-medium" data-active>
+            <i class="bi bi-table mr-1"></i>Table
+        </button>
+        <button type="button" data-view-mode="json"
+                class="px-3 py-1 rounded text-gray-600 hover:text-gray-900">
+            <i class="bi bi-braces mr-1"></i>JSON
+        </button>
+    </div>
+    <div data-json-error class="hidden mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700"></div>
+
+    <div data-view-table>
+    <div class="border border-gray-300 rounded overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="text-left py-2 px-3 font-semibold w-40" title="Decoded field to inspect (default 'status')">Source</th>
+                    <th class="text-left py-2 px-3 font-semibold">Match (flag)</th>
+                    <th class="text-left py-2 px-3 font-semibold w-32">Severity</th>
+                    <th class="text-left py-2 px-3 font-semibold">Description</th>
+                    <th class="py-2 px-3 w-12"></th>
+                </tr>
+            </thead>
+            <tbody data-alarm-mappings-rows></tbody>
+            <tfoot class="bg-gray-50 border-t">
+                <tr>
+                    <td colspan="5" class="py-2 px-3">
+                        <button type="button"
+                                data-alarm-mappings-add
+                                class="border border-blue-600 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-50">
+                            <i class="bi bi-plus-lg mr-1"></i>Add alarm mapping
+                        </button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    </div>
+
+    <div data-view-json class="hidden">
+        <textarea name="{{ widget.name }}"
+                  data-alarm-mappings-input
+                  rows="15"
+                  spellcheck="false"
+                  class="w-full text-sm font-mono p-3 border border-gray-300 rounded"
+                  style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;">{{ widget.value }}</textarea>
+        <p class="text-xs text-gray-500 mt-1">
+            Direct JSON edit. Switch back to Table view to verify.
+        </p>
+    </div>
+
+    <details class="mt-2 text-xs text-gray-500">
+        <summary class="cursor-pointer hover:text-gray-700 select-none">
+            <i class="bi bi-info-circle"></i> Help — status → severity mappings
+        </summary>
+        <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
+            <p><strong>Source</strong> is the decoded field to inspect — defaults to <code class="bg-gray-100 px-1 rounded">status</code> (the wmbusmeters convention). For LoRaWAN, use the JS-codec output field name.</p>
+            <p><strong>Match</strong> is the flag token / value that activates the alarm. It matches as a token within space/comma-separated multi-flag strings, or by equality.</p>
+            <p><strong>Severity</strong> drives the alert level on the consuming instance. Flags not listed here fall back to the instance's built-in driver registry, then to a generic warning.</p>
+        </div>
+    </details>
+</div>
+<script>
+(function() {
+    const editor = document.currentScript.previousElementSibling;
+    const input = editor.querySelector('[data-alarm-mappings-input]');
+    const rowsContainer = editor.querySelector('[data-alarm-mappings-rows]');
+    const addBtn = editor.querySelector('[data-alarm-mappings-add]');
+    const SEVERITIES = ['info', 'warning', 'critical'];
+
+    let initialEntries = [];
+    try {
+        initialEntries = JSON.parse(input.value || '[]');
+        if (!Array.isArray(initialEntries)) initialEntries = [];
+    } catch (e) {
+        initialEntries = [];
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function syncToInput() {
+        const rows = Array.from(rowsContainer.children);
+        const data = rows.map(row => {
+            const match = row.querySelector('[data-match]').value.trim();
+            if (!match) return null;
+            const source = row.querySelector('[data-source]').value.trim() || 'status';
+            const severity = row.querySelector('[data-severity]').value;
+            const entry = {source, match, severity};
+            const description = row.querySelector('[data-description]').value.trim();
+            if (description) entry.description = description;
+            return entry;
+        }).filter(e => e);
+        input.value = JSON.stringify(data, null, 2);
+    }
+
+    function makeRow(entry) {
+        entry = entry || {};
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-b-0';
+
+        const severity = entry.severity || 'warning';
+        const severityOptions = SEVERITIES.map(s =>
+            `<option value="${s}"${s === severity ? ' selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
+        ).join('');
+
+        tr.innerHTML = `
+            <td class="py-1.5 px-3 align-top">
+                <input data-source type="text" value="${escapeHtml(entry.source || '')}"
+                       placeholder="status"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-match type="text" value="${escapeHtml(entry.match || '')}"
+                       placeholder="SENSOR_T1_OUTSIDE_MEASURING_RANGE"
+                       class="!w-full !py-1 !text-sm font-mono">
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <select data-severity class="!w-full !py-1 !text-sm">${severityOptions}</select>
+            </td>
+            <td class="py-1.5 px-3 align-top">
+                <input data-description type="text" value="${escapeHtml(entry.description || '')}"
+                       placeholder="Sensor T1 outside measuring range"
+                       class="!w-full !py-1 !text-sm">
+            </td>
+            <td class="py-1.5 px-3 text-right align-top">
+                <button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        ['data-source', 'data-match', 'data-severity', 'data-description'].forEach(sel => {
+            tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
+            tr.querySelector(`[${sel}]`).addEventListener('change', syncToInput);
+        });
+        tr.querySelector('[data-remove]').addEventListener('click', () => {
+            tr.remove();
+            syncToInput();
+        });
+        return tr;
+    }
+
+    function rebuildRows(entries) {
+        rowsContainer.innerHTML = '';
+        entries.forEach(e => rowsContainer.appendChild(makeRow(e)));
+        if (rowsContainer.children.length === 0) {
+            rowsContainer.appendChild(makeRow());
+        }
+        syncToInput();
+    }
+
+    rebuildRows(initialEntries);
+
+    addBtn.addEventListener('click', () => {
+        rowsContainer.appendChild(makeRow());
+        syncToInput();
+    });
+
+    // View mode toggle
+    const tableView = editor.querySelector('[data-view-table]');
+    const jsonView = editor.querySelector('[data-view-json]');
+    const errorEl = editor.querySelector('[data-json-error]');
+    const tableBtn = editor.querySelector('[data-view-mode="table"]');
+    const jsonBtn = editor.querySelector('[data-view-mode="json"]');
+    const ACTIVE_CLASS = 'px-3 py-1 rounded bg-white shadow-sm font-medium';
+    const INACTIVE_CLASS = 'px-3 py-1 rounded text-gray-600 hover:text-gray-900';
+
+    function setViewMode(mode) {
+        if (mode === 'json') {
+            syncToInput();
+            tableView.classList.add('hidden');
+            jsonView.classList.remove('hidden');
+            tableBtn.className = INACTIVE_CLASS;
+            jsonBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        } else {
+            let parsed;
+            try {
+                parsed = JSON.parse(input.value || '[]');
+                if (!Array.isArray(parsed)) throw new Error('Expected a JSON array of entries.');
+            } catch (e) {
+                errorEl.textContent = 'JSON parse error: ' + e.message + ' — stay on JSON view, fix, then switch back.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            rebuildRows(parsed);
+            jsonView.classList.add('hidden');
+            tableView.classList.remove('hidden');
+            jsonBtn.className = INACTIVE_CLASS;
+            tableBtn.className = ACTIVE_CLASS;
+            errorEl.classList.add('hidden');
+        }
+    }
+
+    tableBtn.addEventListener('click', () => setViewMode('table'));
+    jsonBtn.addEventListener('click', () => setViewMode('json'));
+})();
+</script>
+{% endspaceless %}

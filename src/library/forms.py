@@ -358,28 +358,42 @@ class ProcessorConfigForm(forms.ModelForm):
         return val if val is not None else []
 
 
-class AlarmConfigForm(forms.ModelForm):
-    """Editor for ``AlarmConfig.mappings`` — status flag → severity.
+class AlarmMappingsWidget(forms.Textarea):
+    """Tabular editor for ``AlarmConfig.mappings`` (Table / JSON toggle).
 
-    Plain JSON editor (the ControlConfig precedent); a tabular widget can
-    follow if editors ask for it.
+    Mirrors ``ExtraMappingsWidget`` — one row per {source, match, severity,
+    description} entry with a severity dropdown, plus a raw JSON view. No
+    metric-catalogue autocomplete (alarm flags are device-specific, not L1).
     """
+
+    template_name = "library/widgets/alarm_mappings.html"
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else []
+            except json.JSONDecodeError:
+                parsed = []
+        elif value is None:
+            parsed = []
+        else:
+            parsed = value
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+
+class AlarmConfigForm(forms.ModelForm):
+    """Editor for ``AlarmConfig.mappings`` — status flag → severity."""
 
     class Meta:
         model = AlarmConfig
         fields = ["mappings"]
         widgets = {
-            "mappings": PrettyJSONWidget(
-                attrs={"rows": 16, "cols": 80, "style": "font-family: monospace; width: 100%;"},
-            ),
+            "mappings": AlarmMappingsWidget(),
         }
         help_texts = {
-            "mappings": (
-                'List of {"source": "status", "match": "FLAG", "severity": '
-                '"info|warning|critical", "description": "..."} entries. '
-                "``source`` defaults to ``status`` (wmbusmeters convention); "
-                "for LoRaWAN use the JS-codec output field name."
-            ),
+            "mappings": "",
         }
 
     def clean_mappings(self):
