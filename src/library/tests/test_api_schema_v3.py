@@ -64,18 +64,13 @@ class TestSyncEndpoint:
         assert "metrics" in water
         # Legacy fields are gone
         assert "default_field_mappings" not in water
-        assert "default_offline_window_seconds" not in water
         assert "primary_field_names" not in water
 
-    def test_vendor_model_carries_per_meter_offline_window(self, staff_client, water_vendor_model):
+    def test_vendor_model_exposes_effective_field_mappings(self, staff_client, water_vendor_model):
         response = staff_client.get("/api/v1/sync/")
         body = response.json()
         vendor_block = next(v for v in body["vendors"] if v["name"] == "Acme Water")
         model = vendor_block["models"][0]
-        # Backfilled from the seeded DeviceType default during migration 0022
-        assert model["offline_window_seconds"] is None or isinstance(
-            model["offline_window_seconds"], int,
-        )
         # The merged effective list is exposed for clients that want a
         # one-shot read; processor_config carries the override/extra split.
         assert "effective_field_mappings" in model

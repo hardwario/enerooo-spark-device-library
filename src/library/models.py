@@ -285,17 +285,6 @@ class VendorModel(TimeStampedModel):
     technology = models.CharField(max_length=20, choices=Technology.choices)
     description = models.TextField(blank=True, default="")
 
-    # Per-meter knob — overrides any DeviceType-level guidance. Null = caller
-    # picks its own fallback (Spark currently uses ``Vendor.online_threshold_minutes``).
-    offline_window_seconds = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text=(
-            "Per-model expected reporting interval in seconds. Null means "
-            "clients should fall back to their own default."
-        ),
-    )
-
     class Meta:
         ordering = ["vendor__name", "model_number"]
         unique_together = [("vendor", "model_number")]
@@ -483,6 +472,30 @@ class LoRaWANConfig(TimeStampedModel):
         TTN_V2 = "ttn_v2", "TTN v2 Legacy (Decoder / Encoder)"
         CHIRPSTACK = "chirpstack", "ChirpStack v4"
 
+    # TTN registration profile (Network Server step). Stored in TTN wire format
+    # so a portal / registrar can pass them through verbatim. See the LoRaWAN
+    # registration report in enerooo-spark (context/Report.md §2–§4).
+    class LoRaWANVersion(models.TextChoices):
+        V1_0_2 = "MAC_V1_0_2", "LoRaWAN 1.0.2"
+        V1_0_3 = "MAC_V1_0_3", "LoRaWAN 1.0.3"
+        V1_0_4 = "MAC_V1_0_4", "LoRaWAN 1.0.4"
+        V1_1 = "MAC_V1_1", "LoRaWAN 1.1"
+
+    class PHYVersion(models.TextChoices):
+        V1_0_2_REV_A = "PHY_V1_0_2_REV_A", "PHY 1.0.2 Rev A"
+        V1_0_2_REV_B = "PHY_V1_0_2_REV_B", "PHY 1.0.2 Rev B"
+        V1_0_3_REV_A = "PHY_V1_0_3_REV_A", "PHY 1.0.3 Rev A"
+        V1_0_4_REV_A = "PHY_V1_0_4_REV_A", "PHY 1.0.4 Rev A"
+        V1_1_REV_A = "PHY_V1_1_REV_A", "PHY 1.1 Rev A"
+        V1_1_REV_B = "PHY_V1_1_REV_B", "PHY 1.1 Rev B"
+
+    class FrequencyPlan(models.TextChoices):
+        EU_863_870_TTN = "EU_863_870_TTN", "Europe 863-870 MHz (TTN)"
+        EU_863_870 = "EU_863_870", "Europe 863-870 MHz"
+        US_902_928_FSB_2 = "US_902_928_FSB_2", "US 902-928 MHz FSB 2"
+        AU_915_928_FSB_2 = "AU_915_928_FSB_2", "Australia 915-928 MHz FSB 2"
+        AS_923_TTN = "AS_923_TTN", "Asia 923 MHz (TTN)"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
@@ -499,6 +512,39 @@ class LoRaWANConfig(TimeStampedModel):
         help_text="JavaScript source implementing decodeUplink/encodeDownlink (TTN v3/ChirpStack) or Decoder/Encoder (TTN v2).",
     )
     field_map = models.JSONField(default=dict, blank=True)
+
+    # --- TTN registration profile (blank = registrar falls back to its default) ---
+    lorawan_version = models.CharField(
+        max_length=16,
+        choices=LoRaWANVersion.choices,
+        blank=True,
+        default="",
+        help_text="MAC version for the TTN Network Server step.",
+    )
+    lorawan_phy_version = models.CharField(
+        max_length=20,
+        choices=PHYVersion.choices,
+        blank=True,
+        default="",
+        help_text="Regional PHY version, paired with the MAC version.",
+    )
+    frequency_plan_id = models.CharField(
+        max_length=24,
+        choices=FrequencyPlan.choices,
+        blank=True,
+        default="",
+        help_text="Regional frequency plan for TTN registration.",
+    )
+    join_eui_default = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        help_text="Default JoinEUI/AppEUI (16 hex uppercase), per vendor. Operator may override per unit.",
+    )
+    supports_join = models.BooleanField(
+        default=True,
+        help_text="OTAA activation. False (ABP) is out of scope for the current registration flow.",
+    )
 
     def __str__(self):
         return f"LoRaWANConfig for {self.device_type}"

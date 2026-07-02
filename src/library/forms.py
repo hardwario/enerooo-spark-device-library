@@ -204,7 +204,6 @@ class VendorModelForm(forms.ModelForm):
             "device_type_fk",
             "technology",
             "description",
-            "offline_window_seconds",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
@@ -247,7 +246,18 @@ class RegisterDefinitionForm(forms.ModelForm):
 class LoRaWANConfigForm(forms.ModelForm):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
+        fields = [
+            "device_class",
+            "lorawan_version",
+            "lorawan_phy_version",
+            "frequency_plan_id",
+            "join_eui_default",
+            "supports_join",
+            "downlink_f_port",
+            "codec_format",
+            "payload_codec",
+            "field_map",
+        ]
         widgets = {
             "payload_codec": forms.Textarea(attrs={
                 "id": "script-textarea",
@@ -255,6 +265,7 @@ class LoRaWANConfigForm(forms.ModelForm):
                 "style": "font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; width: 100%; tab-size: 2;",
                 "spellcheck": "false",
             }),
+            "join_eui_default": forms.TextInput(attrs={"placeholder": "e.g. 04B6480000000000", "style": "font-family: monospace;"}),
             "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
 

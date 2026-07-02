@@ -325,8 +325,6 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             "device_type_fk": device_type_fk,
             "technology": technology,
             "description": data.get("description", "") or "",
-            # Per-meter knob — absent in YAML means "no per-meter override".
-            "offline_window_seconds": data.get("offline_window_seconds"),
         },
     )
 
@@ -440,6 +438,11 @@ def _import_lorawan_config(device: VendorModel, tech_config: dict):
         device_type=device,
         defaults={
             "device_class": tech_config.get("device_class", ""),
+            "lorawan_version": tech_config.get("lorawan_version", ""),
+            "lorawan_phy_version": tech_config.get("lorawan_phy_version", ""),
+            "frequency_plan_id": tech_config.get("frequency_plan_id", ""),
+            "join_eui_default": tech_config.get("join_eui_default", ""),
+            "supports_join": tech_config.get("supports_join", True),
             "downlink_f_port": tech_config.get("downlink_f_port"),
             "codec_format": codec_format,
             "payload_codec": codec_script,

@@ -141,10 +141,6 @@ def _export_device(device: VendorModel) -> dict:
     if device.device_type_fk_id and device.device_type_fk.key:
         data["device_type_key"] = str(device.device_type_fk.key)
 
-    # Schema-v3 per-meter knob. Only emitted when set so the YAML stays
-    # tidy for the common "inherit from the type" case.
-    if device.offline_window_seconds is not None:
-        data["offline_window_seconds"] = device.offline_window_seconds
     return data
 
 
@@ -184,6 +180,17 @@ def _export_tech_config(device: VendorModel) -> dict:
             lorawan = device.lorawan_config
             if lorawan.device_class:
                 config["device_class"] = lorawan.device_class
+            if lorawan.lorawan_version:
+                config["lorawan_version"] = lorawan.lorawan_version
+            if lorawan.lorawan_phy_version:
+                config["lorawan_phy_version"] = lorawan.lorawan_phy_version
+            if lorawan.frequency_plan_id:
+                config["frequency_plan_id"] = lorawan.frequency_plan_id
+            if lorawan.join_eui_default:
+                config["join_eui_default"] = lorawan.join_eui_default
+            if not lorawan.supports_join:
+                # Only emit when non-default (OTAA is the default); keeps YAML lean.
+                config["supports_join"] = lorawan.supports_join
             if lorawan.downlink_f_port is not None:
                 config["downlink_f_port"] = lorawan.downlink_f_port
             if lorawan.payload_codec:
