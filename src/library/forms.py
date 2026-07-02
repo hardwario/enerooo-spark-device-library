@@ -204,7 +204,6 @@ class VendorModelForm(forms.ModelForm):
             "device_type_fk",
             "technology",
             "description",
-            "offline_window_seconds",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),

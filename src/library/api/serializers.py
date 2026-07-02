@@ -251,7 +251,6 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "device_type",
             "device_type_key",
             "description",
-            "offline_window_seconds",
             "technology_config",
             "control_config",
             "processor_config",
@@ -348,7 +347,6 @@ class VendorModelAdminSerializer(serializers.ModelSerializer):
             "device_type_fk",
             "technology",
             "description",
-            "offline_window_seconds",
             "created",
             "modified",
         ]

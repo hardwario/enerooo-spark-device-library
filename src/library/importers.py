@@ -325,8 +325,6 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             "device_type_fk": device_type_fk,
             "technology": technology,
             "description": data.get("description", "") or "",
-            # Per-meter knob — absent in YAML means "no per-meter override".
-            "offline_window_seconds": data.get("offline_window_seconds"),
         },
     )
 

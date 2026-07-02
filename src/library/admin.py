@@ -147,7 +147,7 @@ class ProcessorConfigInline(admin.StackedInline):
 
 @admin.register(VendorModel)
 class VendorModelAdmin(admin.ModelAdmin):
-    list_display = ["name", "vendor", "model_number", "device_type_fk", "technology", "offline_window_seconds", "created"]
+    list_display = ["name", "vendor", "model_number", "device_type_fk", "technology", "created"]
     list_filter = ["device_type_fk", "technology", "vendor"]
     search_fields = ["name", "model_number", "vendor__name"]
     raw_id_fields = ["vendor"]
@@ -164,16 +164,6 @@ class VendorModelAdmin(admin.ModelAdmin):
             "description": (
                 "Pick the canonical Device Type — the matching enum value is "
                 "mirrored into ``device_type`` automatically for schema-v2 sync clients."
-            ),
-        }),
-        ("Per-model behaviour", {
-            "fields": ["offline_window_seconds"],
-            "description": (
-                "Override the DeviceType defaults for this specific meter. "
-                "Field mappings live on ProcessorConfig.field_mappings — "
-                "each entry maps a decoded ``source`` field to a canonical "
-                "L1 ``metric`` key (with optional ``transform`` for unit "
-                "conversion and ``tags`` for multi-channel disambiguation)."
             ),
         }),
         ("Identity", {

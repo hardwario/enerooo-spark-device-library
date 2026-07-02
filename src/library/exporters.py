@@ -141,10 +141,6 @@ def _export_device(device: VendorModel) -> dict:
     if device.device_type_fk_id and device.device_type_fk.key:
         data["device_type_key"] = str(device.device_type_fk.key)
 
-    # Schema-v3 per-meter knob. Only emitted when set so the YAML stays
-    # tidy for the common "inherit from the type" case.
-    if device.offline_window_seconds is not None:
-        data["offline_window_seconds"] = device.offline_window_seconds
     return data
 
 

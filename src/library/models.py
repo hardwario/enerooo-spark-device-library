@@ -285,17 +285,6 @@ class VendorModel(TimeStampedModel):
     technology = models.CharField(max_length=20, choices=Technology.choices)
     description = models.TextField(blank=True, default="")
 
-    # Per-meter knob — overrides any DeviceType-level guidance. Null = caller
-    # picks its own fallback (Spark currently uses ``Vendor.online_threshold_minutes``).
-    offline_window_seconds = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text=(
-            "Per-model expected reporting interval in seconds. Null means "
-            "clients should fall back to their own default."
-        ),
-    )
-
     class Meta:
         ordering = ["vendor__name", "model_number"]
         unique_together = [("vendor", "model_number")]
