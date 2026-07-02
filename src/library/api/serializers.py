@@ -64,7 +64,18 @@ class ModbusConfigSerializer(serializers.ModelSerializer):
 class LoRaWANConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
+        fields = [
+            "device_class",
+            "lorawan_version",
+            "lorawan_phy_version",
+            "frequency_plan_id",
+            "join_eui_default",
+            "supports_join",
+            "downlink_f_port",
+            "codec_format",
+            "payload_codec",
+            "field_map",
+        ]
 
 
 class WMBusConfigSerializer(serializers.ModelSerializer):
@@ -127,6 +138,16 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 lorawan = device.lorawan_config
                 if lorawan.device_class:
                     data["device_class"] = lorawan.device_class
+                if lorawan.lorawan_version:
+                    data["lorawan_version"] = lorawan.lorawan_version
+                if lorawan.lorawan_phy_version:
+                    data["lorawan_phy_version"] = lorawan.lorawan_phy_version
+                if lorawan.frequency_plan_id:
+                    data["frequency_plan_id"] = lorawan.frequency_plan_id
+                if lorawan.join_eui_default:
+                    data["join_eui_default"] = lorawan.join_eui_default
+                if not lorawan.supports_join:
+                    data["supports_join"] = lorawan.supports_join
                 if lorawan.downlink_f_port is not None:
                     data["downlink_f_port"] = lorawan.downlink_f_port
                 if lorawan.payload_codec:
