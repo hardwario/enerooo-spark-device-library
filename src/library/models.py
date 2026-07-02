@@ -794,11 +794,6 @@ class ProcessorConfig(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
-    extra_config = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Extra config (e.g. measurement_type) passed to Spark processor",
-    )
     field_mappings = models.JSONField(
         default=list,
         blank=True,

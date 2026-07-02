@@ -250,8 +250,6 @@ def _export_processor_config(device: VendorModel) -> dict:
         config = {}
         if proc.decoder_type:
             config["decoder_type"] = proc.decoder_type
-        if proc.extra_config:
-            config["extra_config"] = proc.extra_config
         if proc.field_mappings:
             config["field_mappings"] = proc.field_mappings
         if proc.extra_mappings:

@@ -235,16 +235,10 @@
                 {% endif %}
             </div>
             <div class="p-6">
-                {% if processor_config.decoder_type or processor_config.extra_config %}
+                {% if processor_config.decoder_type %}
                 <dl class="grid grid-cols-3 gap-y-3 text-sm mb-4">
-                    {% if processor_config.decoder_type %}
                     <dt class="font-medium text-gray-600">Decoder Type</dt>
                     <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ processor_config.decoder_type }}</code></dd>
-                    {% endif %}
-                    {% if processor_config.extra_config %}
-                    <dt class="font-medium text-gray-600">Extra Config</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ processor_config.extra_config|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
                 {% endif %}
 

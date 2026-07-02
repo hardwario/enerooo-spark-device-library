@@ -95,7 +95,6 @@ def snapshot_device(device):
         pc = device.processor_config
         data["processor_config"] = {
             "decoder_type": pc.decoder_type,
-            "extra_config": pc.extra_config,
             "field_mappings": pc.field_mappings,
             "extra_mappings": pc.extra_mappings,
         }

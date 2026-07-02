@@ -107,7 +107,7 @@ class ProcessorConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "extra_config", "field_mappings"]
+        fields = ["decoder_type", "field_mappings"]
 
 
 class DeviceTechnologyConfigSerializer(serializers.Serializer):
