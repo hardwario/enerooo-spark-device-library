@@ -235,13 +235,7 @@
                 {% endif %}
             </div>
             <div class="p-6">
-                {% if processor_config.decoder_type %}
-                <dl class="grid grid-cols-3 gap-y-3 text-sm mb-4">
-                    <dt class="font-medium text-gray-600">Decoder Type</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ processor_config.decoder_type }}</code></dd>
-                </dl>
-                {% endif %}
-
+                {# Decoder type is derived from technology (not shown — it is implicit). #}
                 {% if eff_mappings %}
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -308,6 +302,72 @@
         </div>
         {% endif %}
         {% endwith %}
+
+        <!-- Alarm Config -->
+        {% if alarm_config.mappings %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Alarm Configuration</h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <h6 class="text-sm font-medium text-gray-600">Status → Severity Mappings</h6>
+                    <button type="button"
+                            data-copy-json
+                            data-json='{{ alarm_config.mappings|raw_json }}'
+                            class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
+                        <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
+                    </button>
+                </div>
+                <div class="border border-gray-200 rounded overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-50 border-b text-left text-gray-500">
+                            <tr>
+                                <th class="py-1.5 px-2 font-medium">Source</th>
+                                <th class="py-1.5 px-2 font-medium">Match (flag)</th>
+                                <th class="py-1.5 px-2 font-medium">Severity</th>
+                                <th class="py-1.5 px-2 font-medium">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in alarm_config.mappings %}
+                            <tr class="border-b last:border-b-0">
+                                <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"status" }}</td>
+                                <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.match|default:"—" }}</td>
+                                <td class="py-1.5 px-2">
+                                    {% if entry.severity == "critical" %}
+                                        <span class="inline-block bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">critical</span>
+                                    {% elif entry.severity == "info" %}
+                                        <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">info</span>
+                                    {% else %}
+                                        <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">{{ entry.severity|default:"warning" }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-1.5 px-2 text-gray-700">{{ entry.description|default:"—" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Alarm Configuration</h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
+                    <i class="bi bi-plus-lg mr-1"></i>Add
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 

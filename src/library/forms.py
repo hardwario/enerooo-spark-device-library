@@ -5,6 +5,7 @@ import re
 from django import forms
 
 from .models import (
+    AlarmConfig,
     APIKey,
     ControlConfig,
     LoRaWANConfig,
@@ -355,6 +356,50 @@ class ProcessorConfigForm(forms.ModelForm):
     def clean_extra_mappings(self):
         val = self.cleaned_data.get("extra_mappings")
         return val if val is not None else []
+
+
+class AlarmConfigForm(forms.ModelForm):
+    """Editor for ``AlarmConfig.mappings`` — status flag → severity.
+
+    Plain JSON editor (the ControlConfig precedent); a tabular widget can
+    follow if editors ask for it.
+    """
+
+    class Meta:
+        model = AlarmConfig
+        fields = ["mappings"]
+        widgets = {
+            "mappings": PrettyJSONWidget(
+                attrs={"rows": 16, "cols": 80, "style": "font-family: monospace; width: 100%;"},
+            ),
+        }
+        help_texts = {
+            "mappings": (
+                'List of {"source": "status", "match": "FLAG", "severity": '
+                '"info|warning|critical", "description": "..."} entries. '
+                "``source`` defaults to ``status`` (wmbusmeters convention); "
+                "for LoRaWAN use the JS-codec output field name."
+            ),
+        }
+
+    def clean_mappings(self):
+        val = self.cleaned_data.get("mappings")
+        if val is None:
+            return []
+        if not isinstance(val, list):
+            raise forms.ValidationError("Must be a JSON list of entries.")
+        for i, entry in enumerate(val):
+            if not isinstance(entry, dict):
+                raise forms.ValidationError(f"Entry {i + 1}: must be an object.")
+            if not entry.get("match"):
+                raise forms.ValidationError(f"Entry {i + 1}: ``match`` is required.")
+            severity = entry.get("severity", "warning")
+            if severity not in AlarmConfig.SEVERITIES:
+                raise forms.ValidationError(
+                    f"Entry {i + 1}: severity must be one of "
+                    f"{', '.join(AlarmConfig.SEVERITIES)} (got ``{severity}``).",
+                )
+        return val
 
 
 class APIKeyForm(forms.ModelForm):

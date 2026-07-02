@@ -15,6 +15,7 @@ from .history import (
     snapshot_metric,
 )
 from .models import (
+    AlarmConfig,
     ControlConfig,
     DeviceHistory,
     DeviceType,
@@ -383,6 +384,14 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
                 ),
                 "extra_mappings": processor_data.get("extra_mappings") or [],
             },
+        )
+
+    # Import alarm config (status flag → severity), its own config object.
+    alarm_data = data.get("alarm_config", {})
+    if alarm_data and alarm_data.get("mappings"):
+        AlarmConfig.objects.update_or_create(
+            device_type=device,
+            defaults={"mappings": alarm_data.get("mappings") or []},
         )
 
     # Record device history

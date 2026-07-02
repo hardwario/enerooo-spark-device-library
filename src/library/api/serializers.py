@@ -3,6 +3,7 @@
 from rest_framework import serializers
 
 from library.models import (
+    AlarmConfig,
     APIKey,
     ControlConfig,
     DeviceType,
@@ -107,7 +108,16 @@ class ProcessorConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "field_mappings"]
+        # ``extra_mappings`` was long published only via the versioned content
+        # endpoint (DeviceHistory snapshots); expose it here too so the legacy
+        # sync shape matches the snapshot shape.
+        fields = ["decoder_type", "field_mappings", "extra_mappings"]
+
+
+class AlarmConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AlarmConfig
+        fields = ["mappings"]
 
 
 class DeviceTechnologyConfigSerializer(serializers.Serializer):
@@ -237,6 +247,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
     technology_config = DeviceTechnologyConfigSerializer(source="*", read_only=True)
     control_config = serializers.SerializerMethodField()
     processor_config = serializers.SerializerMethodField()
+    alarm_config = serializers.SerializerMethodField()
     effective_field_mappings = serializers.ListField(read_only=True)
     declared_metrics = serializers.ListField(read_only=True)
 
@@ -254,6 +265,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "technology_config",
             "control_config",
             "processor_config",
+            "alarm_config",
             "effective_field_mappings",
             "declared_metrics",
         ]
@@ -268,6 +280,12 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
         try:
             return ProcessorConfigSerializer(obj.processor_config).data
         except ProcessorConfig.DoesNotExist:
+            return {}
+
+    def get_alarm_config(self, obj):
+        try:
+            return AlarmConfigSerializer(obj.alarm_config).data
+        except AlarmConfig.DoesNotExist:
             return {}
 
 

@@ -824,7 +824,6 @@ class ProcessorConfig(TimeStampedModel):
             "fallback. Targets are NOT auto-created in L1 for this list."
         ),
     )
-
     @property
     def decoder_type(self) -> str:
         """Decode strategy (L3) — derived from technology, never stored.
@@ -895,6 +894,59 @@ class ProcessorConfig(TimeStampedModel):
 
     def __str__(self):
         return f"ProcessorConfig for {self.device_type}"
+
+
+class AlarmConfig(TimeStampedModel):
+    """L4-alarm — Per-VendorModel error/alarm status interpretation.
+
+    Sibling of ProcessorConfig, but a distinct concern. Where
+    ``ProcessorConfig.field_mappings`` route decoded *measurements* onto L1
+    metric keys, ``AlarmConfig.mappings`` route decoded *status flags* onto
+    alert severities. The downstream consumer is the alerting system, not the
+    timeseries/metrics pipeline — so it lives on its own config object,
+    editable and versioned independently (the same reason ControlConfig owns
+    the command direction rather than being a field on ProcessorConfig).
+
+    No L1 anchor by design: the flag vocabulary is device-specific
+    (wmbusmeters status flags, JS-codec output enums), so each entry carries
+    its own severity + description instead of pointing at a shared catalogue
+    row.
+
+    Schema of a single mapping entry::
+
+        {
+          "source":      <str>,   # decoded field to inspect (default "status")
+          "match":       <str>,   # flag token / value that activates the alarm
+          "severity":    "info" | "warning" | "critical",
+          "description": <str>,   # human-readable, optional
+        }
+    """
+
+    SEVERITIES = ("info", "warning", "critical")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device_type = models.OneToOneField(
+        VendorModel, on_delete=models.CASCADE, related_name="alarm_config",
+    )
+    mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of {source?, match, severity, description?} entries mapping "
+            "device-reported status flags to alert severities. ``source`` is "
+            "the decoded field to inspect (default ``status`` — the "
+            "wmbusmeters convention); ``match`` is the flag token / value that "
+            "activates the alarm (matched as a token within space/comma-"
+            "separated multi-flag strings, or by equality); ``severity`` is "
+            "one of info | warning | critical. Consumers raise/auto-resolve "
+            "alerts from these at ingest time; flags not listed here fall back "
+            "to the consumer's built-in driver registry, then to a generic "
+            "warning."
+        ),
+    )
+
+    def __str__(self):
+        return f"AlarmConfig for {self.device_type}"
 
 
 class DeviceHistory(TimeStampedModel):

@@ -101,6 +101,12 @@ def snapshot_device(device):
     except Exception:
         pass
 
+    # Alarm config
+    try:
+        data["alarm_config"] = {"mappings": device.alarm_config.mappings}
+    except Exception:
+        pass
+
     return data
 
 
@@ -116,7 +122,7 @@ def diff_snapshots(old, new):
     changes = {}
     all_keys = set(old.keys()) | set(new.keys())
 
-    _config_keys = {"modbus_config", "lorawan_config", "wmbus_config", "control_config", "processor_config"}
+    _config_keys = {"modbus_config", "lorawan_config", "wmbus_config", "control_config", "processor_config", "alarm_config"}
 
     for key in all_keys:
         old_val = old.get(key)

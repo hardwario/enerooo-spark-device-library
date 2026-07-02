@@ -141,6 +141,10 @@ def _export_device(device: VendorModel) -> dict:
     if device.device_type_fk_id and device.device_type_fk.key:
         data["device_type_key"] = str(device.device_type_fk.key)
 
+    alarm_config = _export_alarm_config(device)
+    if alarm_config:
+        data["alarm_config"] = alarm_config
+
     return data
 
 
@@ -260,6 +264,17 @@ def _export_processor_config(device: VendorModel) -> dict:
     return {}
 
 
+def _export_alarm_config(device: VendorModel) -> dict:
+    """Export alarm config (status flag → severity mappings)."""
+    try:
+        alarm = device.alarm_config
+        if alarm.mappings:
+            return {"mappings": alarm.mappings}
+    except VendorModel.alarm_config.RelatedObjectDoesNotExist:
+        pass
+    return {}
+
+
 def snapshot_to_schema(snapshot: dict) -> dict:
     """Convert a DeviceHistory snapshot dict to the YAML device schema format."""
     technology = snapshot.get("technology", "")
@@ -341,6 +356,10 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         or proc.get("extra_mappings")
     ):
         device["processor_config"] = proc
+
+    alarm = snapshot.get("alarm_config", {})
+    if alarm and alarm.get("mappings"):
+        device["alarm_config"] = alarm
 
     return device
 

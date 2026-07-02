@@ -19,6 +19,7 @@ from core.permissions import RoleRequiredMixin
 
 from .exporters import export_to_yaml, snapshot_to_schema
 from .forms import (
+    AlarmConfigForm,
     APIKeyForm,
     ControlConfigForm,
     DeviceTypeForm,
@@ -43,6 +44,7 @@ from .history import (
 )
 from .importers import import_from_yaml
 from .models import (
+    AlarmConfig,
     APIKey,
     ControlConfig,
     DeviceHistory,
@@ -558,6 +560,11 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
         except Exception:
             ctx["processor_config"] = None
 
+        try:
+            ctx["alarm_config"] = device.alarm_config
+        except Exception:
+            ctx["alarm_config"] = None
+
         # Registers
         if ctx["modbus_config"]:
             ctx["registers"] = ctx["modbus_config"].register_definitions.all()
@@ -789,6 +796,38 @@ class ProcessorConfigUpdateView(RoleRequiredMixin, UpdateView):
         device = VendorModel.objects.get(pk=self._device.pk)
         record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
         log_action(self.request, "updated", form.instance, details=f"Processor config updated on {self._device}")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+
+
+# === Alarm Config ===
+
+
+class AlarmConfigUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
+    model = AlarmConfig
+    form_class = AlarmConfigForm
+    template_name = "library/alarm_config_form.html"
+
+    def get_object(self, queryset=None):
+        device = get_object_or_404(VendorModel, pk=self.kwargs["device_pk"])
+        self._device = device
+        self._old_snapshot = snapshot_device(device)
+        obj, _ = AlarmConfig.objects.get_or_create(device_type=device)
+        return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["device"] = self._device
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        device = VendorModel.objects.get(pk=self._device.pk)
+        record_history(device, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", form.instance, details=f"Alarm config updated on {self._device}")
         return response
 
     def get_success_url(self):

@@ -1,0 +1,527 @@
+{
+  "iwmtx5": {
+    "source": "status",
+    "flags": {
+      "TAMPER": [
+        "critical",
+        "Tamper detected — enclosure opened or manipulated"
+      ],
+      "PERMANENT_ERROR": [
+        "critical",
+        "Permanent hardware or measurement error"
+      ]
+    }
+  },
+  "hydrocalm3": {
+    "source": "status",
+    "flags": {
+      "SABOTAGE_ENCLOSURE": [
+        "critical",
+        "Enclosure tamper detected"
+      ]
+    }
+  },
+  "izar": {
+    "source": "current_alarms",
+    "flags": {
+      "general_alarm": [
+        "critical",
+        "General meter fault"
+      ],
+      "leakage": [
+        "critical",
+        "Water leak detected"
+      ],
+      "meter_blocked": [
+        "critical",
+        "Flow meter mechanically blocked"
+      ],
+      "back_flow": [
+        "warning",
+        "Water flowing in reverse"
+      ],
+      "underflow": [
+        "warning",
+        "Flow below measurable limit"
+      ],
+      "overflow": [
+        "warning",
+        "Flow above measurable limit"
+      ],
+      "submarine": [
+        "critical",
+        "Meter submerged under water"
+      ],
+      "sensor_fraud": [
+        "critical",
+        "Sensor manipulation detected"
+      ],
+      "mechanical_fraud": [
+        "critical",
+        "Mechanical manipulation detected"
+      ]
+    }
+  },
+  "rfmamb": {
+    "source": "status",
+    "flags": {
+      "APP_BUSY": [
+        "info",
+        "Meter application busy"
+      ],
+      "APP_ERROR": [
+        "critical",
+        "Application error"
+      ],
+      "LOW_BATTERY": [
+        "warning",
+        "Battery low"
+      ],
+      "SENSOR_READ_ERROR": [
+        "critical",
+        "Sensor unreadable"
+      ],
+      "TEMP_OUT_OF_RANGE": [
+        "warning",
+        "Temperature outside valid range"
+      ],
+      "RH_OUT_OF_RANGE": [
+        "warning",
+        "Humidity outside valid range"
+      ]
+    }
+  },
+  "hydrodigit": {
+    "source": "status",
+    "flags": {
+      "LEAK": [
+        "critical",
+        "Active water leak detected"
+      ],
+      "Magnetic fraud attempt": [
+        "critical",
+        "Magnet used to influence meter"
+      ],
+      "Sensor fraud attempt": [
+        "critical",
+        "Sensor manipulation detected"
+      ],
+      "Module removed": [
+        "critical",
+        "Communication module disconnected"
+      ],
+      "BATTERY_VOLTAGE": [
+        "info",
+        "Battery monitoring active"
+      ],
+      "BACKFLOW": [
+        "warning",
+        "Reverse water flow detected"
+      ],
+      "LEAK_DATE": [
+        "warning",
+        "Leak detection timestamp recorded"
+      ]
+    }
+  },
+  "kaden": {
+    "source": "status",
+    "flags": {
+      "SENSOR_T1_OUTSIDE_MEASURING_RANGE": [
+        "warning",
+        "Radiator temp sensor outside measuring range"
+      ],
+      "SENSOR_T2_OUTSIDE_MEASURING_RANGE": [
+        "warning",
+        "Ambient temp sensor outside measuring range"
+      ],
+      "SABOTAGE": [
+        "critical",
+        "Tamper / sabotage detected"
+      ],
+      "BATTERY_LOW": [
+        "warning",
+        "Battery low"
+      ],
+      "HARDWARE_ERROR": [
+        "critical",
+        "Internal hardware error"
+      ]
+    }
+  },
+  "kamwater": {
+    "source": "status",
+    "flags": {
+      "DRY": [
+        "critical",
+        "No water detected — dry pipe"
+      ],
+      "REVERSE": [
+        "warning",
+        "Water flowing in reverse"
+      ],
+      "LEAK": [
+        "critical",
+        "Water leak detected"
+      ],
+      "BURST": [
+        "critical",
+        "Pipe burst — abnormally high flow"
+      ],
+      "ERROR_FLAGS_800": [
+        "warning",
+        "Undocumented error flag 0x800"
+      ]
+    }
+  },
+  "kamheat": {
+    "source": "status",
+    "flags": {
+      "VOLTAGE_INTERRUPTED": [
+        "critical",
+        "Supply voltage interrupted"
+      ],
+      "LOW_BATTERY_LEVEL": [
+        "warning",
+        "Battery approaching end of life"
+      ],
+      "SENSOR_ERROR": [
+        "critical",
+        "General temperature sensor failure"
+      ],
+      "SENSOR_T1_ABOVE_MEASURING_RANGE": [
+        "warning",
+        "Supply temp exceeds range"
+      ],
+      "SENSOR_T2_ABOVE_MEASURING_RANGE": [
+        "warning",
+        "Return temp exceeds range"
+      ],
+      "SENSOR_T1_BELOW_MEASURING_RANGE": [
+        "warning",
+        "Supply temp below range"
+      ],
+      "SENSOR_T2_BELOW_MEASURING_RANGE": [
+        "warning",
+        "Return temp below range"
+      ],
+      "TEMP_DIFF_WRONG_POLARITY": [
+        "warning",
+        "Wrong temperature differential polarity (T2 > T1)"
+      ],
+      "FLOW_SENSOR_WEAK_OR_AIR": [
+        "warning",
+        "Weak flow signal or air in system"
+      ],
+      "WRONG_FLOW_DIRECTION": [
+        "warning",
+        "Medium flowing in reverse"
+      ],
+      "FLOW_INCREASED": [
+        "warning",
+        "Abnormally high flow"
+      ],
+      "IN_A1_LEAKAGE_IN_THE_SYSTEM": [
+        "critical",
+        "Leak on input A1"
+      ],
+      "IN_B1_LEAKAGE_IN_THE_SYSTEM": [
+        "critical",
+        "Leak on input B1"
+      ],
+      "IN_A1_A2_EXTERNAL_ALARM": [
+        "critical",
+        "External alarm on A1/A2"
+      ],
+      "IN_B1_B2_EXTERNAL_ALARM": [
+        "critical",
+        "External alarm on B1/B2"
+      ],
+      "V1_COMMUNICATION_ERROR": [
+        "warning",
+        "Communication failure with V1"
+      ],
+      "V1_WRONG_PULSE_FIGURE": [
+        "warning",
+        "Pulse mismatch on V1"
+      ],
+      "IN_A2_LEAKAGE_IN_THE_SYSTEM": [
+        "critical",
+        "Leak on input A2"
+      ],
+      "IN_B2_LEAKAGE_IN_THE_SYSTEM": [
+        "critical",
+        "Leak on input B2"
+      ],
+      "T3_ABOVE_MEASURING_RANGE_OR_SWITCHED_OFF": [
+        "warning",
+        "T3 above range or switched off"
+      ],
+      "T3_BELOW_MEASURING_RANGE_OR_SWITCHED_OFF": [
+        "warning",
+        "T3 below range or switched off"
+      ],
+      "V2_COMMUNICATION_ERROR": [
+        "warning",
+        "Communication failure with V2"
+      ],
+      "V2_WRONG_PULSE_FIGURE": [
+        "warning",
+        "Pulse mismatch on V2"
+      ],
+      "V2_AIR": [
+        "warning",
+        "Air in flow sensor V2"
+      ],
+      "V2_WRONG_FLOW_DIRECTION": [
+        "warning",
+        "V2 flowing in reverse"
+      ],
+      "V2_INCREASED_FLOW": [
+        "warning",
+        "High flow on V2"
+      ],
+      "V1_V2_BURST_WATER_LOSS": [
+        "critical",
+        "Burst — water loss"
+      ],
+      "V1_V2_BURST_WATER_PENETRATION": [
+        "critical",
+        "Burst — water penetration"
+      ],
+      "V1_V2_LEAKAGE_WATER_LOSS": [
+        "critical",
+        "Slow leak — water loss"
+      ],
+      "V1_V2_LEAKAGE_WATER_PENETRATION": [
+        "critical",
+        "Slow leak — water penetration"
+      ]
+    }
+  },
+  "sensostar": {
+    "source": "status",
+    "flags": {
+      "ERROR_TEMP_SENSOR_1_CABLE_BREAK": [
+        "critical",
+        "Supply temp sensor cable broken"
+      ],
+      "ERROR_TEMP_SENSOR_1_SHORT_CIRCUIT": [
+        "critical",
+        "Supply temp sensor short circuit"
+      ],
+      "ERROR_TEMP_SENSOR_2_CABLE_BREAK": [
+        "critical",
+        "Return temp sensor cable broken"
+      ],
+      "ERROR_TEMP_SENSOR_2_SHORT_CIRCUIT": [
+        "critical",
+        "Return temp sensor short circuit"
+      ],
+      "ERROR_FLOW_MEASUREMENT_SYSTEM_ERROR": [
+        "critical",
+        "Flow measurement system error"
+      ],
+      "ERROR_ELECTRONICS_DEFECT": [
+        "critical",
+        "Internal electronics defect"
+      ],
+      "OK_INSTRUMENT_RESET": [
+        "info",
+        "Meter has been reset"
+      ],
+      "OK_BATTERY_LOW": [
+        "warning",
+        "Battery low"
+      ],
+      "TEMPORARY_ERROR": [
+        "warning",
+        "Transient error"
+      ]
+    }
+  },
+  "minomess": {
+    "source": "status",
+    "flags": {
+      "BATTERY_EOL": [
+        "critical",
+        "Battery depleted"
+      ],
+      "PERMANENT_ERROR": [
+        "critical",
+        "Non-recoverable error"
+      ],
+      "TEMPORARY_ERROR": [
+        "warning",
+        "Recoverable/transient error"
+      ],
+      "LEAKING": [
+        "critical",
+        "Water leak currently detected"
+      ],
+      "WAS_LEAKING": [
+        "warning",
+        "Leak detected in the past"
+      ],
+      "BACKFLOWING": [
+        "warning",
+        "Water currently flowing in reverse"
+      ],
+      "WAS_BACKFLOWING": [
+        "warning",
+        "Backflow detected in the past"
+      ],
+      "BURSTING": [
+        "critical",
+        "Possible pipe burst"
+      ],
+      "WAS_BLOCKED": [
+        "warning",
+        "Meter was mechanically blocked"
+      ],
+      "UNDERSIZED": [
+        "info",
+        "Meter undersized for flow"
+      ],
+      "OVERSIZED": [
+        "info",
+        "Meter oversized for flow"
+      ],
+      "REMOVED": [
+        "critical",
+        "Meter has been removed"
+      ],
+      "WAS_REMOVED": [
+        "warning",
+        "Meter was removed in the past"
+      ],
+      "WAS_TAMPERED": [
+        "critical",
+        "Tampering detected in the past"
+      ],
+      "ABNORMAL_ERROR": [
+        "critical",
+        "Abnormal error condition"
+      ]
+    }
+  },
+  "c5isf": {
+    "source": "status",
+    "flags": {
+      "TEMP_BELOW_RANGE": [
+        "warning",
+        "Temperature below range"
+      ],
+      "TEMP_ABOVE_RANGE": [
+        "warning",
+        "Temperature above range"
+      ],
+      "SHORT_CIRCUIT_RETURN_SENSOR": [
+        "critical",
+        "Return temp sensor short circuit"
+      ],
+      "RETURN_SENSOR_INTERRUPTED": [
+        "critical",
+        "Return temp sensor open circuit"
+      ],
+      "SHORT_CIRCUIT_SUPPLY_SENSOR": [
+        "critical",
+        "Supply temp sensor short circuit"
+      ],
+      "SUPPLY_SENSOR_INTERRUPTED": [
+        "critical",
+        "Supply temp sensor open circuit"
+      ],
+      "LOW_BATTERY": [
+        "warning",
+        "Battery approaching end of life"
+      ],
+      "HARDWARE_ERROR1": [
+        "critical",
+        "Internal hardware error (1)"
+      ],
+      "HARDWARE_ERROR2": [
+        "critical",
+        "Internal hardware error (2)"
+      ],
+      "ERROR_MEASURING": [
+        "critical",
+        "Cannot measure correctly"
+      ],
+      "DRY": [
+        "warning",
+        "No flow — pipe empty"
+      ],
+      "REVERSE_FLOW": [
+        "warning",
+        "Medium flowing in reverse"
+      ],
+      "AIR_INSIDE": [
+        "warning",
+        "Air in piping"
+      ],
+      "VALUE_OVERLOAD": [
+        "warning",
+        "Value exceeds range"
+      ],
+      "HARDWARE_ERROR3": [
+        "critical",
+        "Internal hardware error (3)"
+      ],
+      "WIRELESS_ERROR": [
+        "warning",
+        "wM-Bus communication problem"
+      ],
+      "BATTERY_EXPIRED": [
+        "critical",
+        "Battery depleted"
+      ],
+      "VERIFICATION_EXPIRED": [
+        "warning",
+        "Calibration/verification expired"
+      ]
+    }
+  },
+  "multical21": {
+    "source": "status",
+    "flags": {
+      "DRY": [
+        "critical",
+        "No water detected — dry pipe"
+      ],
+      "REVERSE": [
+        "warning",
+        "Water flowing in reverse"
+      ],
+      "LEAK": [
+        "critical",
+        "Water leak detected"
+      ],
+      "BURST": [
+        "critical",
+        "Pipe burst — abnormally high flow"
+      ]
+    }
+  },
+  "qcaloric": {
+    "source": "status",
+    "flags": {
+      "SABOTAGE": [
+        "critical",
+        "Tamper / sabotage detected"
+      ],
+      "BATTERY_LOW": [
+        "warning",
+        "Battery low"
+      ],
+      "HARDWARE_ERROR": [
+        "critical",
+        "Internal hardware error"
+      ],
+      "SENSOR_ERROR": [
+        "critical",
+        "Temperature sensor error"
+      ]
+    }
+  }
+}
