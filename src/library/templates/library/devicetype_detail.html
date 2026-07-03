@@ -219,12 +219,12 @@
         {% endif %}
 
         <!-- Processor Config -->
-        {# Modbus models leave decoder_type empty (they decode via RegisterDefinition) #}
-        {# yet still carry field_mappings/extra_mappings — gating the whole section on  #}
-        {# decoder_type alone hid those mappings on the detail page. Show it whenever    #}
-        {# there's a decoder OR any (merged) mappings.                                   #}
+        {# Gate on the merged field mappings only — decoder_type is derived from #}
+        {# technology (always truthy for wM-Bus/LoRaWAN), so gating on it would   #}
+        {# render an empty body for models that carry no mappings. Empty → the    #}
+        {# compact "Add" state, matching Control/Alarm Configuration.             #}
         {% with eff_mappings=device.effective_field_mappings %}
-        {% if processor_config.decoder_type or eff_mappings %}
+        {% if eff_mappings %}
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Processor Configuration</h5>
@@ -235,8 +235,6 @@
                 {% endif %}
             </div>
             <div class="p-6">
-                {# Decoder type is derived from technology (not shown — it is implicit). #}
-                {% if eff_mappings %}
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <h6 class="text-sm font-medium text-gray-600">Field Mappings</h6>
@@ -286,7 +284,6 @@
                         </table>
                     </div>
                 </div>
-                {% endif %}
             </div>
         </div>
         {% else %}
