@@ -75,7 +75,6 @@ class LoRaWANConfigSerializer(serializers.ModelSerializer):
             "downlink_f_port",
             "codec_format",
             "payload_codec",
-            "field_map",
         ]
 
 
@@ -86,11 +85,9 @@ class WMBusConfigSerializer(serializers.ModelSerializer):
             "manufacturer_code",
             "wmbus_version",
             "wmbus_device_type",
-            "data_record_mapping",
             "encryption_required",
             "shared_encryption_key",
             "wmbusmeters_driver",
-            "field_map",
             "is_mvt_default",
         ]
 
@@ -165,8 +162,6 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                         "format": lorawan.codec_format or "ttn_v3",
                         "script": lorawan.payload_codec,
                     }
-                if lorawan.field_map:
-                    data["field_map"] = lorawan.field_map
             except LoRaWANConfig.DoesNotExist:
                 pass
 
@@ -177,14 +172,11 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 if wmbus.wmbus_version:
                     data["wmbus_version"] = wmbus.wmbus_version
                 data["wmbus_device_type"] = wmbus.wmbus_device_type
-                data["data_record_mapping"] = wmbus.data_record_mapping
                 data["encryption_required"] = wmbus.encryption_required
                 if wmbus.shared_encryption_key:
                     data["shared_encryption_key"] = wmbus.shared_encryption_key
                 if wmbus.wmbusmeters_driver:
                     data["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
-                if wmbus.field_map:
-                    data["field_map"] = wmbus.field_map
                 if wmbus.is_mvt_default:
                     data["is_mvt_default"] = wmbus.is_mvt_default
             except WMBusConfig.DoesNotExist:

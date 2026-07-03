@@ -118,10 +118,6 @@
                         <span class="text-gray-400">—</span>
                         {% endif %}
                     </dd>
-                    {% if lorawan_config and lorawan_config.field_map %}
-                    <dt class="font-medium text-gray-600">Field Map</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ lorawan_config.field_map|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -173,10 +169,6 @@
                     </dd>
                     <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
                     <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
-                    {% if wmbus_config.field_map %}
-                    <dt class="font-medium text-gray-600">Field Map</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ wmbus_config.field_map|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
             </div>
             {% endif %}

@@ -257,7 +257,6 @@ class LoRaWANConfigForm(forms.ModelForm):
             "downlink_f_port",
             "codec_format",
             "payload_codec",
-            "field_map",
         ]
         widgets = {
             "payload_codec": forms.Textarea(attrs={
@@ -267,12 +266,7 @@ class LoRaWANConfigForm(forms.ModelForm):
                 "spellcheck": "false",
             }),
             "join_eui_default": forms.TextInput(attrs={"placeholder": "e.g. 04B6480000000000", "style": "font-family: monospace;"}),
-            "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
         }
-
-    def clean_field_map(self):
-        val = self.cleaned_data.get("field_map")
-        return val if val is not None else {}
 
 
 class WMBusConfigForm(forms.ModelForm):
@@ -282,16 +276,12 @@ class WMBusConfigForm(forms.ModelForm):
             "manufacturer_code",
             "wmbus_version",
             "wmbus_device_type",
-            "data_record_mapping",
             "encryption_required",
             "shared_encryption_key",
             "wmbusmeters_driver",
-            "field_map",
             "is_mvt_default",
         ]
         widgets = {
-            "data_record_mapping": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
-            "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
             "shared_encryption_key": forms.TextInput(attrs={"placeholder": "e.g. BFBB1BB76A978E88F45EEE1260BF76E0", "style": "font-family: monospace;"}),
         }
         help_texts = {
@@ -303,14 +293,6 @@ class WMBusConfigForm(forms.ModelForm):
         if key and not re.fullmatch(r"[0-9A-F]{32}", key):
             raise forms.ValidationError("Must be exactly 32 hex characters (0-9, A-F).")
         return key
-
-    def clean_data_record_mapping(self):
-        val = self.cleaned_data.get("data_record_mapping")
-        return val if val is not None else []
-
-    def clean_field_map(self):
-        val = self.cleaned_data.get("field_map")
-        return val if val is not None else {}
 
 
 class ControlConfigForm(forms.ModelForm):

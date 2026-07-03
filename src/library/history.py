@@ -58,7 +58,6 @@ def snapshot_device(device):
             "downlink_f_port": lc.downlink_f_port,
             "codec_format": lc.codec_format,
             "payload_codec": lc.payload_codec,
-            "field_map": lc.field_map,
         }
     except Exception:
         pass
@@ -70,11 +69,9 @@ def snapshot_device(device):
             "manufacturer_code": wc.manufacturer_code,
             "wmbus_version": wc.wmbus_version,
             "wmbus_device_type": wc.wmbus_device_type,
-            "data_record_mapping": wc.data_record_mapping,
             "encryption_required": wc.encryption_required,
             "shared_encryption_key": wc.shared_encryption_key,
             "wmbusmeters_driver": wc.wmbusmeters_driver,
-            "field_map": wc.field_map,
             "is_mvt_default": wc.is_mvt_default,
         }
     except Exception:

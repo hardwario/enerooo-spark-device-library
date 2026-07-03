@@ -453,7 +453,6 @@ def _import_lorawan_config(device: VendorModel, tech_config: dict):
             "downlink_f_port": tech_config.get("downlink_f_port"),
             "codec_format": codec_format,
             "payload_codec": codec_script,
-            "field_map": tech_config.get("field_map", {}),
         },
     )
 
@@ -466,11 +465,9 @@ def _import_wmbus_config(device: VendorModel, tech_config: dict):
             "manufacturer_code": tech_config.get("manufacturer_code", ""),
             "wmbus_version": tech_config.get("wmbus_version", ""),
             "wmbus_device_type": tech_config.get("wmbus_device_type"),
-            "data_record_mapping": tech_config.get("data_record_mapping", []),
             "encryption_required": tech_config.get("encryption_required", False),
             "shared_encryption_key": tech_config.get("shared_encryption_key", ""),
             "wmbusmeters_driver": tech_config.get("wmbusmeters_driver", ""),
-            "field_map": tech_config.get("field_map", {}),
             "is_mvt_default": tech_config.get("is_mvt_default", False),
         },
     )

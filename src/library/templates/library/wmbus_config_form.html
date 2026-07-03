@@ -86,10 +86,10 @@
         </div>
     </div>
 
-    <!-- Driver & Mapping Section -->
+    <!-- Driver Section -->
     <div class="bg-white rounded-lg shadow mb-6">
         <div class="border-b border-gray-200 px-6 py-4">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Driver & Mapping</h3>
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Driver</h3>
         </div>
         <div class="p-6 space-y-4">
             <div class="max-w-sm">
@@ -98,18 +98,9 @@
                 {% if form.wmbusmeters_driver.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.wmbusmeters_driver.help_text }}</div>{% endif %}
                 {% for error in form.wmbusmeters_driver.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
             </div>
-            <div>
-                <label for="{{ form.data_record_mapping.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.data_record_mapping.label }}</label>
-                {{ form.data_record_mapping }}
-                {% if form.data_record_mapping.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.data_record_mapping.help_text }}</div>{% endif %}
-                {% for error in form.data_record_mapping.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
-            </div>
-            <div>
-                <label for="{{ form.field_map.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.field_map.label }}</label>
-                {{ form.field_map }}
-                {% if form.field_map.help_text %}<div class="text-sm text-gray-500 mt-1">{{ form.field_map.help_text }}</div>{% endif %}
-                {% for error in form.field_map.errors %}<div class="text-sm text-red-600 mt-1">{{ error }}</div>{% endfor %}
-            </div>
+            <p class="text-sm text-gray-500">
+                Field mappings live in <strong>Processor Configuration</strong> — this section only pins the wmbusmeters decode driver.
+            </p>
         </div>
     </div>
 

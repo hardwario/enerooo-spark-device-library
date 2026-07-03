@@ -511,7 +511,6 @@ class LoRaWANConfig(TimeStampedModel):
         default="",
         help_text="JavaScript source implementing decodeUplink/encodeDownlink (TTN v3/ChirpStack) or Decoder/Encoder (TTN v2).",
     )
-    field_map = models.JSONField(default=dict, blank=True)
 
     # --- TTN registration profile (blank = registrar falls back to its default) ---
     lorawan_version = models.CharField(
@@ -590,12 +589,10 @@ class WMBusConfig(TimeStampedModel):
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
     wmbus_version = models.CharField(max_length=4, blank=True, default="", help_text="Hex byte from telegram header, e.g. 1b")
     wmbus_device_type = models.IntegerField(null=True, blank=True)
-    data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
     shared_encryption_key = models.CharField(max_length=32, blank=True, default="")
 
     wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
-    field_map = models.JSONField(default=dict, blank=True)
     is_mvt_default = models.BooleanField(default=False)
 
     @property

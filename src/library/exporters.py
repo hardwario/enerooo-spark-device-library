@@ -202,8 +202,6 @@ def _export_tech_config(device: VendorModel) -> dict:
                     "format": lorawan.codec_format or "ttn_v3",
                     "script": lorawan.payload_codec,
                 }
-            if lorawan.field_map:
-                config["field_map"] = lorawan.field_map
         except VendorModel.lorawan_config.RelatedObjectDoesNotExist:
             pass
 
@@ -214,14 +212,11 @@ def _export_tech_config(device: VendorModel) -> dict:
             if wmbus.wmbus_version:
                 config["wmbus_version"] = wmbus.wmbus_version
             config["wmbus_device_type"] = wmbus.wmbus_device_type
-            config["data_record_mapping"] = wmbus.data_record_mapping
             config["encryption_required"] = wmbus.encryption_required
             if wmbus.shared_encryption_key:
                 config["shared_encryption_key"] = wmbus.shared_encryption_key
             if wmbus.wmbusmeters_driver:
                 config["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
-            if wmbus.field_map:
-                config["field_map"] = wmbus.field_map
             if wmbus.is_mvt_default:
                 config["is_mvt_default"] = wmbus.is_mvt_default
         except VendorModel.wmbus_config.RelatedObjectDoesNotExist:
@@ -311,22 +306,17 @@ def snapshot_to_schema(snapshot: dict) -> dict:
                 "format": lc.get("codec_format", "ttn_v3"),
                 "script": lc["payload_codec"],
             }
-        if lc.get("field_map"):
-            tech_config["field_map"] = lc["field_map"]
     elif technology == "wmbus":
         wc = snapshot.get("wmbus_config", {})
         tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
         if wc.get("wmbus_version"):
             tech_config["wmbus_version"] = wc["wmbus_version"]
         tech_config["wmbus_device_type"] = wc.get("wmbus_device_type")
-        tech_config["data_record_mapping"] = wc.get("data_record_mapping", [])
         tech_config["encryption_required"] = wc.get("encryption_required", False)
         if wc.get("shared_encryption_key"):
             tech_config["shared_encryption_key"] = wc["shared_encryption_key"]
         if wc.get("wmbusmeters_driver"):
             tech_config["wmbusmeters_driver"] = wc["wmbusmeters_driver"]
-        if wc.get("field_map"):
-            tech_config["field_map"] = wc["field_map"]
         if wc.get("is_mvt_default"):
             tech_config["is_mvt_default"] = wc["is_mvt_default"]
 
