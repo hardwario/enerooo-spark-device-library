@@ -28,6 +28,13 @@ def num(value):
     return value
 
 
+def _json_default(obj):
+    """Serialize non-JSON types: Decimal → number, anything else → str."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    return str(obj)
+
+
 @register.filter
 def raw_json(value):
     """Dump a dict/list as plain indented JSON (no HTML highlighting).
@@ -39,7 +46,7 @@ def raw_json(value):
     if not value:
         return ""
     try:
-        return json.dumps(value, indent=2, ensure_ascii=False)
+        return json.dumps(value, indent=2, ensure_ascii=False, default=_json_default)
     except (TypeError, ValueError):
         return str(value)
 
@@ -50,7 +57,7 @@ def pretty_json(value):
     if not value:
         return ""
     try:
-        raw = json.dumps(value, indent=2, ensure_ascii=False)
+        raw = json.dumps(value, indent=2, ensure_ascii=False, default=_json_default)
     except (TypeError, ValueError):
         return str(value)
 

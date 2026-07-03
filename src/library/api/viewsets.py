@@ -104,6 +104,7 @@ class SyncDeviceViewSet(viewsets.ReadOnlyModelViewSet):
             "wmbus_config",
             "control_config",
             "processor_config",
+            "alarm_config",
         )
         if self.action == "retrieve":
             qs = qs.prefetch_related("modbus_config__register_definitions")
@@ -131,6 +132,7 @@ class SyncViewSet(viewsets.ViewSet):
             "device_types__wmbus_config",
             "device_types__control_config",
             "device_types__processor_config",
+            "device_types__alarm_config",
         ).all()
 
         current = LibraryVersion.objects.filter(is_current=True).first()

@@ -511,7 +511,6 @@ class LoRaWANConfig(TimeStampedModel):
         default="",
         help_text="JavaScript source implementing decodeUplink/encodeDownlink (TTN v3/ChirpStack) or Decoder/Encoder (TTN v2).",
     )
-    field_map = models.JSONField(default=dict, blank=True)
 
     # --- TTN registration profile (blank = registrar falls back to its default) ---
     lorawan_version = models.CharField(
@@ -590,12 +589,10 @@ class WMBusConfig(TimeStampedModel):
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
     wmbus_version = models.CharField(max_length=4, blank=True, default="", help_text="Hex byte from telegram header, e.g. 1b")
     wmbus_device_type = models.IntegerField(null=True, blank=True)
-    data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
     shared_encryption_key = models.CharField(max_length=32, blank=True, default="")
 
     wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
-    field_map = models.JSONField(default=dict, blank=True)
     is_mvt_default = models.BooleanField(default=False)
 
     @property
@@ -790,15 +787,9 @@ class ProcessorConfig(TimeStampedModel):
         WMBUS_FIELD_MAP = "wmbus_field_map", "wM-Bus Field Map"
         LORAWAN_FIELD_MAP = "lorawan_field_map", "LoRaWAN Field Map"
         JS_CODEC = "js_codec", "JS Codec (QuickJS)"
-        CONFIGURABLE = "configurable", "Configurable"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
-    extra_config = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Extra config (e.g. measurement_type) passed to Spark processor",
-    )
     field_mappings = models.JSONField(
         default=list,
         blank=True,
@@ -829,7 +820,6 @@ class ProcessorConfig(TimeStampedModel):
             "fallback. Targets are NOT auto-created in L1 for this list."
         ),
     )
-
     @property
     def decoder_type(self) -> str:
         """Decode strategy (L3) — derived from technology, never stored.
@@ -900,6 +890,59 @@ class ProcessorConfig(TimeStampedModel):
 
     def __str__(self):
         return f"ProcessorConfig for {self.device_type}"
+
+
+class AlarmConfig(TimeStampedModel):
+    """L4-alarm — Per-VendorModel error/alarm status interpretation.
+
+    Sibling of ProcessorConfig, but a distinct concern. Where
+    ``ProcessorConfig.field_mappings`` route decoded *measurements* onto L1
+    metric keys, ``AlarmConfig.mappings`` route decoded *status flags* onto
+    alert severities. The downstream consumer is the alerting system, not the
+    timeseries/metrics pipeline — so it lives on its own config object,
+    editable and versioned independently (the same reason ControlConfig owns
+    the command direction rather than being a field on ProcessorConfig).
+
+    No L1 anchor by design: the flag vocabulary is device-specific
+    (wmbusmeters status flags, JS-codec output enums), so each entry carries
+    its own severity + description instead of pointing at a shared catalogue
+    row.
+
+    Schema of a single mapping entry::
+
+        {
+          "source":      <str>,   # decoded field to inspect (default "status")
+          "match":       <str>,   # flag token / value that activates the alarm
+          "severity":    "info" | "warning" | "critical",
+          "description": <str>,   # human-readable, optional
+        }
+    """
+
+    SEVERITIES = ("info", "warning", "critical")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device_type = models.OneToOneField(
+        VendorModel, on_delete=models.CASCADE, related_name="alarm_config",
+    )
+    mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of {source?, match, severity, description?} entries mapping "
+            "device-reported status flags to alert severities. ``source`` is "
+            "the decoded field to inspect (default ``status`` — the "
+            "wmbusmeters convention); ``match`` is the flag token / value that "
+            "activates the alarm (matched as a token within space/comma-"
+            "separated multi-flag strings, or by equality); ``severity`` is "
+            "one of info | warning | critical. Consumers raise/auto-resolve "
+            "alerts from these at ingest time; flags not listed here fall back "
+            "to the consumer's built-in driver registry, then to a generic "
+            "warning."
+        ),
+    )
+
+    def __str__(self):
+        return f"AlarmConfig for {self.device_type}"
 
 
 class DeviceHistory(TimeStampedModel):
