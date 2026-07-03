@@ -190,10 +190,6 @@
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Controllable</dt>
                     <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
-                    {% if control_config.capabilities %}
-                    <dt class="font-medium text-gray-600">Capabilities</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ control_config.capabilities|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
             </div>
         </div>

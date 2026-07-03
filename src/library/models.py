@@ -787,7 +787,6 @@ class ProcessorConfig(TimeStampedModel):
         WMBUS_FIELD_MAP = "wmbus_field_map", "wM-Bus Field Map"
         LORAWAN_FIELD_MAP = "lorawan_field_map", "LoRaWAN Field Map"
         JS_CODEC = "js_codec", "JS Codec (QuickJS)"
-        CONFIGURABLE = "configurable", "Configurable"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")

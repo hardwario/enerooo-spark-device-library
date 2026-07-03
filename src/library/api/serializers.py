@@ -54,42 +54,9 @@ class RegisterDefinitionSerializer(serializers.ModelSerializer):
         return {"name": obj.field_name, "unit": obj.field_unit}
 
 
-class ModbusConfigSerializer(serializers.ModelSerializer):
-    register_definitions = RegisterDefinitionSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = ModbusConfig
-        fields = ["function", "byte_order", "word_order", "register_definitions"]
-
-
-class LoRaWANConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LoRaWANConfig
-        fields = [
-            "device_class",
-            "lorawan_version",
-            "lorawan_phy_version",
-            "frequency_plan_id",
-            "join_eui_default",
-            "supports_join",
-            "downlink_f_port",
-            "codec_format",
-            "payload_codec",
-        ]
-
-
-class WMBusConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WMBusConfig
-        fields = [
-            "manufacturer_code",
-            "wmbus_version",
-            "wmbus_device_type",
-            "encryption_required",
-            "shared_encryption_key",
-            "wmbusmeters_driver",
-            "is_mvt_default",
-        ]
+# NOTE: per-technology config is serialized by DeviceTechnologyConfigSerializer
+# (hand-built to_representation below), not by dedicated ModelSerializers — those
+# were unused dead code that duplicated the field lists and drifted from reality.
 
 
 class ControlConfigSerializer(serializers.ModelSerializer):
