@@ -15,6 +15,7 @@ from .history import (
     snapshot_metric,
 )
 from .models import (
+    AlarmConfig,
     ControlConfig,
     DeviceHistory,
     DeviceType,
@@ -325,8 +326,6 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             "device_type_fk": device_type_fk,
             "technology": technology,
             "description": data.get("description", "") or "",
-            # Per-meter knob — absent in YAML means "no per-meter override".
-            "offline_window_seconds": data.get("offline_window_seconds"),
         },
     )
 
@@ -372,7 +371,6 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
         processor_data.get("decoder_type")
         or processor_data.get("field_mappings")
         or processor_data.get("extra_field_mappings")
-        or processor_data.get("extra_config")
     ):
         # ``decoder_type`` is a derived property now (computed from
         # technology), so it is neither imported nor stored — any value in
@@ -380,13 +378,20 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
         ProcessorConfig.objects.update_or_create(
             device_type=device,
             defaults={
-                "extra_config": processor_data.get("extra_config", {}),
                 "field_mappings": _convert_legacy_field_mappings(
                     processor_data.get("field_mappings") or [],
                     processor_data.get("extra_field_mappings") or [],
                 ),
                 "extra_mappings": processor_data.get("extra_mappings") or [],
             },
+        )
+
+    # Import alarm config (status flag → severity), its own config object.
+    alarm_data = data.get("alarm_config", {})
+    if alarm_data and alarm_data.get("mappings"):
+        AlarmConfig.objects.update_or_create(
+            device_type=device,
+            defaults={"mappings": alarm_data.get("mappings") or []},
         )
 
     # Record device history
@@ -440,10 +445,14 @@ def _import_lorawan_config(device: VendorModel, tech_config: dict):
         device_type=device,
         defaults={
             "device_class": tech_config.get("device_class", ""),
+            "lorawan_version": tech_config.get("lorawan_version", ""),
+            "lorawan_phy_version": tech_config.get("lorawan_phy_version", ""),
+            "frequency_plan_id": tech_config.get("frequency_plan_id", ""),
+            "join_eui_default": tech_config.get("join_eui_default", ""),
+            "supports_join": tech_config.get("supports_join", True),
             "downlink_f_port": tech_config.get("downlink_f_port"),
             "codec_format": codec_format,
             "payload_codec": codec_script,
-            "field_map": tech_config.get("field_map", {}),
         },
     )
 
@@ -456,11 +465,9 @@ def _import_wmbus_config(device: VendorModel, tech_config: dict):
             "manufacturer_code": tech_config.get("manufacturer_code", ""),
             "wmbus_version": tech_config.get("wmbus_version", ""),
             "wmbus_device_type": tech_config.get("wmbus_device_type"),
-            "data_record_mapping": tech_config.get("data_record_mapping", []),
             "encryption_required": tech_config.get("encryption_required", False),
             "shared_encryption_key": tech_config.get("shared_encryption_key", ""),
             "wmbusmeters_driver": tech_config.get("wmbusmeters_driver", ""),
-            "field_map": tech_config.get("field_map", {}),
             "is_mvt_default": tech_config.get("is_mvt_default", False),
         },
     )

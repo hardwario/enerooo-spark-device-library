@@ -70,6 +70,12 @@ urlpatterns = [
         views.ProcessorConfigUpdateView.as_view(),
         name="processor-config-edit",
     ),
+    # Alarm Config
+    path(
+        "models/<uuid:device_pk>/alarm-config/edit/",
+        views.AlarmConfigUpdateView.as_view(),
+        name="alarm-config-edit",
+    ),
     # Registers (for Modbus models)
     path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
     path(

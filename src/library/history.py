@@ -58,7 +58,6 @@ def snapshot_device(device):
             "downlink_f_port": lc.downlink_f_port,
             "codec_format": lc.codec_format,
             "payload_codec": lc.payload_codec,
-            "field_map": lc.field_map,
         }
     except Exception:
         pass
@@ -70,11 +69,9 @@ def snapshot_device(device):
             "manufacturer_code": wc.manufacturer_code,
             "wmbus_version": wc.wmbus_version,
             "wmbus_device_type": wc.wmbus_device_type,
-            "data_record_mapping": wc.data_record_mapping,
             "encryption_required": wc.encryption_required,
             "shared_encryption_key": wc.shared_encryption_key,
             "wmbusmeters_driver": wc.wmbusmeters_driver,
-            "field_map": wc.field_map,
             "is_mvt_default": wc.is_mvt_default,
         }
     except Exception:
@@ -95,10 +92,15 @@ def snapshot_device(device):
         pc = device.processor_config
         data["processor_config"] = {
             "decoder_type": pc.decoder_type,
-            "extra_config": pc.extra_config,
             "field_mappings": pc.field_mappings,
             "extra_mappings": pc.extra_mappings,
         }
+    except Exception:
+        pass
+
+    # Alarm config
+    try:
+        data["alarm_config"] = {"mappings": device.alarm_config.mappings}
     except Exception:
         pass
 
@@ -117,7 +119,7 @@ def diff_snapshots(old, new):
     changes = {}
     all_keys = set(old.keys()) | set(new.keys())
 
-    _config_keys = {"modbus_config", "lorawan_config", "wmbus_config", "control_config", "processor_config"}
+    _config_keys = {"modbus_config", "lorawan_config", "wmbus_config", "control_config", "processor_config", "alarm_config"}
 
     for key in all_keys:
         old_val = old.get(key)

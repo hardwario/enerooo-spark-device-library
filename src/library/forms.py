@@ -5,6 +5,7 @@ import re
 from django import forms
 
 from .models import (
+    AlarmConfig,
     APIKey,
     ControlConfig,
     LoRaWANConfig,
@@ -204,7 +205,6 @@ class VendorModelForm(forms.ModelForm):
             "device_type_fk",
             "technology",
             "description",
-            "offline_window_seconds",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
@@ -247,7 +247,17 @@ class RegisterDefinitionForm(forms.ModelForm):
 class LoRaWANConfigForm(forms.ModelForm):
     class Meta:
         model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
+        fields = [
+            "device_class",
+            "lorawan_version",
+            "lorawan_phy_version",
+            "frequency_plan_id",
+            "join_eui_default",
+            "supports_join",
+            "downlink_f_port",
+            "codec_format",
+            "payload_codec",
+        ]
         widgets = {
             "payload_codec": forms.Textarea(attrs={
                 "id": "script-textarea",
@@ -255,12 +265,8 @@ class LoRaWANConfigForm(forms.ModelForm):
                 "style": "font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; width: 100%; tab-size: 2;",
                 "spellcheck": "false",
             }),
-            "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
+            "join_eui_default": forms.TextInput(attrs={"placeholder": "e.g. 04B6480000000000", "style": "font-family: monospace;"}),
         }
-
-    def clean_field_map(self):
-        val = self.cleaned_data.get("field_map")
-        return val if val is not None else {}
 
 
 class WMBusConfigForm(forms.ModelForm):
@@ -270,16 +276,12 @@ class WMBusConfigForm(forms.ModelForm):
             "manufacturer_code",
             "wmbus_version",
             "wmbus_device_type",
-            "data_record_mapping",
             "encryption_required",
             "shared_encryption_key",
             "wmbusmeters_driver",
-            "field_map",
             "is_mvt_default",
         ]
         widgets = {
-            "data_record_mapping": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
-            "field_map": PrettyJSONWidget(attrs={"rows": 20, "cols": 80, "style": "font-family: monospace; width: 100%;"}),
             "shared_encryption_key": forms.TextInput(attrs={"placeholder": "e.g. BFBB1BB76A978E88F45EEE1260BF76E0", "style": "font-family: monospace;"}),
         }
         help_texts = {
@@ -291,14 +293,6 @@ class WMBusConfigForm(forms.ModelForm):
         if key and not re.fullmatch(r"[0-9A-F]{32}", key):
             raise forms.ValidationError("Must be exactly 32 hex characters (0-9, A-F).")
         return key
-
-    def clean_data_record_mapping(self):
-        val = self.cleaned_data.get("data_record_mapping")
-        return val if val is not None else []
-
-    def clean_field_map(self):
-        val = self.cleaned_data.get("field_map")
-        return val if val is not None else {}
 
 
 class ControlConfigForm(forms.ModelForm):
@@ -318,10 +312,7 @@ class ProcessorConfigForm(forms.ModelForm):
     class Meta:
         model = ProcessorConfig
         # ``decoder_type`` is a derived property (computed from
-        # VendorModel.technology), not an editable field. ``extra_config``
-        # stays on the model for
-        # legacy Spark consumers (``measurement_type``) but is hidden from
-        # the editor — replaced by the structured ``extra_mappings``.
+        # VendorModel.technology), not an editable field.
         fields = ["field_mappings", "extra_mappings"]
         widgets = {
             "field_mappings": FieldMappingsWidget(),
@@ -347,6 +338,64 @@ class ProcessorConfigForm(forms.ModelForm):
     def clean_extra_mappings(self):
         val = self.cleaned_data.get("extra_mappings")
         return val if val is not None else []
+
+
+class AlarmMappingsWidget(forms.Textarea):
+    """Tabular editor for ``AlarmConfig.mappings`` (Table / JSON toggle).
+
+    Mirrors ``ExtraMappingsWidget`` — one row per {source, match, severity,
+    description} entry with a severity dropdown, plus a raw JSON view. No
+    metric-catalogue autocomplete (alarm flags are device-specific, not L1).
+    """
+
+    template_name = "library/widgets/alarm_mappings.html"
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else []
+            except json.JSONDecodeError:
+                parsed = []
+        elif value is None:
+            parsed = []
+        else:
+            parsed = value
+        return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+
+class AlarmConfigForm(forms.ModelForm):
+    """Editor for ``AlarmConfig.mappings`` — status flag → severity."""
+
+    class Meta:
+        model = AlarmConfig
+        fields = ["mappings"]
+        widgets = {
+            "mappings": AlarmMappingsWidget(),
+        }
+        help_texts = {
+            "mappings": "",
+        }
+
+    def clean_mappings(self):
+        val = self.cleaned_data.get("mappings")
+        if val is None:
+            return []
+        if not isinstance(val, list):
+            raise forms.ValidationError("Must be a JSON list of entries.")
+        for i, entry in enumerate(val):
+            if not isinstance(entry, dict):
+                raise forms.ValidationError(f"Entry {i + 1}: must be an object.")
+            if not entry.get("match"):
+                raise forms.ValidationError(f"Entry {i + 1}: ``match`` is required.")
+            severity = entry.get("severity", "warning")
+            if severity not in AlarmConfig.SEVERITIES:
+                raise forms.ValidationError(
+                    f"Entry {i + 1}: severity must be one of "
+                    f"{', '.join(AlarmConfig.SEVERITIES)} (got ``{severity}``).",
+                )
+        return val
 
 
 class APIKeyForm(forms.ModelForm):
