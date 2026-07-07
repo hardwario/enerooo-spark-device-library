@@ -141,10 +141,10 @@ def _export_device(device: VendorModel) -> dict:
     if device.device_type_fk_id and device.device_type_fk.key:
         data["device_type_key"] = str(device.device_type_fk.key)
 
-    # Schema-v3 per-meter knob. Only emitted when set so the YAML stays
-    # tidy for the common "inherit from the type" case.
-    if device.offline_window_seconds is not None:
-        data["offline_window_seconds"] = device.offline_window_seconds
+    alarm_config = _export_alarm_config(device)
+    if alarm_config:
+        data["alarm_config"] = alarm_config
+
     return data
 
 
@@ -184,6 +184,17 @@ def _export_tech_config(device: VendorModel) -> dict:
             lorawan = device.lorawan_config
             if lorawan.device_class:
                 config["device_class"] = lorawan.device_class
+            if lorawan.lorawan_version:
+                config["lorawan_version"] = lorawan.lorawan_version
+            if lorawan.lorawan_phy_version:
+                config["lorawan_phy_version"] = lorawan.lorawan_phy_version
+            if lorawan.frequency_plan_id:
+                config["frequency_plan_id"] = lorawan.frequency_plan_id
+            if lorawan.join_eui_default:
+                config["join_eui_default"] = lorawan.join_eui_default
+            if not lorawan.supports_join:
+                # Only emit when non-default (OTAA is the default); keeps YAML lean.
+                config["supports_join"] = lorawan.supports_join
             if lorawan.downlink_f_port is not None:
                 config["downlink_f_port"] = lorawan.downlink_f_port
             if lorawan.payload_codec:
@@ -191,8 +202,6 @@ def _export_tech_config(device: VendorModel) -> dict:
                     "format": lorawan.codec_format or "ttn_v3",
                     "script": lorawan.payload_codec,
                 }
-            if lorawan.field_map:
-                config["field_map"] = lorawan.field_map
         except VendorModel.lorawan_config.RelatedObjectDoesNotExist:
             pass
 
@@ -203,14 +212,11 @@ def _export_tech_config(device: VendorModel) -> dict:
             if wmbus.wmbus_version:
                 config["wmbus_version"] = wmbus.wmbus_version
             config["wmbus_device_type"] = wmbus.wmbus_device_type
-            config["data_record_mapping"] = wmbus.data_record_mapping
             config["encryption_required"] = wmbus.encryption_required
             if wmbus.shared_encryption_key:
                 config["shared_encryption_key"] = wmbus.shared_encryption_key
             if wmbus.wmbusmeters_driver:
                 config["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
-            if wmbus.field_map:
-                config["field_map"] = wmbus.field_map
             if wmbus.is_mvt_default:
                 config["is_mvt_default"] = wmbus.is_mvt_default
         except VendorModel.wmbus_config.RelatedObjectDoesNotExist:
@@ -243,14 +249,23 @@ def _export_processor_config(device: VendorModel) -> dict:
         config = {}
         if proc.decoder_type:
             config["decoder_type"] = proc.decoder_type
-        if proc.extra_config:
-            config["extra_config"] = proc.extra_config
         if proc.field_mappings:
             config["field_mappings"] = proc.field_mappings
         if proc.extra_mappings:
             config["extra_mappings"] = proc.extra_mappings
         return config
     except VendorModel.processor_config.RelatedObjectDoesNotExist:
+        pass
+    return {}
+
+
+def _export_alarm_config(device: VendorModel) -> dict:
+    """Export alarm config (status flag → severity mappings)."""
+    try:
+        alarm = device.alarm_config
+        if alarm.mappings:
+            return {"mappings": alarm.mappings}
+    except VendorModel.alarm_config.RelatedObjectDoesNotExist:
         pass
     return {}
 
@@ -291,22 +306,17 @@ def snapshot_to_schema(snapshot: dict) -> dict:
                 "format": lc.get("codec_format", "ttn_v3"),
                 "script": lc["payload_codec"],
             }
-        if lc.get("field_map"):
-            tech_config["field_map"] = lc["field_map"]
     elif technology == "wmbus":
         wc = snapshot.get("wmbus_config", {})
         tech_config["manufacturer_code"] = wc.get("manufacturer_code", "")
         if wc.get("wmbus_version"):
             tech_config["wmbus_version"] = wc["wmbus_version"]
         tech_config["wmbus_device_type"] = wc.get("wmbus_device_type")
-        tech_config["data_record_mapping"] = wc.get("data_record_mapping", [])
         tech_config["encryption_required"] = wc.get("encryption_required", False)
         if wc.get("shared_encryption_key"):
             tech_config["shared_encryption_key"] = wc["shared_encryption_key"]
         if wc.get("wmbusmeters_driver"):
             tech_config["wmbusmeters_driver"] = wc["wmbusmeters_driver"]
-        if wc.get("field_map"):
-            tech_config["field_map"] = wc["field_map"]
         if wc.get("is_mvt_default"):
             tech_config["is_mvt_default"] = wc["is_mvt_default"]
 
@@ -336,6 +346,10 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         or proc.get("extra_mappings")
     ):
         device["processor_config"] = proc
+
+    alarm = snapshot.get("alarm_config", {})
+    if alarm and alarm.get("mappings"):
+        device["alarm_config"] = alarm
 
     return device
 

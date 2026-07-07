@@ -118,10 +118,6 @@
                         <span class="text-gray-400">—</span>
                         {% endif %}
                     </dd>
-                    {% if lorawan_config and lorawan_config.field_map %}
-                    <dt class="font-medium text-gray-600">Field Map</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ lorawan_config.field_map|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -173,10 +169,6 @@
                     </dd>
                     <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
                     <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
-                    {% if wmbus_config.field_map %}
-                    <dt class="font-medium text-gray-600">Field Map</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ wmbus_config.field_map|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
             </div>
             {% endif %}
@@ -198,10 +190,6 @@
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Controllable</dt>
                     <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
-                    {% if control_config.capabilities %}
-                    <dt class="font-medium text-gray-600">Capabilities</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ control_config.capabilities|pretty_json }}</pre></dd>
-                    {% endif %}
                 </dl>
             </div>
         </div>
@@ -219,12 +207,12 @@
         {% endif %}
 
         <!-- Processor Config -->
-        {# Modbus models leave decoder_type empty (they decode via RegisterDefinition) #}
-        {# yet still carry field_mappings/extra_mappings — gating the whole section on  #}
-        {# decoder_type alone hid those mappings on the detail page. Show it whenever    #}
-        {# there's a decoder OR any (merged) mappings.                                   #}
+        {# Gate on the merged field mappings only — decoder_type is derived from #}
+        {# technology (always truthy for wM-Bus/LoRaWAN), so gating on it would   #}
+        {# render an empty body for models that carry no mappings. Empty → the    #}
+        {# compact "Add" state, matching Control/Alarm Configuration.             #}
         {% with eff_mappings=device.effective_field_mappings %}
-        {% if processor_config.decoder_type or eff_mappings %}
+        {% if eff_mappings %}
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h5 class="font-semibold">Processor Configuration</h5>
@@ -235,26 +223,12 @@
                 {% endif %}
             </div>
             <div class="p-6">
-                {% if processor_config.decoder_type or processor_config.extra_config %}
-                <dl class="grid grid-cols-3 gap-y-3 text-sm mb-4">
-                    {% if processor_config.decoder_type %}
-                    <dt class="font-medium text-gray-600">Decoder Type</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ processor_config.decoder_type }}</code></dd>
-                    {% endif %}
-                    {% if processor_config.extra_config %}
-                    <dt class="font-medium text-gray-600">Extra Config</dt>
-                    <dd class="col-span-2"><pre class="text-sm bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto" style="font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; line-height: 1.5;">{{ processor_config.extra_config|pretty_json }}</pre></dd>
-                    {% endif %}
-                </dl>
-                {% endif %}
-
-                {% if eff_mappings %}
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <h6 class="text-sm font-medium text-gray-600">Field Mappings</h6>
                         <button type="button"
                                 data-copy-json
-                                data-json='{{ processor_config.field_mappings|raw_json }}'
+                                data-json='{{ eff_mappings|raw_json }}'
                                 class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
                             <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
                         </button>
@@ -298,7 +272,6 @@
                         </table>
                     </div>
                 </div>
-                {% endif %}
             </div>
         </div>
         {% else %}
@@ -314,6 +287,72 @@
         </div>
         {% endif %}
         {% endwith %}
+
+        <!-- Alarm Config -->
+        {% if alarm_config.mappings %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Alarm Configuration</h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <h6 class="text-sm font-medium text-gray-600">Status → Severity Mappings</h6>
+                    <button type="button"
+                            data-copy-json
+                            data-json='{{ alarm_config.mappings|raw_json }}'
+                            class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
+                        <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
+                    </button>
+                </div>
+                <div class="border border-gray-200 rounded overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-50 border-b text-left text-gray-500">
+                            <tr>
+                                <th class="py-1.5 px-2 font-medium">Source</th>
+                                <th class="py-1.5 px-2 font-medium">Match (flag)</th>
+                                <th class="py-1.5 px-2 font-medium">Severity</th>
+                                <th class="py-1.5 px-2 font-medium">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in alarm_config.mappings %}
+                            <tr class="border-b last:border-b-0">
+                                <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"status" }}</td>
+                                <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.match|default:"—" }}</td>
+                                <td class="py-1.5 px-2">
+                                    {% if entry.severity == "critical" %}
+                                        <span class="inline-block bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">critical</span>
+                                    {% elif entry.severity == "info" %}
+                                        <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">info</span>
+                                    {% else %}
+                                        <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">{{ entry.severity|default:"warning" }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-1.5 px-2 text-gray-700">{{ entry.description|default:"—" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Alarm Configuration</h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
+                    <i class="bi bi-plus-lg mr-1"></i>Add
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 

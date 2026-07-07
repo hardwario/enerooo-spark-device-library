@@ -3,6 +3,7 @@
 from rest_framework import serializers
 
 from library.models import (
+    AlarmConfig,
     APIKey,
     ControlConfig,
     DeviceType,
@@ -53,34 +54,9 @@ class RegisterDefinitionSerializer(serializers.ModelSerializer):
         return {"name": obj.field_name, "unit": obj.field_unit}
 
 
-class ModbusConfigSerializer(serializers.ModelSerializer):
-    register_definitions = RegisterDefinitionSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = ModbusConfig
-        fields = ["function", "byte_order", "word_order", "register_definitions"]
-
-
-class LoRaWANConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LoRaWANConfig
-        fields = ["device_class", "downlink_f_port", "codec_format", "payload_codec", "field_map"]
-
-
-class WMBusConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WMBusConfig
-        fields = [
-            "manufacturer_code",
-            "wmbus_version",
-            "wmbus_device_type",
-            "data_record_mapping",
-            "encryption_required",
-            "shared_encryption_key",
-            "wmbusmeters_driver",
-            "field_map",
-            "is_mvt_default",
-        ]
+# NOTE: per-technology config is serialized by DeviceTechnologyConfigSerializer
+# (hand-built to_representation below), not by dedicated ModelSerializers — those
+# were unused dead code that duplicated the field lists and drifted from reality.
 
 
 class ControlConfigSerializer(serializers.ModelSerializer):
@@ -96,7 +72,16 @@ class ProcessorConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProcessorConfig
-        fields = ["decoder_type", "extra_config", "field_mappings"]
+        # ``extra_mappings`` was long published only via the versioned content
+        # endpoint (DeviceHistory snapshots); expose it here too so the legacy
+        # sync shape matches the snapshot shape.
+        fields = ["decoder_type", "field_mappings", "extra_mappings"]
+
+
+class AlarmConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AlarmConfig
+        fields = ["mappings"]
 
 
 class DeviceTechnologyConfigSerializer(serializers.Serializer):
@@ -127,6 +112,16 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 lorawan = device.lorawan_config
                 if lorawan.device_class:
                     data["device_class"] = lorawan.device_class
+                if lorawan.lorawan_version:
+                    data["lorawan_version"] = lorawan.lorawan_version
+                if lorawan.lorawan_phy_version:
+                    data["lorawan_phy_version"] = lorawan.lorawan_phy_version
+                if lorawan.frequency_plan_id:
+                    data["frequency_plan_id"] = lorawan.frequency_plan_id
+                if lorawan.join_eui_default:
+                    data["join_eui_default"] = lorawan.join_eui_default
+                if not lorawan.supports_join:
+                    data["supports_join"] = lorawan.supports_join
                 if lorawan.downlink_f_port is not None:
                     data["downlink_f_port"] = lorawan.downlink_f_port
                 if lorawan.payload_codec:
@@ -134,8 +129,6 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                         "format": lorawan.codec_format or "ttn_v3",
                         "script": lorawan.payload_codec,
                     }
-                if lorawan.field_map:
-                    data["field_map"] = lorawan.field_map
             except LoRaWANConfig.DoesNotExist:
                 pass
 
@@ -146,14 +139,11 @@ class DeviceTechnologyConfigSerializer(serializers.Serializer):
                 if wmbus.wmbus_version:
                     data["wmbus_version"] = wmbus.wmbus_version
                 data["wmbus_device_type"] = wmbus.wmbus_device_type
-                data["data_record_mapping"] = wmbus.data_record_mapping
                 data["encryption_required"] = wmbus.encryption_required
                 if wmbus.shared_encryption_key:
                     data["shared_encryption_key"] = wmbus.shared_encryption_key
                 if wmbus.wmbusmeters_driver:
                     data["wmbusmeters_driver"] = wmbus.wmbusmeters_driver
-                if wmbus.field_map:
-                    data["field_map"] = wmbus.field_map
                 if wmbus.is_mvt_default:
                     data["is_mvt_default"] = wmbus.is_mvt_default
             except WMBusConfig.DoesNotExist:
@@ -216,6 +206,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
     technology_config = DeviceTechnologyConfigSerializer(source="*", read_only=True)
     control_config = serializers.SerializerMethodField()
     processor_config = serializers.SerializerMethodField()
+    alarm_config = serializers.SerializerMethodField()
     effective_field_mappings = serializers.ListField(read_only=True)
     declared_metrics = serializers.ListField(read_only=True)
 
@@ -230,10 +221,10 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "device_type",
             "device_type_key",
             "description",
-            "offline_window_seconds",
             "technology_config",
             "control_config",
             "processor_config",
+            "alarm_config",
             "effective_field_mappings",
             "declared_metrics",
         ]
@@ -248,6 +239,12 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
         try:
             return ProcessorConfigSerializer(obj.processor_config).data
         except ProcessorConfig.DoesNotExist:
+            return {}
+
+    def get_alarm_config(self, obj):
+        try:
+            return AlarmConfigSerializer(obj.alarm_config).data
+        except AlarmConfig.DoesNotExist:
             return {}
 
 
@@ -327,7 +324,6 @@ class VendorModelAdminSerializer(serializers.ModelSerializer):
             "device_type_fk",
             "technology",
             "description",
-            "offline_window_seconds",
             "created",
             "modified",
         ]

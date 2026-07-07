@@ -41,18 +41,6 @@ class TestVendorModelDeviceTypeFK:
         with pytest.raises(ProtectedError):
             water_meter_type.delete()
 
-    def test_offline_window_starts_null(self, water_meter_type):
-        vendor = Vendor.objects.create(name="Delta", slug="delta")
-        vm = VendorModel.objects.create(
-            vendor=vendor,
-            model_number="W-2",
-            name="Delta W-2",
-            device_type="water_meter",
-            device_type_fk=water_meter_type,
-            technology=VendorModel.Technology.WMBUS,
-        )
-        assert vm.offline_window_seconds is None
-
 
 class TestMetricCatalogue:
     """L1 — Global Metric catalogue: namespaced keys, canonical unit/label."""

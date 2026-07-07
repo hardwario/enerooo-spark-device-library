@@ -1,0 +1,22 @@
+[
+  {"vendor": "Axioma", "model_number": "Qalcosonic W1WWW", "driver": "qualcosonic"},
+  {"vendor": "Bmeters", "model_number": "GSD8 + IWM-TX5", "driver": "iwmtx5"},
+  {"vendor": "Bmeters", "model_number": "GSD8 + RFM TX1.1", "driver": "rfmtx1"},
+  {"vendor": "Bmeters", "model_number": "HYDROCAL M4", "driver": "hydrocalm3"},
+  {"vendor": "Bmeters", "model_number": "HYDROCLIMA", "driver": "hydroclima"},
+  {"vendor": "Bmeters", "model_number": "RFM-AMB", "driver": "rfmamb"},
+  {"vendor": "Bmeters", "model_number": "T50", "driver": "hydrocalm3"},
+  {"vendor": "Kaden", "model_number": "C10", "driver": "kaden"},
+  {"vendor": "Kaden", "model_number": "D10", "driver": "kaden"},
+  {"vendor": "Kaden", "model_number": "T30", "driver": "kaden"},
+  {"vendor": "Kamstrup", "model_number": "MULTICAL 21 Cold", "driver": "kamwater"},
+  {"vendor": "Kamstrup", "model_number": "MULTICAL 21 Warm", "driver": "kamwater"},
+  {"vendor": "Kamstrup", "model_number": "MULTICAL 303", "driver": "kamheat"},
+  {"vendor": "Kamstrup", "model_number": "MULTICAL FlowIQ 200 Cold", "driver": "kamwater"},
+  {"vendor": "Kamstrup", "model_number": "MULTICAL FlowIQ 200 Warm", "driver": "kamwater"},
+  {"vendor": "Landis+Gyr", "model_number": "T330", "driver": "sensostar"},
+  {"vendor": "Zenner", "model_number": "APZ V2 30°", "driver": "minomess"},
+  {"vendor": "Zenner", "model_number": "APZ V2 90°", "driver": "minomess"},
+  {"vendor": "Zenner", "model_number": "Caltos E", "driver": "c5isf"},
+  {"vendor": "Zenner", "model_number": "Zelsius C5", "driver": "c5isf"}
+]

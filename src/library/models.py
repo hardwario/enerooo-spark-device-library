@@ -285,17 +285,6 @@ class VendorModel(TimeStampedModel):
     technology = models.CharField(max_length=20, choices=Technology.choices)
     description = models.TextField(blank=True, default="")
 
-    # Per-meter knob — overrides any DeviceType-level guidance. Null = caller
-    # picks its own fallback (Spark currently uses ``Vendor.online_threshold_minutes``).
-    offline_window_seconds = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text=(
-            "Per-model expected reporting interval in seconds. Null means "
-            "clients should fall back to their own default."
-        ),
-    )
-
     class Meta:
         ordering = ["vendor__name", "model_number"]
         unique_together = [("vendor", "model_number")]
@@ -483,6 +472,30 @@ class LoRaWANConfig(TimeStampedModel):
         TTN_V2 = "ttn_v2", "TTN v2 Legacy (Decoder / Encoder)"
         CHIRPSTACK = "chirpstack", "ChirpStack v4"
 
+    # TTN registration profile (Network Server step). Stored in TTN wire format
+    # so a portal / registrar can pass them through verbatim. See the LoRaWAN
+    # registration report in enerooo-spark (context/Report.md §2–§4).
+    class LoRaWANVersion(models.TextChoices):
+        V1_0_2 = "MAC_V1_0_2", "LoRaWAN 1.0.2"
+        V1_0_3 = "MAC_V1_0_3", "LoRaWAN 1.0.3"
+        V1_0_4 = "MAC_V1_0_4", "LoRaWAN 1.0.4"
+        V1_1 = "MAC_V1_1", "LoRaWAN 1.1"
+
+    class PHYVersion(models.TextChoices):
+        V1_0_2_REV_A = "PHY_V1_0_2_REV_A", "PHY 1.0.2 Rev A"
+        V1_0_2_REV_B = "PHY_V1_0_2_REV_B", "PHY 1.0.2 Rev B"
+        V1_0_3_REV_A = "PHY_V1_0_3_REV_A", "PHY 1.0.3 Rev A"
+        V1_0_4_REV_A = "PHY_V1_0_4_REV_A", "PHY 1.0.4 Rev A"
+        V1_1_REV_A = "PHY_V1_1_REV_A", "PHY 1.1 Rev A"
+        V1_1_REV_B = "PHY_V1_1_REV_B", "PHY 1.1 Rev B"
+
+    class FrequencyPlan(models.TextChoices):
+        EU_863_870_TTN = "EU_863_870_TTN", "Europe 863-870 MHz (TTN)"
+        EU_863_870 = "EU_863_870", "Europe 863-870 MHz"
+        US_902_928_FSB_2 = "US_902_928_FSB_2", "US 902-928 MHz FSB 2"
+        AU_915_928_FSB_2 = "AU_915_928_FSB_2", "Australia 915-928 MHz FSB 2"
+        AS_923_TTN = "AS_923_TTN", "Asia 923 MHz (TTN)"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="lorawan_config")
     device_class = models.CharField(max_length=1, choices=DeviceClass.choices, blank=True, default="")
@@ -498,7 +511,39 @@ class LoRaWANConfig(TimeStampedModel):
         default="",
         help_text="JavaScript source implementing decodeUplink/encodeDownlink (TTN v3/ChirpStack) or Decoder/Encoder (TTN v2).",
     )
-    field_map = models.JSONField(default=dict, blank=True)
+
+    # --- TTN registration profile (blank = registrar falls back to its default) ---
+    lorawan_version = models.CharField(
+        max_length=16,
+        choices=LoRaWANVersion.choices,
+        blank=True,
+        default="",
+        help_text="MAC version for the TTN Network Server step.",
+    )
+    lorawan_phy_version = models.CharField(
+        max_length=20,
+        choices=PHYVersion.choices,
+        blank=True,
+        default="",
+        help_text="Regional PHY version, paired with the MAC version.",
+    )
+    frequency_plan_id = models.CharField(
+        max_length=24,
+        choices=FrequencyPlan.choices,
+        blank=True,
+        default="",
+        help_text="Regional frequency plan for TTN registration.",
+    )
+    join_eui_default = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        help_text="Default JoinEUI/AppEUI (16 hex uppercase), per vendor. Operator may override per unit.",
+    )
+    supports_join = models.BooleanField(
+        default=True,
+        help_text="OTAA activation. False (ABP) is out of scope for the current registration flow.",
+    )
 
     def __str__(self):
         return f"LoRaWANConfig for {self.device_type}"
@@ -544,12 +589,10 @@ class WMBusConfig(TimeStampedModel):
     manufacturer_code = models.CharField(max_length=10, blank=True, default="")
     wmbus_version = models.CharField(max_length=4, blank=True, default="", help_text="Hex byte from telegram header, e.g. 1b")
     wmbus_device_type = models.IntegerField(null=True, blank=True)
-    data_record_mapping = models.JSONField(default=list, blank=True)
     encryption_required = models.BooleanField(default=False)
     shared_encryption_key = models.CharField(max_length=32, blank=True, default="")
 
     wmbusmeters_driver = models.CharField(max_length=100, blank=True, default="auto")
-    field_map = models.JSONField(default=dict, blank=True)
     is_mvt_default = models.BooleanField(default=False)
 
     @property
@@ -744,15 +787,9 @@ class ProcessorConfig(TimeStampedModel):
         WMBUS_FIELD_MAP = "wmbus_field_map", "wM-Bus Field Map"
         LORAWAN_FIELD_MAP = "lorawan_field_map", "LoRaWAN Field Map"
         JS_CODEC = "js_codec", "JS Codec (QuickJS)"
-        CONFIGURABLE = "configurable", "Configurable"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="processor_config")
-    extra_config = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Extra config (e.g. measurement_type) passed to Spark processor",
-    )
     field_mappings = models.JSONField(
         default=list,
         blank=True,
@@ -783,7 +820,6 @@ class ProcessorConfig(TimeStampedModel):
             "fallback. Targets are NOT auto-created in L1 for this list."
         ),
     )
-
     @property
     def decoder_type(self) -> str:
         """Decode strategy (L3) — derived from technology, never stored.
@@ -854,6 +890,59 @@ class ProcessorConfig(TimeStampedModel):
 
     def __str__(self):
         return f"ProcessorConfig for {self.device_type}"
+
+
+class AlarmConfig(TimeStampedModel):
+    """L4-alarm — Per-VendorModel error/alarm status interpretation.
+
+    Sibling of ProcessorConfig, but a distinct concern. Where
+    ``ProcessorConfig.field_mappings`` route decoded *measurements* onto L1
+    metric keys, ``AlarmConfig.mappings`` route decoded *status flags* onto
+    alert severities. The downstream consumer is the alerting system, not the
+    timeseries/metrics pipeline — so it lives on its own config object,
+    editable and versioned independently (the same reason ControlConfig owns
+    the command direction rather than being a field on ProcessorConfig).
+
+    No L1 anchor by design: the flag vocabulary is device-specific
+    (wmbusmeters status flags, JS-codec output enums), so each entry carries
+    its own severity + description instead of pointing at a shared catalogue
+    row.
+
+    Schema of a single mapping entry::
+
+        {
+          "source":      <str>,   # decoded field to inspect (default "status")
+          "match":       <str>,   # flag token / value that activates the alarm
+          "severity":    "info" | "warning" | "critical",
+          "description": <str>,   # human-readable, optional
+        }
+    """
+
+    SEVERITIES = ("info", "warning", "critical")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device_type = models.OneToOneField(
+        VendorModel, on_delete=models.CASCADE, related_name="alarm_config",
+    )
+    mappings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of {source?, match, severity, description?} entries mapping "
+            "device-reported status flags to alert severities. ``source`` is "
+            "the decoded field to inspect (default ``status`` — the "
+            "wmbusmeters convention); ``match`` is the flag token / value that "
+            "activates the alarm (matched as a token within space/comma-"
+            "separated multi-flag strings, or by equality); ``severity`` is "
+            "one of info | warning | critical. Consumers raise/auto-resolve "
+            "alerts from these at ingest time; flags not listed here fall back "
+            "to the consumer's built-in driver registry, then to a generic "
+            "warning."
+        ),
+    )
+
+    def __str__(self):
+        return f"AlarmConfig for {self.device_type}"
 
 
 class DeviceHistory(TimeStampedModel):
