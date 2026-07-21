@@ -360,8 +360,18 @@ class GatewayBootstrapViewSet(viewsets.ViewSet):
         })
 
 
-class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+class GatewayAssignmentViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
     """POST /api/v1/assignments/ — upsert a gateway assignment.
+    GET /api/v1/assignments/<serial>/ — fetch one gateway's assignment
+    (Spark instances check this during box self-registration).
+    GET /api/v1/assignments/?spark_url=... — list assignments for one
+    instance (Spark's library sync reconciles its EdgeReceivers from this).
     DELETE /api/v1/assignments/<serial>/ — unassign a gateway.
     """
 
@@ -369,6 +379,13 @@ class GatewayAssignmentViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin
     serializer_class = GatewayAssignmentSerializer
     lookup_field = "serial_number"
     queryset = GatewayAssignment.objects.all()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        spark_url = self.request.query_params.get("spark_url")
+        if spark_url:
+            qs = qs.filter(spark_url__in=[spark_url, spark_url.rstrip("/")])
+        return qs
 
     def create(self, request, *args, **kwargs):
         serial = request.data.get("serial_number")
