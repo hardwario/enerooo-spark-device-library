@@ -58,6 +58,11 @@ def snapshot_device(device):
             "downlink_f_port": lc.downlink_f_port,
             "codec_format": lc.codec_format,
             "payload_codec": lc.payload_codec,
+            "lorawan_version": lc.lorawan_version,
+            "lorawan_phy_version": lc.lorawan_phy_version,
+            "frequency_plan_id": lc.frequency_plan_id,
+            "join_eui_default": lc.join_eui_default,
+            "supports_join": lc.supports_join,
         }
     except Exception:
         pass
