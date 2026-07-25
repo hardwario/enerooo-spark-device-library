@@ -301,6 +301,18 @@ def snapshot_to_schema(snapshot: dict) -> dict:
             tech_config["device_class"] = lc["device_class"]
         if lc.get("downlink_f_port") is not None:
             tech_config["downlink_f_port"] = lc["downlink_f_port"]
+        # TTN registration profile — same emit-if-set convention as the live
+        # DeviceTechnologyConfigSerializer (supports_join only when False).
+        for field in (
+            "lorawan_version",
+            "lorawan_phy_version",
+            "frequency_plan_id",
+            "join_eui_default",
+        ):
+            if lc.get(field):
+                tech_config[field] = lc[field]
+        if lc.get("supports_join") is False:
+            tech_config["supports_join"] = False
         if lc.get("payload_codec"):
             tech_config["payload_codec"] = {
                 "format": lc.get("codec_format", "ttn_v3"),
