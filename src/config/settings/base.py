@@ -88,6 +88,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # MIDDLEWARE
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
+    # First so it wraps every response. Compresses only for clients that send
+    # Accept-Encoding: gzip — edge boxes fetch /api/v1/library/content/
+    # (~570 kB JSON) over cellular links where the uncompressed payload can't
+    # finish inside their client timeout. Spark's sync uses urllib (no
+    # Accept-Encoding), so it keeps receiving identity responses.
+    "django.middleware.gzip.GZipMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

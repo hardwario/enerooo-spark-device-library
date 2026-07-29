@@ -189,3 +189,74 @@ class TestLibraryContentEndpoint:
         assert response.data["schema_version"] == 4
         assert "device_types" in response.data
         assert any(dt["code"] == "water_meter" for dt in response.data["device_types"])
+
+    @pytest.fixture
+    def published_mixed_tech_version(self, db, water_meter_type):
+        """A published LibraryVersion carrying one modbus and one wM-Bus
+        model, built through the real history/manifest flow."""
+        from django.test import Client
+        from django.urls import reverse
+
+        from library.history import record_history
+        from library.models import DeviceHistory, LibraryVersion
+
+        vendor = Vendor.objects.create(name="Mixed Tech", slug="mixed-tech")
+        for model_number, tech in (
+            ("MB-1", VendorModel.Technology.MODBUS),
+            ("WM-1", VendorModel.Technology.WMBUS),
+        ):
+            vm = VendorModel.objects.create(
+                vendor=vendor,
+                model_number=model_number,
+                name=model_number,
+                device_type="water_meter",
+                device_type_fk=water_meter_type,
+                technology=tech,
+            )
+            record_history(vm, DeviceHistory.Action.CREATED, user=None)
+
+        admin = User.objects.create_user(
+            username="publisher", password="x",
+            is_staff=True, is_superuser=True, role="admin",
+        )
+        client = Client()
+        client.force_login(admin)
+        response = client.post(reverse("library:version-create"))
+        assert response.status_code in (200, 302)
+        return LibraryVersion.objects.get(is_current=True)
+
+    def _models_by_tech(self, data):
+        return {
+            m["technology_config"]["technology"]
+            for v in data["vendors"]
+            for m in v["models"]
+        }
+
+    def test_no_technology_param_returns_all_models(self, rf, published_mixed_tech_version):
+        from library.api.viewsets import LibraryContentViewSet
+
+        lv = published_mixed_tech_version
+        view = LibraryContentViewSet()
+        view.request = rf.get(f"/api/v1/library/content/{lv.version}/")
+        response = view.retrieve(view.request, pk=str(lv.version))
+
+        assert response.status_code == 200
+        assert self._models_by_tech(response.data) == {"modbus", "wmbus"}
+
+    def test_technology_param_filters_models(self, rf, published_mixed_tech_version):
+        """?technology=modbus keeps the response shape but drops other-tech
+        models — edge boxes on cellular links fetch only what they consume."""
+        from library.api.viewsets import LibraryContentViewSet
+
+        lv = published_mixed_tech_version
+        view = LibraryContentViewSet()
+        view.request = rf.get(
+            f"/api/v1/library/content/{lv.version}/", {"technology": "modbus"}
+        )
+        response = view.retrieve(view.request, pk=str(lv.version))
+
+        assert response.status_code == 200
+        assert self._models_by_tech(response.data) == {"modbus"}
+        # Shape unchanged: the sections other consumers read stay present.
+        assert "metrics" in response.data
+        assert "device_types" in response.data
