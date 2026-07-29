@@ -190,6 +190,16 @@ class LibraryContentViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Optional ?technology=modbus[,wmbus,...] filter so constrained
+        # clients (edge boxes on cellular links) download only the models
+        # they consume instead of the full library. No param = full content.
+        # Response shape is identical either way.
+        technologies = {
+            t.strip()
+            for t in request.GET.get("technology", "").split(",")
+            if t.strip()
+        }
+
         entries = lib_version.device_changes.exclude(
             change_type=LibraryVersionDevice.ChangeType.REMOVED,
         )
@@ -214,6 +224,8 @@ class LibraryContentViewSet(viewsets.ViewSet):
         for entry in entries:
             snap = history_lookup.get(entry.device_type_id)
             if not snap:
+                continue
+            if technologies and snap.get("technology") not in technologies:
                 continue
             vendor_name = snap.get("vendor", "Unknown")
             vendor_key = snap.get("vendor_key", "")
