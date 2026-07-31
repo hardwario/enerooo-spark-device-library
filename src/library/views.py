@@ -429,7 +429,45 @@ class DeviceTypeUpdateView(RoleRequiredMixin, UpdateView):
             previous_snapshot=self._old_snapshot,
         )
         log_action(self.request, "updated", self.object)
+        self._propagate_code_rename()
         return response
+
+    def _propagate_code_rename(self):
+        """A code rename must reach every VendorModel mirroring it.
+
+        ``VendorModel.device_type`` only re-syncs from the FK on save, and
+        the publish flow only picks up models with a new history version —
+        so without this, a renamed type keeps exporting models under the
+        old code and consumers (Spark) can no longer join them to the L2
+        profile (seen with solar_inventor -> solar_inverter).
+        """
+        old_code = (self._old_snapshot or {}).get("code")
+        new_code = self.object.code
+        if not old_code or old_code == new_code:
+            return
+        affected = VendorModel.objects.filter(
+            Q(device_type_fk=self.object) | Q(device_type=old_code),
+        ).select_related("vendor")
+        renamed = 0
+        for vm in affected:
+            old_vm_snapshot = snapshot_device(vm)
+            if not vm.device_type_fk_id:
+                vm.device_type_fk = self.object
+            vm.save()  # guard mirrors device_type_fk.code onto device_type
+            record_history(
+                vm,
+                DeviceHistory.Action.UPDATED,
+                self.request.user,
+                previous_snapshot=old_vm_snapshot,
+            )
+            renamed += 1
+        if renamed:
+            messages.info(
+                self.request,
+                f"Device type code renamed ({old_code} → {new_code}); "
+                f"{renamed} vendor model(s) updated to match. "
+                "Publish a new library version to ship the change.",
+            )
 
     def get_success_url(self):
         return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
@@ -509,7 +547,9 @@ class VendorModelListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["vendors"] = Vendor.objects.all()
-        ctx["device_type_choices"] = VendorModel.DeviceCategory.choices
+        ctx["device_type_choices"] = list(
+            DeviceType.objects.values_list("code", "label"),
+        )
         ctx["total_count"] = VendorModel.objects.count()
         ctx["filtered_count"] = self.get_queryset().count()
         return ctx
