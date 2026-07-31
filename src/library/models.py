@@ -205,9 +205,9 @@ class DeviceType(TimeStampedModel):
     - ``secondary``    — hidden by default, user can toggle on
     - ``diagnostic``   — admin-only, hidden from end users
 
-    Identity is the ``code`` slug (matches the historical ``DeviceCategory``
-    enum values used on ``VendorModel.device_type``); ``key`` is the UUID
-    used by sync clients (Spark) to refer to this row across instances.
+    Identity is the ``code`` slug (mirrored onto ``VendorModel.device_type``
+    for schema_v2 clients); ``key`` is the UUID used by sync clients (Spark)
+    to refer to this row across instances.
     """
 
     class Tier(models.TextChoices):
@@ -247,17 +247,6 @@ class DeviceType(TimeStampedModel):
 class VendorModel(TimeStampedModel):
     """A vendor model definition."""
 
-    class DeviceCategory(models.TextChoices):
-        POWER_METER = "power_meter", "Power Meter"
-        GATEWAY = "gateway", "Gateway"
-        ENVIRONMENT_SENSOR = "environment_sensor", "Environment Sensor"
-        WATER_METER = "water_meter", "Water Meter"
-        HEAT_METER = "heat_meter", "Heat Meter"
-        HEAT_COST_ALLOCATOR = "heat_cost_allocator", "Heat Cost Allocator"
-        GAS_METER = "gas_meter", "Gas Meter"
-        THERMOSTAT_HEAD = "thermostat_head", "Thermostat Head"
-        SMART_PLUG = "smart_plug", "Smart Plug"
-
     class Technology(models.TextChoices):
         MODBUS = "modbus", "Modbus"
         LORAWAN = "lorawan", "LoRaWAN"
@@ -270,11 +259,12 @@ class VendorModel(TimeStampedModel):
     )
     model_number = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
-    # ``device_type`` (CharField enum) is kept for backward compat with sync
-    # clients that read schema_v2 payloads. ``device_type_fk`` is the new
-    # canonical pointer carrying the per-type metadata; new clients should
-    # prefer it. The two stay in sync via a model.save() guard below.
-    device_type = models.CharField(max_length=30, choices=DeviceCategory.choices)
+    # ``device_type`` (plain CharField) is kept for backward compat with sync
+    # clients that read schema_v2 payloads. It is DERIVED — always mirrors
+    # ``device_type_fk.code`` via the model.save() guard below and is never
+    # edited directly (no choices: a hardcoded enum here is how new catalogue
+    # types silently fell out of sync with the code list).
+    device_type = models.CharField(max_length=30, blank=True, default="")
     device_type_fk = models.ForeignKey(
         DeviceType,
         on_delete=models.PROTECT,
