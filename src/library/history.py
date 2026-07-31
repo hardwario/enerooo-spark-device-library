@@ -24,6 +24,13 @@ def snapshot_device(device):
         "model_number": device.model_number,
         "name": device.name,
         "device_type": device.device_type,
+        # Stable pointer into the L2 catalogue — survives code renames, so
+        # consumers can join by UUID instead of the mutable code slug.
+        "device_type_key": (
+            str(device.device_type_fk.key)
+            if device.device_type_fk_id and device.device_type_fk.key
+            else None
+        ),
         "technology": device.technology,
         "description": device.description,
     }

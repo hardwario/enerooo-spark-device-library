@@ -201,11 +201,15 @@ class VendorModelForm(forms.ModelForm):
             "vendor",
             "model_number",
             "name",
-            "device_type",
             "device_type_fk",
             "technology",
             "description",
         ]
+        labels = {
+            # The legacy ``device_type`` charfield is derived from this FK on
+            # save, so the FK is the only "device type" the operator edits.
+            "device_type_fk": "Device type",
+        }
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
         }

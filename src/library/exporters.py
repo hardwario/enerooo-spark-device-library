@@ -341,6 +341,8 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         "description": snapshot.get("description", ""),
         "technology_config": tech_config,
     }
+    if snapshot.get("device_type_key"):
+        device["device_type_key"] = snapshot["device_type_key"]
 
     ctrl = snapshot.get("control_config", {})
     if ctrl and (ctrl.get("controllable") or ctrl.get("controls")):
