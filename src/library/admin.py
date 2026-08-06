@@ -267,8 +267,8 @@ class LibraryVersionAdmin(admin.ModelAdmin):
 
 @admin.register(GatewayAssignment)
 class GatewayAssignmentAdmin(admin.ModelAdmin):
-    list_display = ["serial_number", "spark_url", "assigned_at", "assigned_by"]
-    search_fields = ["serial_number", "spark_url", "assigned_by"]
+    list_display = ["serial_number", "name", "spark_url", "assigned_at", "assigned_by"]
+    search_fields = ["serial_number", "name", "spark_url", "assigned_by"]
 
 
 @admin.register(APIKey)

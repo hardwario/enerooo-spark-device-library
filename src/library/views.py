@@ -1771,6 +1771,7 @@ class GatewayAssignmentListView(LoginRequiredMixin, ListView):
     context_object_name = "assignments"
     ALLOWED_SORT_FIELDS = {
         "serial_number": "serial_number",
+        "name": "name",
         "is_registered": "is_registered",
         "is_assigned": "is_assigned",
         "spark_url": "spark_url",
@@ -1785,6 +1786,7 @@ class GatewayAssignmentListView(LoginRequiredMixin, ListView):
         if q:
             qs = qs.filter(
                 Q(serial_number__icontains=q)
+                | Q(name__icontains=q)
                 | Q(spark_url__icontains=q)
                 | Q(assigned_by__icontains=q)
             )
@@ -1806,7 +1808,7 @@ class GatewayAssignmentListView(LoginRequiredMixin, ListView):
 class GatewayAssignmentCreateView(RoleRequiredMixin, CreateView):
     required_role = User.Role.EDITOR
     model = GatewayAssignment
-    fields = ["serial_number", "spark_url"]
+    fields = ["serial_number", "name", "spark_url"]
     template_name = "library/gateway_form.html"
 
     def form_valid(self, form):
@@ -1823,7 +1825,7 @@ class GatewayAssignmentCreateView(RoleRequiredMixin, CreateView):
 class GatewayAssignmentUpdateView(RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = GatewayAssignment
-    fields = ["serial_number", "spark_url", "is_registered", "is_assigned"]
+    fields = ["serial_number", "name", "spark_url", "is_registered", "is_assigned"]
     template_name = "library/gateway_form.html"
 
     def form_valid(self, form):
