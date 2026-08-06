@@ -11,7 +11,9 @@ authors = [
 
 dependencies = [
     # Django
-    "django>=5.1",
+    # Cap below 6.1: Django 6.1 removed django.utils.cache.cc_delim_re, which the
+    # installed DRF still imports (crash-loops on startup). See prod incident 2026-08-06.
+    "django>=5.1,<6.1",
     "django-environ>=0.12",
     "django-model-utils>=5.0",
     # API
