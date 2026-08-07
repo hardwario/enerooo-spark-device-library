@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Alarms - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold">Alarms</h2>
+        <p class="text-sm text-gray-600 mt-1">
+            L1 canonical alarm catalogue. Each entry defines a global key, label, default severity and description.
+            VendorModel alarm mappings reference these by <code class="text-xs bg-gray-100 px-1 rounded">key</code>
+            and inherit severity + description unless overridden per device.
+        </p>
+    </div>
+    {% if user.is_admin_role %}
+    <a href="{% url 'library:alarm-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+        <i class="bi bi-plus-lg mr-1"></i>Add Alarm
+    </a>
+    {% endif %}
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="p-6">
+        <form method="get" class="flex items-end gap-4">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="key or label…">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Search</button>
+                <a href="{% url 'library:alarm-list' %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Clear</a>
+            </div>
+        </form>
+        {% if namespaces %}
+        <div class="mt-3 flex flex-wrap gap-2">
+            <span class="text-xs text-gray-500 py-1">Namespaces:</span>
+            {% for ns in namespaces %}
+                <a href="?q={{ ns }}:" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded font-mono">{{ ns }}:</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-3 px-2 font-semibold">Key</th>
+                    <th class="text-left py-3 px-2 font-semibold">Label</th>
+                    <th class="text-left py-3 px-2 font-semibold">Default Severity</th>
+                    <th class="text-left py-3 px-2 font-semibold">Description</th>
+                    <th class="text-right py-3 px-2 font-semibold">Models</th>
+                    {% if user.is_admin_role %}<th class="py-3 px-2"></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alarms %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-3 px-2"><code class="text-sm bg-gray-100 px-1 rounded font-mono">{{ a.key }}</code></td>
+                    <td class="py-3 px-2">{{ a.label }}</td>
+                    <td class="py-3 px-2">
+                        {% if a.default_severity == "critical" %}
+                            <span class="inline-block bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">critical</span>
+                        {% elif a.default_severity == "warning" %}
+                            <span class="inline-block bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-medium">warning</span>
+                        {% else %}
+                            <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">info</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-2 text-gray-600 max-w-md truncate" title="{{ a.description }}">{{ a.description|default:"—" }}</td>
+                    <td class="py-3 px-2 text-right">
+                        {% if a.model_count %}
+                            <span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">{{ a.model_count }}</span>
+                        {% else %}
+                            <span class="text-gray-300">0</span>
+                        {% endif %}
+                    </td>
+                    {% if user.is_admin_role %}
+                    <td class="py-3 px-2 flex gap-1 justify-end">
+                        <a href="{% url 'library:alarm-edit' a.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'library:alarm-delete' a.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="py-3 px-2 text-gray-500">No alarms in catalogue yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<p class="text-xs text-gray-500 mt-4">
+    {{ alarms|length }} alarms shown.
+    <span class="font-medium">Models</span> = number of VendorModels whose alarm config references this alarm.
+    {% if unused_count %}<strong class="text-amber-700">{{ unused_count }} unused</strong> (no references — cleanup candidates).{% endif %}
+</p>
+{% endblock %}

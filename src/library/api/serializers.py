@@ -79,9 +79,16 @@ class ProcessorConfigSerializer(serializers.ModelSerializer):
 
 
 class AlarmConfigSerializer(serializers.ModelSerializer):
+    # Publish resolved mappings — severity/description inherited from the
+    # L1 Alarm catalogue baked in, so consumers never need the catalogue.
+    mappings = serializers.SerializerMethodField()
+
     class Meta:
         model = AlarmConfig
-        fields = ["mappings"]
+        fields = ["match_type", "mappings"]
+
+    def get_mappings(self, obj):
+        return obj.resolved_mappings()
 
 
 class DeviceTechnologyConfigSerializer(serializers.Serializer):

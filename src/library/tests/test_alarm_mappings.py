@@ -10,7 +10,7 @@ import pytest
 from library.exporters import snapshot_to_schema
 from library.forms import AlarmConfigForm
 from library.history import snapshot_device
-from library.models import AlarmConfig, DeviceType, Vendor, VendorModel
+from library.models import Alarm, AlarmConfig, DeviceType, Vendor, VendorModel
 
 ALARM_MAPPINGS = [
     {
@@ -89,3 +89,64 @@ class TestFormValidation:
         form = self._form(wmbus_model, [{"match": "X", "severity": "fatal"}])
         assert not form.is_valid()
         assert "severity" in str(form.errors)
+
+    def test_severity_optional_with_alarm(self, wmbus_model):
+        form = self._form(wmbus_model, [{"match": "LEAKING", "alarm": "water:leak"}])
+        assert form.is_valid(), form.errors
+
+    def test_non_namespaced_alarm_key_allowed(self, wmbus_model):
+        form = self._form(wmbus_model, [{"match": "X", "alarm": "leak"}])
+        assert form.is_valid(), form.errors
+
+    def test_missing_match_type_defaults_to_flag(self, wmbus_model):
+        form = self._form(wmbus_model, ALARM_MAPPINGS)
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["match_type"] == "flag"
+
+
+class TestAlarmCatalogue:
+    def test_resolved_mappings_inherit_from_catalogue(self, wmbus_model):
+        Alarm.objects.create(
+            key="water:leak",
+            label="Water leak",
+            default_severity="critical",
+            description="Active leak detected",
+        )
+        ac = AlarmConfig.objects.create(
+            device_type=wmbus_model,
+            mappings=[
+                {"source": "status", "match": "LEAKING", "alarm": "water:leak"},
+                # explicit override wins over the catalogue default
+                {"source": "status", "match": "WAS_LEAKING", "alarm": "water:leak", "severity": "info"},
+                # no alarm, no severity → generic warning
+                {"source": "status", "match": "UNKNOWN_80"},
+            ],
+        )
+        resolved = ac.resolved_mappings()
+        assert resolved[0]["severity"] == "critical"
+        assert resolved[0]["description"] == "Active leak detected"
+        assert resolved[1]["severity"] == "info"
+        assert resolved[2]["severity"] == "warning"
+
+    def test_save_auto_creates_missing_alarms(self, wmbus_model):
+        AlarmConfig.objects.create(
+            device_type=wmbus_model,
+            mappings=[{"match": "BURSTING", "alarm": "water:burst", "severity": "critical"}],
+        )
+        alarm = Alarm.objects.get(key="water:burst")
+        assert alarm.default_severity == "critical"
+        assert alarm.label == "Burst"
+
+    def test_snapshot_publishes_resolved_mappings_and_match_type(self, wmbus_model):
+        Alarm.objects.create(key="water:leak", label="Water leak", default_severity="critical")
+        AlarmConfig.objects.create(
+            device_type=wmbus_model,
+            match_type="equals",
+            mappings=[{"source": "leakage_status", "match": "leak", "alarm": "water:leak"}],
+        )
+        snap = snapshot_device(wmbus_model)
+        schema = snapshot_to_schema(snap)
+        assert schema["alarm_config"]["match_type"] == "equals"
+        entry = schema["alarm_config"]["mappings"][0]
+        assert entry["severity"] == "critical"
+        assert entry["description"] == "Water leak"

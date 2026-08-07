@@ -20,6 +20,7 @@ from core.permissions import RoleRequiredMixin
 from .exporters import export_to_yaml, snapshot_to_schema
 from .forms import (
     AlarmConfigForm,
+    AlarmForm,
     APIKeyForm,
     ControlConfigForm,
     DeviceTypeForm,
@@ -44,6 +45,7 @@ from .history import (
 )
 from .importers import import_from_yaml
 from .models import (
+    Alarm,
     AlarmConfig,
     APIKey,
     ControlConfig,
@@ -365,6 +367,122 @@ class MetricDeleteView(RoleRequiredMixin, View):
         )
 
 
+# === Alarms (L1 catalogue) ===
+
+
+def _count_alarm_references(alarm_key: str) -> int:
+    """Number of AlarmConfig.mappings entries pointing at this alarm key."""
+    count = 0
+    for ac in AlarmConfig.objects.exclude(mappings=[]):
+        for entry in ac.mappings or []:
+            if isinstance(entry, dict) and entry.get("alarm") == alarm_key:
+                count += 1
+    return count
+
+
+class AlarmListView(LoginRequiredMixin, ListView):
+    """L1 alarm catalogue browser with per-alarm model usage counts."""
+
+    model = Alarm
+    template_name = "library/alarm_list.html"
+    context_object_name = "alarms"
+
+    def get_queryset(self):
+        qs = Alarm.objects.all()
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(Q(key__icontains=q) | Q(label__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["search_query"] = self.request.GET.get("q", "")
+
+        # Same single-pass JSON scan as MetricListView — no FK on alarm keys.
+        model_counts: dict[str, int] = {}
+        for ac in AlarmConfig.objects.exclude(mappings=[]):
+            seen = set()
+            for entry in ac.mappings or []:
+                key = entry.get("alarm") if isinstance(entry, dict) else None
+                if key and key not in seen:
+                    seen.add(key)
+                    model_counts[key] = model_counts.get(key, 0) + 1
+
+        alarms = list(ctx["alarms"])
+        for a in alarms:
+            a.model_count = model_counts.get(a.key, 0)
+        ctx["namespaces"] = sorted({a.namespace for a in alarms if a.namespace})
+        ctx["unused_count"] = sum(1 for a in alarms if not a.model_count)
+        return ctx
+
+
+class AlarmCreateView(RoleRequiredMixin, CreateView):
+    required_role = User.Role.ADMIN
+    model = Alarm
+    form_class = AlarmForm
+    template_name = "library/alarm_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "created", self.object)
+        messages.success(self.request, f"Alarm '{self.object.key}' created.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:alarm-list")
+
+
+class AlarmUpdateView(RoleRequiredMixin, UpdateView):
+    required_role = User.Role.ADMIN
+    model = Alarm
+    form_class = AlarmForm
+    template_name = "library/alarm_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "updated", self.object)
+        messages.success(self.request, f"Alarm '{self.object.key}' updated.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:alarm-list")
+
+
+class AlarmDeleteView(RoleRequiredMixin, View):
+    required_role = User.Role.ADMIN
+
+    def get(self, request, pk):
+        alarm = get_object_or_404(Alarm, pk=pk)
+        return self._render_confirm(request, alarm)
+
+    def post(self, request, pk):
+        alarm = get_object_or_404(Alarm, pk=pk)
+        references = _count_alarm_references(alarm.key)
+        if references and not request.POST.get("confirm_force"):
+            messages.error(
+                request,
+                f"Cannot delete '{alarm.key}' — {references} alarm mapping(s) reference it. "
+                "Remove those references first, or tick 'Force delete' on the confirmation form.",
+            )
+            return redirect("library:alarm-delete", pk=alarm.pk)
+        key = alarm.key
+        log_action(request, "deleted", alarm)
+        alarm.delete()
+        messages.success(request, f"Alarm '{key}' deleted.")
+        return redirect("library:alarm-list")
+
+    def _render_confirm(self, request, alarm):
+        from django.shortcuts import render
+        return render(
+            request,
+            "library/alarm_confirm_delete.html",
+            {
+                "alarm": alarm,
+                "reference_count": _count_alarm_references(alarm.key),
+            },
+        )
+
+
 # === Device Types ===
 
 
@@ -602,8 +720,12 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
 
         try:
             ctx["alarm_config"] = device.alarm_config
+            # Resolved = severity/description inherited from the L1 Alarm
+            # catalogue baked in; what the detail panel and consumers see.
+            ctx["alarm_mappings_resolved"] = device.alarm_config.resolved_mappings()
         except Exception:
             ctx["alarm_config"] = None
+            ctx["alarm_mappings_resolved"] = []
 
         # Registers
         if ctx["modbus_config"]:

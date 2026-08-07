@@ -22,6 +22,11 @@ urlpatterns = [
     path("metrics/<uuid:pk>/delete/", views.MetricDeleteView.as_view(), name="metric-delete"),
     path("metrics/<uuid:pk>/history/<int:version>/", views.MetricHistorySnapshotView.as_view(), name="metric-history-snapshot"),
     path("metrics/<uuid:pk>/history/diff/", views.MetricHistoryDiffView.as_view(), name="metric-history-diff"),
+    # Alarms (L1 catalogue)
+    path("alarms/", views.AlarmListView.as_view(), name="alarm-list"),
+    path("alarms/create/", views.AlarmCreateView.as_view(), name="alarm-create"),
+    path("alarms/<uuid:pk>/edit/", views.AlarmUpdateView.as_view(), name="alarm-edit"),
+    path("alarms/<uuid:pk>/delete/", views.AlarmDeleteView.as_view(), name="alarm-delete"),
     # Device Types
     path("device-types/", views.DeviceTypeListView.as_view(), name="devicetype-list"),
     path("device-types/create/", views.DeviceTypeCreateView.as_view(), name="devicetype-create"),

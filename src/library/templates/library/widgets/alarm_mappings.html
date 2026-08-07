@@ -18,9 +18,9 @@
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="text-left py-2 px-3 font-semibold w-40" title="Decoded field to inspect (default 'status')">Source</th>
-                    <th class="text-left py-2 px-3 font-semibold">Match (flag)</th>
-                    <th class="text-left py-2 px-3 font-semibold w-32">Severity</th>
-                    <th class="text-left py-2 px-3 font-semibold">Description</th>
+                    <th class="text-left py-2 px-3 font-semibold" title="Flag token / value / {&quot;mask&quot;: …} per the Match type above">Match</th>
+                    <th class="text-left py-2 px-3 font-semibold" title="L1 catalogue alarm this maps to — severity and description come from it">Alarm</th>
+                    <th class="text-left py-2 px-3 font-semibold w-36" title="Inherited from the catalogue alarm">Severity</th>
                     <th class="py-2 px-3 w-12"></th>
                 </tr>
             </thead>
@@ -54,12 +54,45 @@
 
     <details class="mt-2 text-xs text-gray-500">
         <summary class="cursor-pointer hover:text-gray-700 select-none">
-            <i class="bi bi-info-circle"></i> Help — status → severity mappings
+            <i class="bi bi-info-circle"></i> Help — status → alarm mappings
         </summary>
         <div class="mt-2 pl-4 border-l-2 border-gray-200 space-y-1 leading-relaxed">
-            <p><strong>Source</strong> is the decoded field to inspect — defaults to <code class="bg-gray-100 px-1 rounded">status</code> (the wmbusmeters convention). For LoRaWAN, use the JS-codec output field name.</p>
-            <p><strong>Match</strong> is the flag token / value that activates the alarm. It matches as a token within space/comma-separated multi-flag strings, or by equality.</p>
-            <p><strong>Severity</strong> drives the alert level on the consuming instance. Flags not listed here fall back to the instance's built-in driver registry, then to a generic warning.</p>
+            <p><strong>Source</strong> is the decoded field to inspect — defaults to <code class="bg-gray-100 px-1 rounded">status</code> (the wmbusmeters convention). For LoRaWAN, use the JS-codec output field name. New rows copy the previous row's source.</p>
+            <p><strong>Match</strong> is evaluated per the config's match type:</p>
+            <div class="border border-gray-200 rounded overflow-x-auto my-2">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 border-b text-left text-gray-500">
+                        <tr>
+                            <th class="py-1.5 px-2 font-medium">Type</th>
+                            <th class="py-1.5 px-2 font-medium">Device reports</th>
+                            <th class="py-1.5 px-2 font-medium">Match</th>
+                            <th class="py-1.5 px-2 font-medium">Alarm active when…</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b">
+                            <td class="py-1.5 px-2"><code class="bg-gray-100 px-1 rounded">flag</code></td>
+                            <td class="py-1.5 px-2 font-mono">status: "LEAKING BATTERY_EOL"</td>
+                            <td class="py-1.5 px-2 font-mono">LEAKING</td>
+                            <td class="py-1.5 px-2">token appears in the flag list — several alarms can fire from one field (wM-Bus / wmbusmeters)</td>
+                        </tr>
+                        <tr class="border-b">
+                            <td class="py-1.5 px-2"><code class="bg-gray-100 px-1 rounded">equals</code></td>
+                            <td class="py-1.5 px-2 font-mono">error_code: 3 · leakage_status: "leak"</td>
+                            <td class="py-1.5 px-2 font-mono">3 · "leak"</td>
+                            <td class="py-1.5 px-2">value equals match exactly — one value, one state (LoRaWAN error codes, enums, booleans)</td>
+                        </tr>
+                        <tr>
+                            <td class="py-1.5 px-2"><code class="bg-gray-100 px-1 rounded">mask</code></td>
+                            <td class="py-1.5 px-2 font-mono">status_byte: 56 <span class="text-gray-400">(0b00111000)</span></td>
+                            <td class="py-1.5 px-2 font-mono">{"mask": 48, "pattern": 48}</td>
+                            <td class="py-1.5 px-2"><code class="bg-gray-100 px-1 rounded">(value &amp; mask) == pattern</code>; pattern defaults to mask ("bits set"). Like flag, but over bits — several alarms per byte (LoRaWAN status bitmasks, e.g. Axioma bit patterns)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p><strong>Alarm</strong> points at the shared L1 catalogue (<a href="{% url 'library:alarm-list' %}" target="_blank" class="text-blue-600 hover:text-blue-800">/alarms/</a>) — severity and description are defined there, not per mapping. Need a new alarm? Add it in the catalogue (or type its key in the JSON view — unknown keys are auto-created on save). Legacy entries with inline <code class="bg-gray-100 px-1 rounded">severity</code>/<code class="bg-gray-100 px-1 rounded">description</code> and no alarm still work and are editable in the JSON view.</p>
+            <p>Flags not listed here fall back to the instance's built-in driver registry, then to a generic warning.</p>
         </div>
     </details>
 </div>
@@ -70,6 +103,8 @@
     const rowsContainer = editor.querySelector('[data-alarm-mappings-rows]');
     const addBtn = editor.querySelector('[data-alarm-mappings-add]');
     const SEVERITIES = ['info', 'warning', 'critical'];
+    const CATALOG = {{ widget.alarm_catalog_json|safe }};
+    const CATALOG_BY_KEY = Object.fromEntries(CATALOG.map(a => [a.key, a]));
 
     let initialEntries = [];
     try {
@@ -83,30 +118,67 @@
         return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
+    // Match cells hold plain flag tokens but also numbers, booleans and
+    // {"mask": …} objects — round-trip via JSON when the text parses.
+    function parseMatch(raw) {
+        try {
+            const v = JSON.parse(raw);
+            if (typeof v === 'number' || typeof v === 'boolean' || (v && typeof v === 'object')) return v;
+        } catch (e) { /* plain string flag */ }
+        return raw;
+    }
+
+    function matchToText(match) {
+        if (match === undefined || match === null) return '';
+        return typeof match === 'string' ? match : JSON.stringify(match);
+    }
+
     function syncToInput() {
         const rows = Array.from(rowsContainer.children);
         const data = rows.map(row => {
-            const match = row.querySelector('[data-match]').value.trim();
-            if (!match) return null;
-            const source = row.querySelector('[data-source]').value.trim() || 'status';
-            const severity = row.querySelector('[data-severity]').value;
-            const entry = {source, match, severity};
-            const description = row.querySelector('[data-description]').value.trim();
-            if (description) entry.description = description;
+            const matchRaw = row.querySelector('[data-match]').value.trim();
+            if (!matchRaw) return null;
+            const entry = {
+                source: row.querySelector('[data-source]').value.trim() || 'status',
+                match: parseMatch(matchRaw),
+            };
+            const alarm = row.querySelector('[data-alarm]').value.trim();
+            if (alarm) {
+                entry.alarm = alarm;
+            } else {
+                // Legacy row without a catalogue alarm — keep its inline
+                // severity/description (editable only in JSON view) so old
+                // data survives the table round-trip.
+                const extra = JSON.parse(row.dataset.extra || '{}');
+                if (extra.severity) entry.severity = extra.severity;
+                if (extra.description) entry.description = extra.description;
+            }
             return entry;
         }).filter(e => e);
         input.value = JSON.stringify(data, null, 2);
+    }
+
+    function severityBadge(entry, alarmKey) {
+        const a = CATALOG_BY_KEY[alarmKey];
+        if (a) return `${a.default_severity} <span class="text-gray-400">(catalog)</span>`;
+        if (!alarmKey && entry.severity) return `${escapeHtml(entry.severity)} <span class="text-gray-400">(legacy)</span>`;
+        return 'warning <span class="text-gray-400">(default)</span>';
     }
 
     function makeRow(entry) {
         entry = entry || {};
         const tr = document.createElement('tr');
         tr.className = 'border-b last:border-b-0';
+        tr.dataset.extra = JSON.stringify({severity: entry.severity, description: entry.description});
 
-        const severity = entry.severity || 'warning';
-        const severityOptions = SEVERITIES.map(s =>
-            `<option value="${s}"${s === severity ? ' selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
-        ).join('');
+        // Dropdown of catalogue alarms; an unknown key from JSON/import is
+        // kept as an extra option so switching views never drops it.
+        const alarmKey = entry.alarm || '';
+        const alarmKeys = CATALOG.map(a => a.key);
+        if (alarmKey && !CATALOG_BY_KEY[alarmKey]) alarmKeys.push(alarmKey);
+        const alarmOptions = ['<option value="">—</option>'].concat(alarmKeys.map(k =>
+            `<option value="${escapeHtml(k)}"${k === alarmKey ? ' selected' : ''}>${escapeHtml(k)}</option>`
+        )).join('');
 
         tr.innerHTML = `
             <td class="py-1.5 px-3 align-top">
@@ -115,18 +187,14 @@
                        class="!w-full !py-1 !text-sm font-mono">
             </td>
             <td class="py-1.5 px-3 align-top">
-                <input data-match type="text" value="${escapeHtml(entry.match || '')}"
-                       placeholder="SENSOR_T1_OUTSIDE_MEASURING_RANGE"
+                <input data-match type="text" value="${escapeHtml(matchToText(entry.match))}"
+                       placeholder="LEAKING"
                        class="!w-full !py-1 !text-sm font-mono">
             </td>
             <td class="py-1.5 px-3 align-top">
-                <select data-severity class="!w-full !py-1 !text-sm">${severityOptions}</select>
+                <select data-alarm class="!w-full !py-1 !text-sm font-mono">${alarmOptions}</select>
             </td>
-            <td class="py-1.5 px-3 align-top">
-                <input data-description type="text" value="${escapeHtml(entry.description || '')}"
-                       placeholder="Sensor T1 outside measuring range"
-                       class="!w-full !py-1 !text-sm">
-            </td>
+            <td class="py-1.5 px-3 align-top text-xs text-gray-600 whitespace-nowrap" data-severity-preview></td>
             <td class="py-1.5 px-3 text-right align-top">
                 <button type="button" data-remove class="text-red-600 hover:text-red-800 p-1" title="Remove">
                     <i class="bi bi-trash"></i>
@@ -134,7 +202,15 @@
             </td>
         `;
 
-        ['data-source', 'data-match', 'data-severity', 'data-description'].forEach(sel => {
+        const alarmSelect = tr.querySelector('[data-alarm]');
+        const severityPreview = tr.querySelector('[data-severity-preview]');
+        function refreshSeverityPreview() {
+            severityPreview.innerHTML = severityBadge(entry, alarmSelect.value.trim());
+        }
+        refreshSeverityPreview();
+        alarmSelect.addEventListener('change', refreshSeverityPreview);
+
+        ['data-source', 'data-match', 'data-alarm'].forEach(sel => {
             tr.querySelector(`[${sel}]`).addEventListener('input', syncToInput);
             tr.querySelector(`[${sel}]`).addEventListener('change', syncToInput);
         });
@@ -157,7 +233,11 @@
     rebuildRows(initialEntries);
 
     addBtn.addEventListener('click', () => {
-        rowsContainer.appendChild(makeRow());
+        // Sticky source: a device reports all its errors through the same
+        // field almost always — copy it from the last row.
+        const last = rowsContainer.lastElementChild;
+        const source = last ? last.querySelector('[data-source]').value : '';
+        rowsContainer.appendChild(makeRow({source}));
         syncToInput();
     });
 

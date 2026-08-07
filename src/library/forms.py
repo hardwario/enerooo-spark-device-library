@@ -5,6 +5,7 @@ import re
 from django import forms
 
 from .models import (
+    Alarm,
     AlarmConfig,
     APIKey,
     ControlConfig,
@@ -173,19 +174,36 @@ class MetricForm(forms.ModelForm):
         }
 
     def clean_key(self):
-        key = (self.cleaned_data.get("key") or "").strip()
-        if not key:
-            raise forms.ValidationError("Key is required.")
-        if ":" not in key:
-            raise forms.ValidationError("Key must be namespaced as '<namespace>:<name>' (e.g. heat:total_energy).")
-        namespace, _, name = key.partition(":")
-        if not namespace or not name:
-            raise forms.ValidationError("Both namespace and name parts must be non-empty.")
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", namespace):
-            raise forms.ValidationError("Namespace must be lowercase, start with a letter, and contain only letters, digits, underscores.")
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
-            raise forms.ValidationError("Name must be lowercase, start with a letter, and contain only letters, digits, underscores.")
-        return key
+        return _clean_namespaced_key(self.cleaned_data.get("key"), example="heat:total_energy")
+
+
+def _clean_namespaced_key(key: str | None, example: str) -> str:
+    key = (key or "").strip()
+    if not key:
+        raise forms.ValidationError("Key is required.")
+    if ":" not in key:
+        raise forms.ValidationError(f"Key must be namespaced as '<namespace>:<name>' (e.g. {example}).")
+    namespace, _, name = key.partition(":")
+    if not namespace or not name:
+        raise forms.ValidationError("Both namespace and name parts must be non-empty.")
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", namespace):
+        raise forms.ValidationError("Namespace must be lowercase, start with a letter, and contain only letters, digits, underscores.")
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+        raise forms.ValidationError("Name must be lowercase, start with a letter, and contain only letters, digits, underscores.")
+    return key
+
+
+class AlarmForm(forms.ModelForm):
+    class Meta:
+        model = Alarm
+        fields = ["key", "label", "default_severity", "description"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "key": forms.TextInput(attrs={"placeholder": "e.g. water:leak"}),
+        }
+        help_texts = {
+            "key": "Canonical key, free-form. A '<namespace>:<name>' convention (e.g. water:leak) is recommended but not enforced.",
+        }
 
 
 class VendorForm(forms.ModelForm):
@@ -347,9 +365,10 @@ class ProcessorConfigForm(forms.ModelForm):
 class AlarmMappingsWidget(forms.Textarea):
     """Tabular editor for ``AlarmConfig.mappings`` (Table / JSON toggle).
 
-    Mirrors ``ExtraMappingsWidget`` — one row per {source, match, severity,
-    description} entry with a severity dropdown, plus a raw JSON view. No
-    metric-catalogue autocomplete (alarm flags are device-specific, not L1).
+    Mirrors ``ExtraMappingsWidget`` — one row per {source, match, alarm,
+    severity, description} entry, plus a raw JSON view. The Alarm column
+    autocompletes from the L1 catalogue; severity/description left blank
+    inherit from the referenced catalogue row.
     """
 
     template_name = "library/widgets/alarm_mappings.html"
@@ -368,19 +387,36 @@ class AlarmMappingsWidget(forms.Textarea):
             parsed = value
         return json.dumps(parsed, indent=2, ensure_ascii=False)
 
+    def get_context(self, name, value, attrs):
+        import json
+
+        ctx = super().get_context(name, value, attrs)
+        catalog = list(Alarm.objects.values("key", "label", "default_severity"))
+        ctx["widget"]["alarm_catalog_json"] = json.dumps(catalog, ensure_ascii=False)
+        return ctx
+
 
 class AlarmConfigForm(forms.ModelForm):
-    """Editor for ``AlarmConfig.mappings`` — status flag → severity."""
+    """Editor for ``AlarmConfig`` — status flag/value → L1 alarm identity."""
 
     class Meta:
         model = AlarmConfig
-        fields = ["mappings"]
+        fields = ["match_type", "mappings"]
         widgets = {
             "mappings": AlarmMappingsWidget(),
         }
         help_texts = {
             "mappings": "",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Tolerate submissions without match_type (pre-existing clients/tests)
+        # — fall back to the model default instead of a required-field error.
+        self.fields["match_type"].required = False
+
+    def clean_match_type(self):
+        return self.cleaned_data.get("match_type") or "flag"
 
     def clean_mappings(self):
         val = self.cleaned_data.get("mappings")
@@ -393,8 +429,8 @@ class AlarmConfigForm(forms.ModelForm):
                 raise forms.ValidationError(f"Entry {i + 1}: must be an object.")
             if not entry.get("match"):
                 raise forms.ValidationError(f"Entry {i + 1}: ``match`` is required.")
-            severity = entry.get("severity", "warning")
-            if severity not in AlarmConfig.SEVERITIES:
+            severity = entry.get("severity")
+            if severity is not None and severity not in AlarmConfig.SEVERITIES:
                 raise forms.ValidationError(
                     f"Entry {i + 1}: severity must be one of "
                     f"{', '.join(AlarmConfig.SEVERITIES)} (got ``{severity}``).",
