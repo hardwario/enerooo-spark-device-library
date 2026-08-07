@@ -98,6 +98,11 @@
                         </a>
                     </li>
                     <li>
+                        <a class="nav-link {% if 'alarm' in request.resolver_match.url_name and 'config' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:alarm-list' %}">
+                            <i data-lucide="bell-ring" class="w-4 h-4 mr-2 shrink-0"></i>Alarms
+                        </a>
+                    </li>
+                    <li>
                         <a class="nav-link {% if 'devicetype' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:devicetype-list' %}">
                             <i data-lucide="shapes" class="w-4 h-4 mr-2 shrink-0"></i>Device Types
                         </a>

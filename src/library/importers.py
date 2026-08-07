@@ -386,12 +386,16 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             },
         )
 
-    # Import alarm config (status flag → severity), its own config object.
+    # Import alarm config (status flag/value → alarm), its own config object.
+    # AlarmConfig.save() auto-creates missing L1 Alarm catalogue rows.
     alarm_data = data.get("alarm_config", {})
     if alarm_data and alarm_data.get("mappings"):
         AlarmConfig.objects.update_or_create(
             device_type=device,
-            defaults={"mappings": alarm_data.get("mappings") or []},
+            defaults={
+                "match_type": alarm_data.get("match_type") or "flag",
+                "mappings": alarm_data.get("mappings") or [],
+            },
         )
 
     # Record device history

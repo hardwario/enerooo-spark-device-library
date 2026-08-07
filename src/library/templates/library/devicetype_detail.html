@@ -301,10 +301,13 @@
             </div>
             <div class="p-6">
                 <div class="flex items-center justify-between mb-2">
-                    <h6 class="text-sm font-medium text-gray-600">Status → Severity Mappings</h6>
+                    <h6 class="text-sm font-medium text-gray-600">
+                        Status → Alarm Mappings
+                        <span class="ml-2 inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs font-mono" title="How match values are evaluated: flag = token in flag list, equals = value equality, mask = (value & mask) == pattern">{{ alarm_config.match_type }}</span>
+                    </h6>
                     <button type="button"
                             data-copy-json
-                            data-json='{{ alarm_config.mappings|raw_json }}'
+                            data-json='{{ alarm_mappings_resolved|raw_json }}'
                             class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
                         <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
                     </button>
@@ -314,16 +317,24 @@
                         <thead class="bg-gray-50 border-b text-left text-gray-500">
                             <tr>
                                 <th class="py-1.5 px-2 font-medium">Source</th>
-                                <th class="py-1.5 px-2 font-medium">Match (flag)</th>
+                                <th class="py-1.5 px-2 font-medium">Match</th>
+                                <th class="py-1.5 px-2 font-medium">Alarm</th>
                                 <th class="py-1.5 px-2 font-medium">Severity</th>
                                 <th class="py-1.5 px-2 font-medium">Description</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for entry in alarm_config.mappings %}
+                            {% for entry in alarm_mappings_resolved %}
                             <tr class="border-b last:border-b-0">
                                 <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"status" }}</td>
                                 <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.match|default:"—" }}</td>
+                                <td class="py-1.5 px-2">
+                                    {% if entry.alarm %}
+                                        <code class="bg-gray-100 px-1 rounded font-mono">{{ entry.alarm }}</code>
+                                    {% else %}
+                                        <span class="text-gray-300">—</span>
+                                    {% endif %}
+                                </td>
                                 <td class="py-1.5 px-2">
                                     {% if entry.severity == "critical" %}
                                         <span class="inline-block bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">critical</span>
