@@ -110,9 +110,15 @@ def snapshot_device(device):
     except Exception:
         pass
 
-    # Alarm config
+    # Alarm config — snapshot *resolved* mappings (severity/description
+    # inherited from the L1 Alarm catalogue baked in), so frozen versions
+    # published to Spark instances are self-contained.
     try:
-        data["alarm_config"] = {"mappings": device.alarm_config.mappings}
+        ac = device.alarm_config
+        data["alarm_config"] = {
+            "match_type": ac.match_type,
+            "mappings": ac.resolved_mappings(),
+        }
     except Exception:
         pass
 

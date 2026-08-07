@@ -260,11 +260,15 @@ def _export_processor_config(device: VendorModel) -> dict:
 
 
 def _export_alarm_config(device: VendorModel) -> dict:
-    """Export alarm config (status flag → severity mappings)."""
+    """Export alarm config (status flag/value → alarm mappings).
+
+    Mappings are published *resolved* — severity/description inherited from
+    the L1 Alarm catalogue are baked into each entry, so consumers never
+    need the catalogue itself."""
     try:
         alarm = device.alarm_config
         if alarm.mappings:
-            return {"mappings": alarm.mappings}
+            return {"match_type": alarm.match_type, "mappings": alarm.resolved_mappings()}
     except VendorModel.alarm_config.RelatedObjectDoesNotExist:
         pass
     return {}

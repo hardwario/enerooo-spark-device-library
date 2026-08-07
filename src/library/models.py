@@ -882,54 +882,152 @@ class ProcessorConfig(TimeStampedModel):
         return f"ProcessorConfig for {self.device_type}"
 
 
-class AlarmConfig(TimeStampedModel):
-    """L4-alarm — Per-VendorModel error/alarm status interpretation.
+class Alarm(TimeStampedModel):
+    """L1 — Global catalogue of canonical alarm identities.
 
-    Sibling of ProcessorConfig, but a distinct concern. Where
-    ``ProcessorConfig.field_mappings`` route decoded *measurements* onto L1
-    metric keys, ``AlarmConfig.mappings`` route decoded *status flags* onto
-    alert severities. The downstream consumer is the alerting system, not the
-    timeseries/metrics pipeline — so it lives on its own config object,
-    editable and versioned independently (the same reason ControlConfig owns
-    the command direction rather than being a field on ProcessorConfig).
-
-    No L1 anchor by design: the flag vocabulary is device-specific
-    (wmbusmeters status flags, JS-codec output enums), so each entry carries
-    its own severity + description instead of pointing at a shared catalogue
-    row.
-
-    Schema of a single mapping entry::
-
-        {
-          "source":      <str>,   # decoded field to inspect (default "status")
-          "match":       <str>,   # flag token / value that activates the alarm
-          "severity":    "info" | "warning" | "critical",
-          "description": <str>,   # human-readable, optional
-        }
+    The alarm analogue of :class:`Metric`: ``AlarmConfig.mappings`` entries
+    point at one of these via ``alarm=key`` and inherit its severity +
+    description, so 'water:leak' means the same thing (and alerts at the
+    same level) whether the reporting device is a Zenner wM-Bus meter or a
+    Dragino LoRaWAN sensor. Key convention matches Metric:
+    ``<namespace>:<name>``, e.g. ``water:leak``, ``device:battery_low``.
     """
 
     SEVERITIES = ("info", "warning", "critical")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    key = models.CharField(
+        max_length=128,
+        unique=True,
+        help_text="Canonical key, e.g. 'water:leak'. '<namespace>:<name>' convention recommended, not enforced.",
+    )
+    label = models.CharField(max_length=128)
+    default_severity = models.CharField(
+        max_length=10,
+        choices=[(s, s.capitalize()) for s in SEVERITIES],
+        default="warning",
+        help_text="Severity a mapping inherits unless it sets its own override.",
+    )
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.key
+
+    @property
+    def namespace(self) -> str:
+        return self.key.split(":", 1)[0] if ":" in self.key else ""
+
+
+class AlarmConfig(TimeStampedModel):
+    """L4-alarm — Per-VendorModel error/alarm status interpretation.
+
+    Sibling of ProcessorConfig, but a distinct concern. Where
+    ``ProcessorConfig.field_mappings`` route decoded *measurements* onto L1
+    metric keys, ``AlarmConfig.mappings`` route decoded *status flags/values*
+    onto L1 :class:`Alarm` identities (which carry severity + description).
+    The downstream consumer is the alerting system, not the
+    timeseries/metrics pipeline — so it lives on its own config object,
+    editable and versioned independently (the same reason ControlConfig owns
+    the command direction rather than being a field on ProcessorConfig).
+
+    ``match_type`` is config-level, not per-entry: real devices report all
+    their errors one way (wM-Bus = flag list, LoRa codec = enum or bitmask).
+    # ponytail: config-level match_type; if a device ever mixes types, add an
+    # optional per-entry ``match_type`` override key — no migration needed.
+
+    Schema of a single mapping entry::
+
+        {
+          "source":      <str>,   # decoded field to inspect (default "status")
+          "match":       <str|int|dict>,  # what activates the alarm, per match_type
+          "alarm":       <str>,   # L1 Alarm key, e.g. "water:leak" (optional)
+          "severity":    "info" | "warning" | "critical",  # override, optional with alarm
+          "description": <str>,   # override, optional
+        }
+
+    ``match`` semantics per ``match_type``:
+
+    - ``flag``:   token within a space/comma-separated flag string
+      (wmbusmeters ``status``), or equality.
+    - ``equals``: decoded value equals ``match`` (number, string, boolean) —
+      LoRaWAN error-code enums, string statuses, booleans.
+    - ``mask``:   ``{"mask": <int>, "pattern": <int>?}`` — alarm active when
+      ``(value & mask) == pattern`` (pattern defaults to mask, i.e. "bits
+      set"). Covers plain bitmasks and Axioma-style bit patterns.
+    """
+
+    SEVERITIES = Alarm.SEVERITIES
+    MATCH_TYPES = ("flag", "equals", "mask")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device_type = models.OneToOneField(
         VendorModel, on_delete=models.CASCADE, related_name="alarm_config",
+    )
+    match_type = models.CharField(
+        max_length=10,
+        choices=[(t, t.capitalize()) for t in MATCH_TYPES],
+        default="flag",
+        help_text=(
+            "How ``match`` values are evaluated against the source field: "
+            "``flag`` = token in a flag-list string (wmbusmeters status); "
+            "``equals`` = value equality (LoRaWAN error codes, enums, booleans); "
+            "``mask`` = bitmask test ``(value & mask) == pattern``."
+        ),
     )
     mappings = models.JSONField(
         default=list,
         blank=True,
         help_text=(
-            "List of {source?, match, severity, description?} entries mapping "
-            "device-reported status flags to alert severities. ``source`` is "
-            "the decoded field to inspect (default ``status`` — the "
-            "wmbusmeters convention); ``match`` is the flag token / value that "
-            "activates the alarm (matched as a token within space/comma-"
-            "separated multi-flag strings, or by equality); ``severity`` is "
-            "one of info | warning | critical. Consumers raise/auto-resolve "
-            "alerts from these at ingest time; flags not listed here fall back "
-            "to the consumer's built-in driver registry, then to a generic "
-            "warning."
+            "List of {source?, match, alarm?, severity?, description?} entries "
+            "mapping device-reported status flags/values to L1 Alarm "
+            "identities. ``source`` is the decoded field to inspect (default "
+            "``status`` — the wmbusmeters convention); ``match`` activates the "
+            "alarm per the config's ``match_type``; ``alarm`` points at the "
+            "shared catalogue (severity/description inherited from it unless "
+            "overridden here). Consumers raise/auto-resolve alerts from these "
+            "at ingest time; flags not listed here fall back to the consumer's "
+            "built-in driver registry, then to a generic warning."
         ),
     )
+
+    def resolved_mappings(self) -> list[dict]:
+        """Mappings with severity/description filled in from the L1 Alarm
+        catalogue. This is what exports/snapshots/API publish, so consumers
+        (Spark) stay self-contained and never need the catalogue itself."""
+        keys = {e.get("alarm") for e in self.mappings if isinstance(e, dict) and e.get("alarm")}
+        catalog = {a.key: a for a in Alarm.objects.filter(key__in=keys)} if keys else {}
+        resolved = []
+        for entry in self.mappings:
+            entry = dict(entry)
+            alarm = catalog.get(entry.get("alarm"))
+            if alarm:
+                entry.setdefault("severity", alarm.default_severity)
+                if not entry.get("description"):
+                    entry["description"] = alarm.description or alarm.label
+            entry.setdefault("severity", "warning")
+            resolved.append(entry)
+        return resolved
+
+    def save(self, *args, **kwargs):
+        """Auto-create missing L1 Alarm rows referenced by ``mappings`` —
+        same tolerant policy as ProcessorConfig's metric auto-create: the
+        operator dials in label/severity later."""
+        for entry in (self.mappings or []):
+            key = entry.get("alarm") if isinstance(entry, dict) else None
+            if not key:
+                continue
+            Alarm.objects.get_or_create(
+                key=key,
+                defaults={
+                    "label": key.split(":", 1)[-1].replace("_", " ").capitalize(),
+                    "default_severity": entry.get("severity") or "warning",
+                    "description": entry.get("description") or "",
+                },
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"AlarmConfig for {self.device_type}"
