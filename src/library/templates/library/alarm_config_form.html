@@ -12,6 +12,15 @@
 </nav>
 
 <h2 class="text-2xl font-bold mb-2">Edit Alarm Configuration</h2>
+
+{% if codec_unmapped_alarm_fields %}
+<div class="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4 text-sm text-amber-900">
+    <i class="bi bi-exclamation-triangle-fill mr-1"></i>
+    <strong>Codec emits alarm fields with no alarm mapping:</strong>
+    {% for f in codec_unmapped_alarm_fields %}<code class="bg-amber-100 px-1 rounded">{{ f }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+    — Spark instances will raise only generic "unmapped" info alerts for these.
+</div>
+{% endif %}
 <p class="text-sm text-gray-600 mb-6">
     Map device-reported status flags/values to shared catalogue alarms. Each entry:
     <code class="bg-gray-100 px-1 rounded text-xs">{"source": "status", "match": "FLAG", "alarm": "water:leak"}</code>

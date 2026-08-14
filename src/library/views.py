@@ -994,6 +994,19 @@ class AlarmConfigUpdateView(RoleRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["device"] = self._device
+        # Codec lint, right where mappings are edited: alarm-ish codec output
+        # fields not yet declared as a mapping source.
+        ctx["codec_unmapped_alarm_fields"] = []
+        if self._device.technology == "lorawan":
+            from library.codec_lint import unmapped_alarm_fields
+
+            try:
+                script = self._device.lorawan_config.payload_codec
+            except Exception:
+                script = ""
+            ctx["codec_unmapped_alarm_fields"] = unmapped_alarm_fields(
+                script, self.object.mappings or [],
+            )
         return ctx
 
     def form_valid(self, form):
