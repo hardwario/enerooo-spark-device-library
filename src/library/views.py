@@ -727,6 +727,17 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
             ctx["alarm_config"] = None
             ctx["alarm_mappings_resolved"] = []
 
+        # Codec lint: alarm-ish fields the codec emits but no alarm mapping
+        # covers — Spark would surface these only as generic unmapped alerts.
+        ctx["codec_unmapped_alarm_fields"] = []
+        if device.technology == "lorawan" and ctx["lorawan_config"]:
+            from library.codec_lint import unmapped_alarm_fields
+
+            mappings = ctx["alarm_config"].mappings or [] if ctx["alarm_config"] else []
+            ctx["codec_unmapped_alarm_fields"] = unmapped_alarm_fields(
+                ctx["lorawan_config"].payload_codec, mappings,
+            )
+
         # Registers
         if ctx["modbus_config"]:
             ctx["registers"] = ctx["modbus_config"].register_definitions.all()
