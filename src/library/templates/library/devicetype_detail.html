@@ -288,6 +288,16 @@
         {% endif %}
         {% endwith %}
 
+        <!-- Codec lint: alarm-ish codec fields with no alarm mapping -->
+        {% if codec_unmapped_alarm_fields %}
+        <div class="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4 text-sm text-amber-900">
+            <i class="bi bi-exclamation-triangle-fill mr-1"></i>
+            <strong>Codec emits alarm fields with no alarm mapping:</strong>
+            {% for f in codec_unmapped_alarm_fields %}<code class="bg-amber-100 px-1 rounded">{{ f }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+            — Spark instances will raise only generic "unmapped" info alerts for these.
+        </div>
+        {% endif %}
+
         <!-- Alarm Config -->
         {% if alarm_config.mappings %}
         <div class="bg-white rounded-lg shadow mb-4">

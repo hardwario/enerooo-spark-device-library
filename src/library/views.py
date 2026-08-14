@@ -727,6 +727,17 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
             ctx["alarm_config"] = None
             ctx["alarm_mappings_resolved"] = []
 
+        # Codec lint: alarm-ish fields the codec emits but no alarm mapping
+        # covers — Spark would surface these only as generic unmapped alerts.
+        ctx["codec_unmapped_alarm_fields"] = []
+        if device.technology == "lorawan" and ctx["lorawan_config"]:
+            from library.codec_lint import unmapped_alarm_fields
+
+            mappings = ctx["alarm_config"].mappings or [] if ctx["alarm_config"] else []
+            ctx["codec_unmapped_alarm_fields"] = unmapped_alarm_fields(
+                ctx["lorawan_config"].payload_codec, mappings,
+            )
+
         # Registers
         if ctx["modbus_config"]:
             ctx["registers"] = ctx["modbus_config"].register_definitions.all()
@@ -983,6 +994,19 @@ class AlarmConfigUpdateView(RoleRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["device"] = self._device
+        # Codec lint, right where mappings are edited: alarm-ish codec output
+        # fields not yet declared as a mapping source.
+        ctx["codec_unmapped_alarm_fields"] = []
+        if self._device.technology == "lorawan":
+            from library.codec_lint import unmapped_alarm_fields
+
+            try:
+                script = self._device.lorawan_config.payload_codec
+            except Exception:
+                script = ""
+            ctx["codec_unmapped_alarm_fields"] = unmapped_alarm_fields(
+                script, self.object.mappings or [],
+            )
         return ctx
 
     def form_valid(self, form):
