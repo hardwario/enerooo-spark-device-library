@@ -114,6 +114,7 @@ urlpatterns = [
     path("api-keys/<uuid:pk>/", views.APIKeyDetailView.as_view(), name="apikey-detail"),
     path("api-keys/<uuid:pk>/revoke/", views.APIKeyRevokeView.as_view(), name="apikey-revoke"),
     path("api-keys/<uuid:pk>/enable/", views.APIKeyEnableView.as_view(), name="apikey-enable"),
+    path("api-keys/<uuid:pk>/toggle-write/", views.APIKeyToggleWriteView.as_view(), name="apikey-toggle-write"),
     path("api-keys/<uuid:pk>/regenerate/", views.APIKeyRegenerateView.as_view(), name="apikey-regenerate"),
     path("api-keys/<uuid:pk>/delete/", views.APIKeyDeleteView.as_view(), name="apikey-delete"),
     # Gateway Assignments

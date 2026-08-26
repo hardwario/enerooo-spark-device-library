@@ -21,6 +21,7 @@ class HasAPIKey(permissions.BasePermission):
             key_obj = APIKey.objects.get(key=api_key, is_active=True)
             key_obj.last_used_at = timezone.now()
             key_obj.save(update_fields=["last_used_at"])
+            request.api_key = key_obj  # views read per-key rights from here
             return True
         except APIKey.DoesNotExist:
             return False

@@ -15,9 +15,8 @@ two static entries:
     DEFAULT_LIBRARY_INSTANCE  Defaults to ``local`` when LOCAL_LIBRARY_URL is
                             set, else ``production``.
 
-Whether writes work is decided server-side per deployment by the library's
-``AGENT_API_ALLOW_WRITES`` setting — the MCP server carries no write flag of
-its own, so there is exactly one switch to reason about.
+Whether writes work is a property of the API key ("Agent writes" on the
+library's API keys page) — the MCP server carries no write flag of its own.
 """
 
 from __future__ import annotations

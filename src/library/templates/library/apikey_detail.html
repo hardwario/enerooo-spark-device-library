@@ -60,6 +60,17 @@
                 <dd class="mt-1">{{ apikey.created_by|default:"—" }}</dd>
             </div>
             <div>
+                <dt class="text-sm font-medium text-gray-500">Agent writes</dt>
+                <dd class="mt-1">
+                    {% if apikey.can_write %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Allowed</span>
+                        <span class="text-sm text-gray-500 ml-2">can create draft edits via /api/v1/agent/</span>
+                    {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Read-only</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
                 <dt class="font-medium text-gray-600">Created</dt>
                 <dd class="mt-1">{{ apikey.created|date:"Y-m-d H:i" }}</dd>
             </div>
@@ -92,6 +103,26 @@
             data-confirm-button="Enable"
             class="border border-green-400 text-green-700 px-4 py-2 rounded text-sm font-medium hover:bg-green-50">
             <i data-lucide="shield-check" class="w-4 h-4 inline mr-1"></i>Enable
+        </button>
+        {% endif %}
+
+        {% if apikey.can_write %}
+        <button
+            data-confirm-action="Withdraw agent writes?"
+            data-confirm-text="The key keeps read access; draft edits through the agent API will be refused."
+            data-action-url="{% url 'library:apikey-toggle-write' apikey.pk %}"
+            data-confirm-button="Withdraw"
+            class="border border-gray-400 text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50">
+            <i data-lucide="pencil-off" class="w-4 h-4 inline mr-1"></i>Withdraw agent writes
+        </button>
+        {% else %}
+        <button
+            data-confirm-action="Allow agent writes?"
+            data-confirm-text="The key may create draft edits (models, configs, catalogues). Nothing reaches Spark instances until a human publishes."
+            data-action-url="{% url 'library:apikey-toggle-write' apikey.pk %}"
+            data-confirm-button="Allow"
+            class="border border-blue-400 text-blue-700 px-4 py-2 rounded text-sm font-medium hover:bg-blue-50">
+            <i data-lucide="pencil" class="w-4 h-4 inline mr-1"></i>Allow agent writes
         </button>
         {% endif %}
 
