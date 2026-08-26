@@ -893,7 +893,12 @@ class Alarm(TimeStampedModel):
     ``<namespace>:<name>``, e.g. ``water:leak``, ``device:battery_low``.
     """
 
-    SEVERITIES = ("info", "warning", "critical")
+    # ``ignore`` is the terminal state for a status bit that is a permanent
+    # operating mode, not a fault (Caltos E MODE_2F, Kamstrup RESERVED_BIT_*):
+    # consumers drop the flag entirely instead of raising an alert or falling
+    # back to the "unmapped flag" info alert. Decision rule: actionable fault →
+    # warning/critical; state worth seeing → info; permanent state → ignore.
+    SEVERITIES = ("info", "warning", "critical", "ignore")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     key = models.CharField(
@@ -944,7 +949,7 @@ class AlarmConfig(TimeStampedModel):
           "source":      <str>,   # decoded field to inspect (default "status")
           "match":       <str|int|dict>,  # what activates the alarm, per match_type
           "alarm":       <str>,   # L1 Alarm key, e.g. "water:leak" (optional)
-          "severity":    "info" | "warning" | "critical",  # override, optional with alarm
+          "severity":    "info" | "warning" | "critical" | "ignore",  # override, optional with alarm
           "description": <str>,   # override, optional
         }
 
