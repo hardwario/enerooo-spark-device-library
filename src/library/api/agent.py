@@ -14,9 +14,8 @@ gate), API key management, YAML import/export, user administration.
 
 Safety model:
 - Auth: X-API-Key (``HasAPIKey``), same keys the sync API uses.
-- Writes are additionally gated by the ``AGENT_API_ALLOW_WRITES`` setting
-  (env, default off) — a read-only deployment stays read-only even if a key
-  leaks.
+- Writes require the key's ``can_write`` flag, granted per key on the API
+  keys page (no server access needed). A leaked read-only key cannot edit.
 - Attribution: agent writes record history under a dedicated ``mcp-agent``
   service user, so they are distinguishable from human edits in the history
   UI and trivially revertable.
@@ -28,7 +27,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.forms.models import model_to_dict
@@ -107,10 +105,12 @@ def _agent_user():
     return user
 
 
-def _writes_disabled() -> Response | None:
-    if not settings.AGENT_API_ALLOW_WRITES:
+def _writes_disabled(request) -> Response | None:
+    key = getattr(request, "api_key", None)
+    if key is None or not key.can_write:
         return Response(
-            {"error": "Agent writes are disabled (AGENT_API_ALLOW_WRITES)."},
+            {"error": "This API key has no agent write permission. "
+                      "Grant 'Agent writes' on the API keys page."},
             status=status.HTTP_403_FORBIDDEN,
         )
     return None
@@ -192,7 +192,7 @@ class AgentModelViewSet(viewsets.ViewSet):
         })
 
     def create(self, request):
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         form = VendorModelForm(data=request.data)
         if not form.is_valid():
@@ -205,7 +205,7 @@ class AgentModelViewSet(viewsets.ViewSet):
     def update(self, request, key=None):
         """Edit the model's own fields (name, model_number, vendor,
         device_type_fk, technology, description). Merge semantics."""
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         model = get_object_or_404(VendorModel, key=key)
         previous = snapshot_device(model)
@@ -217,7 +217,7 @@ class AgentModelViewSet(viewsets.ViewSet):
         return Response({"key": str(model.key), "note": DRAFT_NOTE})
 
     def destroy(self, request, key=None):
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         model = get_object_or_404(VendorModel, key=key)
         record_history(model, DeviceHistory.Action.DELETED, _agent_user())
@@ -247,7 +247,7 @@ class AgentModelViewSet(viewsets.ViewSet):
     def config(self, request, key=None, section=None):
         """Edit one config section (processor/alarm/modbus/wmbus/lorawan/
         control) through the same form the UI uses. Merge semantics."""
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         if section not in CONFIG_SECTIONS:
             return Response(
@@ -280,7 +280,7 @@ class AgentModelViewSet(viewsets.ViewSet):
     def registers(self, request, key=None, register_id=None):
         """Modbus register CRUD. POST creates, PUT edits (merge), DELETE
         removes. Each change records a device history entry, like the UI."""
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         model = get_object_or_404(VendorModel, key=key)
         modbus = getattr(model, "modbus_config", None)
@@ -364,7 +364,7 @@ class AgentCatalogViewSet(viewsets.ViewSet):
             record_device_type_history(obj, getattr(DeviceTypeHistory.Action, action_name), user, previous)
 
     def create(self, request, kind=None):
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         entry, err = self._resolve(kind)
         if err:
@@ -378,7 +378,7 @@ class AgentCatalogViewSet(viewsets.ViewSet):
         return Response({"id": str(obj.pk), "note": DRAFT_NOTE}, status=status.HTTP_201_CREATED)
 
     def update(self, request, kind=None, pk=None):
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         entry, err = self._resolve(kind)
         if err:
@@ -404,7 +404,7 @@ class AgentCatalogViewSet(viewsets.ViewSet):
         return Response(payload)
 
     def destroy(self, request, kind=None, pk=None):
-        if resp := _writes_disabled():
+        if resp := _writes_disabled(request):
             return resp
         entry, err = self._resolve(kind)
         if err:
@@ -451,6 +451,6 @@ class AgentStatusViewSet(viewsets.ViewSet):
                 "released_at": current.released_at.isoformat(),
                 "published_by": current.published_by.username if current and current.published_by else None,
             } if current else None,
-            "writes_enabled": settings.AGENT_API_ALLOW_WRITES,
+            "writes_enabled": bool(getattr(request, "api_key", None) and request.api_key.can_write),
             "unpublished": asdict(summary),
         })

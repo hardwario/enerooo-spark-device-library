@@ -72,10 +72,6 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
 AUTH_USER_MODEL = "core.User"
-
-# Agent API writes (library MCP server). Off by default: a read-only
-# deployment stays read-only even if an API key leaks.
-AGENT_API_ALLOW_WRITES = env.bool("AGENT_API_ALLOW_WRITES", default=False)
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "library:dashboard"
 LOGOUT_REDIRECT_URL = "login"

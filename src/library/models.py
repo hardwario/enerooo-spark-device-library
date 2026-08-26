@@ -1316,6 +1316,17 @@ class APIKey(TimeStampedModel):
     name = models.CharField(max_length=255)
     key = models.CharField(max_length=255, unique=True, default=generate_api_key, db_index=True)
     is_active = models.BooleanField(default=True)
+    # Agent API writes (MCP). Per key rather than a deployment-wide switch, so
+    # it is granted, audited and revoked from the API keys page — no server
+    # access needed — and one leaked read-only key cannot edit anything.
+    can_write = models.BooleanField(
+        default=False,
+        verbose_name="Agent writes",
+        help_text=(
+            "Allow this key to create draft edits through the agent API "
+            "(/api/v1/agent/). Drafts still need a human to publish."
+        ),
+    )
     last_used_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

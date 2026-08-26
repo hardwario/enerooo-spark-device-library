@@ -14,9 +14,8 @@ services:
 
   # Library MCP server for AI-assisted library work (Claude Code).
   # Port bound to 127.0.0.1 on purpose: FastMCP does not authenticate the HTTP
-  # transport itself. Writes additionally require AGENT_API_ALLOW_WRITES=True
-  # on the web service and a valid API key (create one in the admin UI, put it
-  # in src/.env.dev as LIBRARY_API_KEY).
+  # transport itself. Writes need an API key with "Agent writes" granted on the
+  # API keys page (put it in src/.env.dev as LIBRARY_API_KEY).
   mcp:
     build: ./mcp-server
     env_file:

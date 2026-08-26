@@ -441,7 +441,7 @@ class AlarmConfigForm(forms.ModelForm):
 class APIKeyForm(forms.ModelForm):
     class Meta:
         model = APIKey
-        fields = ["name"]
+        fields = ["name", "can_write"]
 
 
 class YAMLImportForm(forms.Form):
