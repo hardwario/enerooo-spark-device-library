@@ -1,0 +1,7 @@
+# Pinned below the next major on purpose. The Dockerfile pip-installs without a
+# lock file, so an open upper bound means a rebuild can silently cross a major.
+# FastMCP 4 is the sessionless MCP 2026-07-28 rewrite — a deliberate upgrade, not
+# something to inherit from a rebuild. Verified: server.py imports and
+# transport="streamable-http" is still valid on 3.4.7.
+fastmcp>=3.4.7,<4
+httpx>=0.27.0,<1
