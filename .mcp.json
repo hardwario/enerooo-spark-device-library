@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "device-library": {
+      "command": "uv",
+      "args": [
+        "run", "--with", "fastmcp>=3.4.7,<4", "--with", "httpx",
+        "python", "mcp-server/server.py"
+      ],
+      "env": {
+        "LOCAL_LIBRARY_URL": "http://127.0.0.1:8005",
+        "PROD_LIBRARY_URL": "https://library.ops.enerooo.cloud",
+        "DEFAULT_LIBRARY_INSTANCE": "production",
+        "LIBRARY_API_KEY": "${LIBRARY_API_KEY:-}"
+      }
+    }
+  }
+}

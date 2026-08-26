@@ -12,6 +12,26 @@ services:
         condition: service_healthy
     command: python manage.py runserver 0.0.0.0:8000
 
+  # Library MCP server for AI-assisted library work (Claude Code).
+  # Port bound to 127.0.0.1 on purpose: FastMCP does not authenticate the HTTP
+  # transport itself. Writes additionally require AGENT_API_ALLOW_WRITES=True
+  # on the web service and a valid API key (create one in the admin UI, put it
+  # in src/.env.dev as LIBRARY_API_KEY).
+  mcp:
+    build: ./mcp-server
+    env_file:
+      - src/.env.dev
+    environment:
+      - MCP_TRANSPORT=http
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=9000
+      - LOCAL_LIBRARY_URL=http://web:8000
+    ports:
+      - "127.0.0.1:8098:9000"
+    depends_on:
+      - web
+    restart: unless-stopped
+
   db:
     image: postgres:16
     ports:
