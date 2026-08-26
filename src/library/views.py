@@ -1803,6 +1803,21 @@ class APIKeyRevokeView(RoleRequiredMixin, View):
         return redirect("library:apikey-detail", pk=apikey.pk)
 
 
+class APIKeyToggleWriteView(RoleRequiredMixin, View):
+    """Grant or withdraw agent (MCP) draft-write permission for one key."""
+
+    required_role = User.Role.ADMIN
+
+    def post(self, request, pk):
+        apikey = get_object_or_404(APIKey, pk=pk)
+        apikey.can_write = not apikey.can_write
+        apikey.save(update_fields=["can_write"])
+        state = "granted" if apikey.can_write else "withdrawn"
+        log_action(request, f"agent writes {state}", apikey)
+        messages.success(request, f"Agent writes {state} for API key '{apikey.name}'.")
+        return redirect("library:apikey-detail", pk=apikey.pk)
+
+
 class APIKeyEnableView(RoleRequiredMixin, View):
     required_role = User.Role.ADMIN
 

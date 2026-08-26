@@ -46,6 +46,9 @@
                         {% else %}
                             <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Revoked</span>
                         {% endif %}
+                        {% if apikey.can_write %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-1" title="May create draft edits via the agent API">Agent writes</span>
+                        {% endif %}
                     </td>
                     <td class="py-3 px-2">{{ apikey.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</td>
                     <td class="py-3 px-2">{{ apikey.created_by|default:"—" }}</td>
