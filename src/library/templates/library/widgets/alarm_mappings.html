@@ -102,7 +102,7 @@
     const input = editor.querySelector('[data-alarm-mappings-input]');
     const rowsContainer = editor.querySelector('[data-alarm-mappings-rows]');
     const addBtn = editor.querySelector('[data-alarm-mappings-add]');
-    const SEVERITIES = ['info', 'warning', 'critical'];
+    const SEVERITIES = ['info', 'warning', 'critical', 'ignore'];
     const CATALOG = {{ widget.alarm_catalog_json|safe }};
     const CATALOG_BY_KEY = Object.fromEntries(CATALOG.map(a => [a.key, a]));
 
