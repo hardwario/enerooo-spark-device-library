@@ -90,6 +90,12 @@ class TestFormValidation:
         assert not form.is_valid()
         assert "severity" in str(form.errors)
 
+    def test_ignore_severity_accepted(self, wmbus_model):
+        # Permanent operating-mode bits are mapped to ``ignore`` so consumers
+        # drop them instead of raising info alerts forever.
+        form = self._form(wmbus_model, [{"match": "MODE_2F", "severity": "ignore"}])
+        assert form.is_valid(), form.errors
+
     def test_severity_optional_with_alarm(self, wmbus_model):
         form = self._form(wmbus_model, [{"match": "LEAKING", "alarm": "water:leak"}])
         assert form.is_valid(), form.errors
