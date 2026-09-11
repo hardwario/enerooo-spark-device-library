@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Documentation - {{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:model-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">Documentation</span>
+</nav>
+
+<div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
+        <i class="bi bi-journal-text text-sky-700 text-lg"></i>
+    </div>
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">Documentation</h2>
+        <p class="text-sm text-gray-500">{{ device.vendor.name }} {{ device.model_number }} · manuals, images and commissioning procedures shown to operators in Provisioning and technicians in the instance stock.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+<!-- Documents -->
+<div class="bg-white rounded-lg shadow flex flex-col">
+    <div class="border-b border-gray-200 px-6 py-4">
+        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Manuals and datasheets</h3>
+        <p class="text-sm text-gray-500 mt-1">PDF files opened from a unit's detail in Provisioning and the instance stock.</p>
+    </div>
+    <div class="p-6 flex-1">
+        {% with documents=device.documents.all %}
+        {% if documents %}
+        <ul class="divide-y text-sm">
+            {% for doc in documents %}
+            <li class="py-2 flex items-center gap-3">
+                <i class="bi bi-file-earmark-pdf text-red-500 text-lg flex-none"></i>
+                <div class="min-w-0 flex-1">
+                    <a href="{% url 'library:document-file' device.pk doc.pk %}" target="_blank" class="text-blue-600 hover:text-blue-800 font-medium truncate block">{{ doc.title }}</a>
+                    <div class="text-xs text-gray-500">{{ doc.file.size|filesizeformat }} · {{ doc.created|date:"Y-m-d" }}{% if doc.uploaded_by %} · {{ doc.uploaded_by.username }}{% endif %}</div>
+                </div>
+                {% if user.is_editor %}
+                <form method="post" action="{% url 'library:document-delete' device.pk doc.pk %}" onsubmit="return confirm('Delete this document?')" class="flex-none">{% csrf_token %}
+                    <button class="text-gray-400 hover:text-red-600 p-1" title="Delete"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-gray-400 py-6 text-center">No documents yet.</p>
+        {% endif %}
+        {% endwith %}
+    </div>
+    {% if user.is_editor %}
+    <form method="post" action="{% url 'library:document-add' device.pk %}" enctype="multipart/form-data" class="border-t bg-gray-50 rounded-b-lg px-6 py-4 space-y-3">
+        {% csrf_token %}
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Title</label>
+            {{ document_form.title }}
+        </div>
+        <div class="flex items-end gap-3">
+            <div class="flex-1 min-w-0">
+                <label class="block text-xs font-medium text-gray-600 mb-1">PDF, max 25 MB</label>
+                <input type="file" name="file" accept=".pdf,application/pdf" required class="block w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-white file:border file:border-gray-300 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100">
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap"><i class="bi bi-upload mr-1"></i>Upload</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<!-- Image -->
+<div class="bg-white rounded-lg shadow flex flex-col">
+    <div class="border-b border-gray-200 px-6 py-4">
+        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Product image</h3>
+        <p class="text-sm text-gray-500 mt-1">One photo of the device, shown in unit details and on the procedure.</p>
+    </div>
+    <div class="p-6 flex-1 flex items-center justify-center">
+        {% if image %}
+        <div class="relative">
+            <a href="{% url 'library:image-file' device.pk %}" target="_blank">
+                <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="max-h-56 rounded border object-contain bg-gray-50">
+            </a>
+            {% if user.is_editor %}
+            <form method="post" action="{% url 'library:image-delete' device.pk %}" onsubmit="return confirm('Delete the image?')" class="absolute top-2 right-2">{% csrf_token %}
+                <button class="bg-white/90 border border-gray-300 text-gray-500 hover:text-red-600 rounded px-2 py-1 text-sm" title="Delete"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 py-6 text-center">No image yet.</p>
+        {% endif %}
+    </div>
+    {% if user.is_editor %}
+    <form method="post" action="{% url 'library:image-upload' device.pk %}" enctype="multipart/form-data" class="border-t bg-gray-50 rounded-b-lg px-6 py-4">
+        {% csrf_token %}
+        <div class="flex items-end gap-3">
+            <div class="flex-1 min-w-0">
+                <label class="block text-xs font-medium text-gray-600 mb-1">PNG, JPG or WebP, max 10 MB{% if image %} · replaces the current image{% endif %}</label>
+                <input type="file" name="image" accept="image/png,image/jpeg,image/webp" required class="block w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-white file:border file:border-gray-300 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100">
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap"><i class="bi bi-upload mr-1"></i>Upload</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+</div>
+
+<!-- Procedure -->
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center gap-4">
+        <div>
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Commissioning procedure</h3>
+            <p class="text-sm text-gray-500 mt-1">Step-by-step Markdown shown to the technician when a unit is commissioned. Exported as <code>procedures/&lt;key&gt;.md</code>.</p>
+        </div>
+        {% if user.is_editor %}
+        <div class="flex gap-2 flex-none">
+            <a href="{% url 'library:procedure-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-3 py-1.5 rounded text-sm hover:bg-blue-50 font-medium whitespace-nowrap">
+                <i class="bi bi-{% if procedure %}pencil{% else %}plus-lg{% endif %} mr-1"></i>{% if procedure %}Edit{% else %}Add procedure{% endif %}
+            </a>
+            {% if procedure %}
+            <form method="post" action="{% url 'library:procedure-delete' device.pk %}" onsubmit="return confirm('Delete the procedure?')">{% csrf_token %}
+                <button class="border border-gray-300 text-gray-500 px-2 py-1.5 rounded text-sm hover:text-red-600 hover:border-red-300" title="Delete"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="p-6">
+        {% if procedure %}
+        <div class="flex items-center gap-3 text-sm">
+            <i class="bi bi-list-ol text-sky-600 text-lg"></i>
+            <div>
+                <div class="font-medium">{{ procedure.title }}</div>
+                <div class="text-xs text-gray-500">
+                    v{{ procedure.version }} · {{ procedure.modified|date:"Y-m-d H:i" }}{% if procedure.updated_by %} · {{ procedure.updated_by.username }}{% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 py-6 text-center">No procedure yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

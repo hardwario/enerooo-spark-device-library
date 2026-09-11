@@ -1,13 +1,17 @@
 """API viewsets for the device library."""
 
 import hashlib
+import mimetypes
 
 from django.db.models import Count, Max
+from django.http import FileResponse, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils.http import http_date
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from library.assets import assets_payload, procedure_to_markdown
 from library.models import (
     DEFAULT_SCHEMA_VERSION,
     APIKey,
@@ -15,6 +19,9 @@ from library.models import (
     GatewayAssignment,
     LibraryVersion,
     Metric,
+    ModelDocument,
+    ModelImage,
+    ModelProcedure,
     Vendor,
     VendorModel,
 )
@@ -167,6 +174,36 @@ class LibraryVersionSyncViewSet(viewsets.ViewSet):
         _update_gateway_last_seen(request)
         current = LibraryVersion.objects.filter(is_current=True).first()
         return Response({"version": current.version if current else 0})
+
+
+class ModelAssetsViewSet(viewsets.ViewSet):
+    """Documentation assets of a model, addressed by its stable ``key``.
+    Service-token only: Provisioning and Spark proxy files to their users."""
+
+    permission_classes = [HasServiceToken]
+
+    def _model(self, key) -> VendorModel:
+        return get_object_or_404(VendorModel, key=key)
+
+    @action(detail=True, methods=["get"])
+    def assets(self, request, pk=None):
+        return Response(assets_payload(self._model(pk)))
+
+    @action(detail=True, methods=["get"], url_path=r"documents/(?P<doc_id>[0-9a-f-]{36})")
+    def document(self, request, pk=None, doc_id=None):
+        doc = get_object_or_404(ModelDocument, pk=doc_id, vendor_model=self._model(pk))
+        return FileResponse(doc.file.open("rb"), content_type="application/pdf", filename=doc.file.name.rsplit("/", 1)[-1])
+
+    @action(detail=True, methods=["get"])
+    def image(self, request, pk=None):
+        image = get_object_or_404(ModelImage, vendor_model=self._model(pk))
+        content_type = mimetypes.guess_type(image.image.name)[0] or "application/octet-stream"
+        return FileResponse(image.image.open("rb"), content_type=content_type)
+
+    @action(detail=True, methods=["get"])
+    def procedure(self, request, pk=None):
+        procedure = get_object_or_404(ModelProcedure, vendor_model=self._model(pk))
+        return HttpResponse(procedure_to_markdown(procedure), content_type="text/markdown; charset=utf-8")
 
 
 class LibraryContentViewSet(viewsets.ViewSet):

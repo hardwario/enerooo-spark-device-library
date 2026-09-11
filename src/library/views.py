@@ -6,7 +6,7 @@ import yaml
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Max, OuterRef, Q, Subquery
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -27,7 +27,11 @@ from .forms import (
     LoRaWANConfigForm,
     MetricForm,
     ModbusConfigForm,
+    ModelDocumentForm,
+    ModelImageForm,
+    ModelProcedureForm,
     ProcessorConfigForm,
+    ProvisioningForm,
     RegisterDefinitionForm,
     VendorForm,
     VendorModelForm,
@@ -61,6 +65,9 @@ from .models import (
     Metric,
     MetricHistory,
     ModbusConfig,
+    ModelDocument,
+    ModelImage,
+    ModelProcedure,
     ProcessorConfig,
     RegisterDefinition,
     Vendor,
@@ -631,6 +638,7 @@ class VendorModelListView(LoginRequiredMixin, ListView):
         "name": "name",
         "device_type": "device_type",
         "technology": "technology",
+        "product_code": "product_code",
     }
 
     def get_queryset(self):
@@ -652,6 +660,11 @@ class VendorModelListView(LoginRequiredMixin, ListView):
             qs = qs.filter(technology=technology)
         if device_type:
             qs = qs.filter(device_type=device_type)
+        provisioning = self.request.GET.get("provisioning")
+        if provisioning == "yes":
+            qs = qs.filter(product_code__isnull=False)
+        elif provisioning == "no":
+            qs = qs.filter(product_code__isnull=True)
 
         sort = self.request.GET.get("sort", "vendor")
         descending = sort.startswith("-")
@@ -893,6 +906,180 @@ class WMBusConfigUpdateView(RoleRequiredMixin, UpdateView):
 
     def get_success_url(self):
         return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+
+
+# === Provisioning ===
+
+
+class ProvisioningUpdateView(RoleRequiredMixin, UpdateView):
+    """Edit the per-unit input-data schema (``VendorModel.provisioning``)."""
+
+    required_role = User.Role.EDITOR
+    model = VendorModel
+    form_class = ProvisioningForm
+    template_name = "library/provisioning_form.html"
+    pk_url_kwarg = "device_pk"
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        self._old_snapshot = snapshot_device(obj)
+        return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["device"] = self.object
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_history(self.object, DeviceHistory.Action.UPDATED, self.request.user, self._old_snapshot)
+        log_action(self.request, "updated", self.object, details=f"Provisioning schema updated on {self.object}")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
+
+
+# === Model documentation assets (manuals, images, procedures) ===
+
+class ModelAssetsView(LoginRequiredMixin, DetailView):
+    """Documentation tab of a model: documents, images, procedure."""
+
+    model = VendorModel
+    template_name = "library/model_assets.html"
+    context_object_name = "device"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["document_form"] = ModelDocumentForm()
+        ctx["image_form"] = ModelImageForm()
+        ctx["image"] = ModelImage.objects.filter(vendor_model=self.object).first()
+        ctx["procedure"] = ModelProcedure.objects.filter(vendor_model=self.object).first()
+        return ctx
+
+
+class _ModelAssetMutationView(RoleRequiredMixin, View):
+    required_role = User.Role.EDITOR
+
+    def dispatch(self, request, *args, **kwargs):
+        self.device = get_object_or_404(VendorModel, pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def back(self):
+        return redirect("library:model-assets", pk=self.device.pk)
+
+    def flash_errors(self, form):
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(self.request, f"{field}: {error}")
+
+
+class ModelDocumentCreateView(_ModelAssetMutationView):
+    def post(self, request, pk):
+        form = ModelDocumentForm(request.POST, request.FILES)
+        if form.is_valid():
+            doc = form.save(commit=False)
+            doc.vendor_model = self.device
+            doc.uploaded_by = request.user
+            doc.save()
+            log_action(request, "created", doc, details=f"Document uploaded to {self.device}")
+            messages.success(request, f'Document "{doc.title}" uploaded.')
+        else:
+            self.flash_errors(form)
+        return self.back()
+
+
+class ModelDocumentDeleteView(_ModelAssetMutationView):
+    def post(self, request, pk, doc_pk):
+        doc = get_object_or_404(ModelDocument, pk=doc_pk, vendor_model=self.device)
+        log_action(request, "deleted", doc, details=f"Document removed from {self.device}")
+        doc.file.delete(save=False)
+        doc.delete()
+        return self.back()
+
+
+class ModelDocumentFileView(LoginRequiredMixin, View):
+    def get(self, request, pk, doc_pk):
+        doc = get_object_or_404(ModelDocument, pk=doc_pk, vendor_model_id=pk)
+        return FileResponse(doc.file.open("rb"), content_type="application/pdf", filename=doc.file.name.rsplit("/", 1)[-1])
+
+
+class ModelImageUploadView(_ModelAssetMutationView):
+    """Upload or replace the model's product image."""
+
+    def post(self, request, pk):
+        form = ModelImageForm(request.POST, request.FILES)
+        if not form.is_valid():
+            self.flash_errors(form)
+            return self.back()
+        image = ModelImage.objects.filter(vendor_model=self.device).first()
+        if image:
+            image.image.delete(save=False)
+            image.image = form.cleaned_data["image"]
+            image.save()
+        else:
+            image = form.save(commit=False)
+            image.vendor_model = self.device
+            image.save()
+        log_action(request, "updated", image, details=f"Image uploaded to {self.device}")
+        return self.back()
+
+
+class ModelImageDeleteView(_ModelAssetMutationView):
+    def post(self, request, pk):
+        image = get_object_or_404(ModelImage, vendor_model=self.device)
+        image.image.delete(save=False)
+        image.delete()
+        return self.back()
+
+
+class ModelImageFileView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        import mimetypes
+
+        image = get_object_or_404(ModelImage, vendor_model_id=pk)
+        content_type = mimetypes.guess_type(image.image.name)[0] or "application/octet-stream"
+        return FileResponse(image.image.open("rb"), content_type=content_type)
+
+
+class ModelProcedureUpdateView(_ModelAssetMutationView):
+    """Create or edit the model's commissioning procedure."""
+
+    template_name = "library/procedure_form.html"
+
+    def get_procedure(self):
+        return ModelProcedure.objects.filter(vendor_model=self.device).first() or ModelProcedure(
+            vendor_model=self.device
+        )
+
+    def render(self, request, form, procedure):
+        from django.shortcuts import render
+
+        return render(request, self.template_name, {"form": form, "device": self.device, "procedure": procedure})
+
+    def get(self, request, pk):
+        procedure = self.get_procedure()
+        return self.render(request, ModelProcedureForm(instance=procedure), procedure)
+
+    def post(self, request, pk):
+        procedure = self.get_procedure()
+        form = ModelProcedureForm(request.POST, instance=procedure)
+        if not form.is_valid():
+            return self.render(request, form, procedure)
+        procedure = form.save(commit=False)
+        procedure.updated_by = request.user
+        procedure.save()
+        log_action(request, "updated", procedure, details=f"Procedure v{procedure.version} on {self.device}")
+        messages.success(request, f"Procedure saved as v{procedure.version}.")
+        return self.back()
+
+
+class ModelProcedureDeleteView(_ModelAssetMutationView):
+    def post(self, request, pk):
+        procedure = get_object_or_404(ModelProcedure, vendor_model=self.device)
+        log_action(request, "deleted", procedure, details=f"Procedure removed from {self.device}")
+        procedure.delete()
+        return self.back()
 
 
 # === LoRaWAN Config ===

@@ -63,6 +63,22 @@ urlpatterns = [
         views.WMBusConfigUpdateView.as_view(),
         name="wmbus-config-edit",
     ),
+    # Provisioning schema (per-unit input data)
+    path(
+        "models/<uuid:device_pk>/provisioning/edit/",
+        views.ProvisioningUpdateView.as_view(),
+        name="provisioning-edit",
+    ),
+    # Documentation assets
+    path("models/<uuid:pk>/documentation/", views.ModelAssetsView.as_view(), name="model-assets"),
+    path("models/<uuid:pk>/documents/add/", views.ModelDocumentCreateView.as_view(), name="document-add"),
+    path("models/<uuid:pk>/documents/<uuid:doc_pk>/delete/", views.ModelDocumentDeleteView.as_view(), name="document-delete"),
+    path("models/<uuid:pk>/documents/<uuid:doc_pk>/file/", views.ModelDocumentFileView.as_view(), name="document-file"),
+    path("models/<uuid:pk>/image/upload/", views.ModelImageUploadView.as_view(), name="image-upload"),
+    path("models/<uuid:pk>/image/delete/", views.ModelImageDeleteView.as_view(), name="image-delete"),
+    path("models/<uuid:pk>/image/file/", views.ModelImageFileView.as_view(), name="image-file"),
+    path("models/<uuid:pk>/procedure/edit/", views.ModelProcedureUpdateView.as_view(), name="procedure-edit"),
+    path("models/<uuid:pk>/procedure/delete/", views.ModelProcedureDeleteView.as_view(), name="procedure-delete"),
     # LoRaWAN Config
     path(
         "models/<uuid:device_pk>/lorawan-config/edit/",

@@ -7,6 +7,7 @@ byte-identical shape, otherwise ``sync_device_library --from-file`` drifts
 from the online sync.
 """
 
+from library.assets import EMPTY_ASSETS, assets_payload
 from library.exporters import effective_field_mappings_from_config, snapshot_to_schema
 from library.models import (
     DeviceHistory,
@@ -18,6 +19,7 @@ from library.models import (
     LibraryVersionMetric,
     Metric,
     MetricHistory,
+    VendorModel,
 )
 
 from .serializers import DeviceTypeSerializer, MetricSerializer
@@ -53,6 +55,16 @@ def build_version_content(lib_version: LibraryVersion, technologies: set[str] | 
             if snapshot:
                 history_lookup[entry.device_type_id] = snapshot
 
+    # Documentation assets are not versioned content: the file itself is
+    # fetched live, so the metadata reflects the current state too. Models
+    # deleted since the publish carry an empty block.
+    assets_by_key = {
+        str(m.key): assets_payload(m)
+        for m in VendorModel.objects.filter(
+            pk__in=[e.device_type_id for e in entries if e.device_type_id],
+        ).prefetch_related("documents").select_related("image", "procedure")
+    }
+
     vendors: dict[str, dict] = {}
     for entry in entries:
         snap = history_lookup.get(entry.device_type_id)
@@ -71,6 +83,7 @@ def build_version_content(lib_version: LibraryVersion, technologies: set[str] | 
             # (consumers read ``effective_field_mappings`` and fall back to
             # ``field_mappings``; extra mappings would otherwise be dropped).
             model_schema["effective_field_mappings"] = effective_field_mappings_from_config(proc)
+        model_schema["assets"] = assets_by_key.get(snap.get("key"), EMPTY_ASSETS)
         vendors[vendor_name]["models"].append(model_schema)
 
     vendor_list = [

@@ -33,6 +33,8 @@ def snapshot_device(device):
         ),
         "technology": device.technology,
         "description": device.description,
+        "product_code": device.product_code,
+        "provisioning": device.provisioning or {},
     }
 
     # Modbus config
