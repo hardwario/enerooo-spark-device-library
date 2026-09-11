@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Provisioning Schema - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:model-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">Edit Provisioning Schema</span>
+</nav>
+
+<div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+        <i class="bi bi-upc-scan text-amber-700 text-lg"></i>
+    </div>
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">Provisioning Schema</h2>
+        <p class="text-sm text-gray-500">{{ device.vendor.name }} {{ device.model_number }}
+            · product code
+            {% if device.product_code %}<span class="font-mono">{{ device.product_code }}</span>{% else %}<span class="text-amber-700">missing</span>{% endif %}
+            (<a href="{% url 'library:model-edit' device.pk %}" class="text-blue-600 hover:text-blue-800">edit model</a>)
+        </p>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        {% for field in form %}{% for error in field.errors %}<p>{{ error }}</p>{% endfor %}{% endfor %}
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Input data entered per unit</h3>
+            <p class="text-sm text-gray-500 mt-1">
+                What the operator enters for every unit of this model: in Enerooo Provisioning at registration and,
+                editable, in the Spark instance stock. Secret fields are stored encrypted and never logged by consumers.
+                Published with the library content as <code>provisioning</code>.
+            </p>
+        </div>
+        <div class="p-6">
+            {{ form.provisioning }}
+        </div>
+    </div>
+
+    <div class="flex gap-2">
+        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
+            <i class="bi bi-check-lg mr-1"></i> Save Schema
+        </button>
+        <a href="{% url 'library:model-detail' device.pk %}" class="border border-gray-300 px-5 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors">Cancel</a>
+    </div>
+</form>
+{% endblock %}

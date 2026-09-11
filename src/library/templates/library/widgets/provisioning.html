@@ -1,0 +1,195 @@
+{% spaceless %}
+<div class="provisioning-editor grid grid-cols-1 lg:grid-cols-12 gap-6" data-prov-editor>
+    <textarea name="{{ widget.name }}" data-prov-input style="display: none;">{{ widget.value }}</textarea>
+
+    <div class="lg:col-span-7 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+            <p class="text-sm text-gray-500">Fields the operator fills in for every unit. Mark one as the <span class="font-medium text-gray-700">pairing key</span>.</p>
+            <div class="flex gap-2 flex-none">
+                {% if widget.technology %}
+                <button type="button" data-prov-prefill class="border border-gray-300 px-3 py-1.5 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-magic mr-1"></i>Prefill {{ widget.technology }}
+                </button>
+                {% endif %}
+                <button type="button" data-prov-add class="border border-blue-600 text-blue-600 px-3 py-1.5 rounded text-sm hover:bg-blue-50 font-medium">
+                    <i class="bi bi-plus-lg mr-1"></i>Add field
+                </button>
+            </div>
+        </div>
+
+        <div data-prov-rows class="space-y-3"></div>
+        <p data-prov-empty class="text-sm text-gray-400 py-8 text-center border border-dashed border-gray-300 rounded" hidden>No fields yet. Add one or prefill from the technology template.</p>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="lg:sticky lg:top-6 border border-gray-200 rounded-lg bg-gray-50">
+            <div class="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">Operator preview</div>
+            <div data-prov-preview class="p-4 space-y-3"></div>
+        </div>
+    </div>
+
+    <script type="application/json" data-prov-template>{{ widget.template_json|safe }}</script>
+    <script type="application/json" data-prov-types>{{ widget.types_json|safe }}</script>
+</div>
+<script>
+(function() {
+    const editor = document.currentScript.previousElementSibling;
+    const input = editor.querySelector('[data-prov-input]');
+    const rows = editor.querySelector('[data-prov-rows]');
+    const empty = editor.querySelector('[data-prov-empty]');
+    const preview = editor.querySelector('[data-prov-preview]');
+    const template = JSON.parse(editor.querySelector('[data-prov-template]').textContent || '{}');
+    const TYPES = JSON.parse(editor.querySelector('[data-prov-types]').textContent);
+    const TYPE_LABEL = {string: 'Text', hex: 'Hex', digits: 'Digits', int: 'Integer'};
+    const CONSTRAINT_LABEL = {hex: 'Length', digits: 'Length', int: 'Range', string: 'Pattern (regex)'};
+    const PLACEHOLDER = {hex: '16', digits: '8', int: '1-247', string: '^[A-Z0-9-]+$'};
+
+    let state = {input_data: [], pairing_key: ''};
+    try {
+        const parsed = JSON.parse(input.value || '{}');
+        if (parsed && Array.isArray(parsed.input_data)) state = {input_data: parsed.input_data, pairing_key: parsed.pairing_key || ''};
+    } catch (e) {}
+
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function constraintOf(f) {
+        if (f.type === 'hex' || f.type === 'digits') return f.length ?? '';
+        if (f.type === 'int') return (f.min ?? '') + ((f.min != null || f.max != null) ? '-' : '') + (f.max ?? '');
+        if (f.type === 'string') return f.pattern ?? '';
+        return '';
+    }
+    function applyConstraint(f, text) {
+        text = text.trim();
+        delete f.length; delete f.min; delete f.max; delete f.pattern;
+        if (!text) return;
+        if (f.type === 'hex' || f.type === 'digits') { const n = parseInt(text, 10); if (!isNaN(n)) f.length = n; }
+        else if (f.type === 'int') {
+            const m = text.match(/^(-?\d+)?\s*-\s*(-?\d+)?$/) || text.match(/^(-?\d+)()$/);
+            if (m) { if (m[1]) f.min = parseInt(m[1], 10); if (m[2]) f.max = parseInt(m[2], 10); }
+        }
+        else if (f.type === 'string') f.pattern = text;
+    }
+
+    function readRows() {
+        let pairing = '';
+        state.input_data = Array.from(rows.children).map(card => {
+            const f = {
+                key: card.querySelector('[data-k]').value.trim(),
+                label: card.querySelector('[data-l]').value.trim(),
+                type: card.querySelector('[data-t]').value,
+                required: card.querySelector('[data-req]').checked,
+                secret: card.querySelector('[data-sec]').checked,
+                scan: card.querySelector('[data-scan]').checked,
+            };
+            applyConstraint(f, card.querySelector('[data-c]').value);
+            if (card.querySelector('[data-pair]').checked) pairing = f.key;
+            return f;
+        });
+        state.pairing_key = pairing;
+    }
+
+    function sync() {
+        readRows();
+        const keys = state.input_data.map(f => f.key).filter(Boolean);
+        if (!keys.includes(state.pairing_key)) {
+            state.pairing_key = keys[0] || '';
+            const first = rows.querySelector('[data-pair]');
+            if (first) first.checked = true;
+        }
+        const fields = state.input_data.filter(f => f.key || f.label);
+        input.value = fields.length ? JSON.stringify({input_data: fields, pairing_key: state.pairing_key}) : '{}';
+        empty.hidden = rows.children.length > 0;
+        // Constraint label follows the type.
+        rows.querySelectorAll('[data-prov-card]').forEach(card => {
+            const t = card.querySelector('[data-t]').value;
+            card.querySelector('[data-c-label]').textContent = CONSTRAINT_LABEL[t] || 'Constraint';
+            card.querySelector('[data-c]').placeholder = PLACEHOLDER[t] || '';
+            card.querySelector('[data-key-badge]').textContent = card.querySelector('[data-k]').value.trim() || 'new field';
+        });
+        renderPreview();
+    }
+
+    function renderPreview() {
+        const fields = state.input_data.filter(f => f.key || f.label);
+        preview.innerHTML = fields.map(f => {
+            const label = f.label || f.key;
+            const hint = f.type === 'hex' ? `${f.length ?? '?'} hex characters` : f.type === 'digits' ? `${f.length ?? '?'} digits`
+                : f.type === 'int' ? `${f.min ?? ''}–${f.max ?? ''}` : (f.pattern || 'text');
+            const control = `<input type="${f.secret ? 'password' : 'text'}" class="!py-1.5 !text-sm font-mono bg-white" placeholder="${esc(hint)}" disabled>`;
+            return `<div>
+                <div class="flex items-center gap-2 mb-1 text-xs font-medium text-gray-700">
+                    <span>${esc(label)}${f.required ? ' <span class="text-red-600">*</span>' : ''}</span>
+                    ${f.scan ? '<i class="bi bi-upc-scan text-gray-400" title="scannable"></i>' : ''}
+                    ${f.secret ? '<i class="bi bi-lock text-gray-400" title="secret"></i>' : ''}
+                    ${f.key === state.pairing_key ? '<span class="ml-auto px-1.5 rounded bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wide">pairing</span>' : ''}
+                </div>
+                ${control}</div>`;
+        }).join('') || '<p class="text-sm text-gray-400 text-center py-6">Nothing to enter yet.</p>';
+    }
+
+    function makeCard(f) {
+        f = f || {key: '', label: '', type: 'string', required: true, secret: false, scan: false};
+        const card = document.createElement('div');
+        card.className = 'border border-gray-200 rounded-lg bg-white';
+        card.setAttribute('data-prov-card', '');
+        const typeOptions = TYPES.map(t => `<option value="${t}"${t === f.type ? ' selected' : ''}>${TYPE_LABEL[t] || t}</option>`).join('');
+        card.innerHTML = `
+            <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-gray-100 bg-gray-50 rounded-t-lg">
+                <span class="font-mono text-sm text-gray-700" data-key-badge></span>
+                <div class="flex items-center gap-4 text-sm text-gray-600">
+                    <label class="flex items-center gap-1.5 cursor-pointer" title="Instance pairs a unit with its device by this value">
+                        <input type="radio" name="prov-pairing" data-pair${f.key && f.key === state.pairing_key ? ' checked' : ''}> Pairing key
+                    </label>
+                    <button type="button" data-remove class="text-gray-400 hover:text-red-600" title="Remove"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            <div class="p-4 grid grid-cols-12 gap-3">
+                <div class="col-span-12 sm:col-span-6">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Key</label>
+                    <input type="text" data-k class="!py-1.5 !text-sm font-mono" value="${esc(f.key)}" placeholder="dev_eui" pattern="^[a-z][a-z0-9_]*$">
+                </div>
+                <div class="col-span-12 sm:col-span-6">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Label</label>
+                    <input type="text" data-l class="!py-1.5 !text-sm" value="${esc(f.label)}" placeholder="DevEUI">
+                </div>
+                <div class="col-span-6 sm:col-span-4">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                    <select data-t class="!py-1.5 !text-sm">${typeOptions}</select>
+                </div>
+                <div class="col-span-6 sm:col-span-4">
+                    <label class="block text-xs font-medium text-gray-600 mb-1" data-c-label>Constraint</label>
+                    <input type="text" data-c class="!py-1.5 !text-sm font-mono" value="${esc(constraintOf(f))}">
+                </div>
+                <div class="col-span-12 sm:col-span-4 flex items-end gap-4 pb-2 text-sm text-gray-700">
+                    <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" data-req${f.required ? ' checked' : ''}> Required</label>
+                    <label class="flex items-center gap-1.5 cursor-pointer" title="Stored encrypted, never logged"><input type="checkbox" data-sec${f.secret ? ' checked' : ''}> Secret</label>
+                    <label class="flex items-center gap-1.5 cursor-pointer" title="Readable from a barcode / QR"><input type="checkbox" data-scan${f.scan ? ' checked' : ''}> Scan</label>
+                </div>
+            </div>`;
+        card.querySelectorAll('input,select').forEach(el => el.addEventListener('input', sync));
+        card.querySelectorAll('input[type=radio],input[type=checkbox],select').forEach(el => el.addEventListener('change', sync));
+        card.querySelector('[data-remove]').addEventListener('click', () => { card.remove(); sync(); });
+        return card;
+    }
+
+    function load(data) {
+        state.pairing_key = data.pairing_key || '';
+        rows.innerHTML = '';
+        (data.input_data || []).forEach(f => rows.appendChild(makeCard(f)));
+        sync();
+    }
+
+    editor.querySelector('[data-prov-add]').addEventListener('click', () => {
+        rows.appendChild(makeCard());
+        sync();
+        rows.lastElementChild.querySelector('[data-k]').focus();
+    });
+    const prefill = editor.querySelector('[data-prov-prefill]');
+    if (prefill) prefill.addEventListener('click', () => {
+        if (!rows.children.length || confirm('Replace the current fields with the technology template?')) load(template);
+    });
+
+    load(state);
+})();
+</script>
+{% endspaceless %}

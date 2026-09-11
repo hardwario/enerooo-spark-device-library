@@ -6,6 +6,8 @@ services:
       - "${PORT:-8002}:8000"
     env_file:
       - .env
+    volumes:
+      - spark_device_library_media:/app/src/media
     depends_on:
       db:
         condition: service_healthy
@@ -27,3 +29,4 @@ services:
 
 volumes:
   spark_device_library_postgres:
+  spark_device_library_media:

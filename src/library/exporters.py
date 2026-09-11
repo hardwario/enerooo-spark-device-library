@@ -74,11 +74,29 @@ def export_to_yaml(output_dir: str | Path) -> dict:
         "vendors": manifest_vendors,
     }
 
+    stats["procedures_exported"] = _export_procedures(output_dir.parent / "procedures")
+
     manifest_path = output_dir.parent / "manifest.yaml"
     with open(manifest_path, "w") as f:
         yaml.dump(manifest, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     return stats
+
+
+def _export_procedures(procedures_dir: Path) -> int:
+    """Write every ``ModelProcedure`` as ``<model key>.md``. Binary
+    assets (PDF, images) stay in ``MEDIA_ROOT``; the YAML backup covers text."""
+    from .assets import procedure_to_markdown
+    from .models import ModelProcedure
+
+    procedures = ModelProcedure.objects.select_related("vendor_model")
+    if not procedures.exists():
+        return 0
+    procedures_dir.mkdir(parents=True, exist_ok=True)
+    for procedure in procedures:
+        path = procedures_dir / f"{procedure.vendor_model.key}.md"
+        path.write_text(procedure_to_markdown(procedure), encoding="utf-8")
+    return procedures.count()
 
 
 def _export_metric(m) -> dict:
@@ -140,6 +158,10 @@ def _export_device(device: VendorModel) -> dict:
     # (the enum string) and resolve type metadata via that.
     if device.device_type_fk_id and device.device_type_fk.key:
         data["device_type_key"] = str(device.device_type_fk.key)
+    if device.product_code:
+        data["product_code"] = device.product_code
+    if device.provisioning:
+        data["provisioning"] = device.provisioning
 
     alarm_config = _export_alarm_config(device)
     if alarm_config:
@@ -343,6 +365,8 @@ def snapshot_to_schema(snapshot: dict) -> dict:
         "name": snapshot.get("name", ""),
         "device_type": snapshot.get("device_type", ""),
         "description": snapshot.get("description", ""),
+        "product_code": snapshot.get("product_code"),
+        "provisioning": snapshot.get("provisioning") or {},
         "technology_config": tech_config,
     }
     if snapshot.get("device_type_key"):
