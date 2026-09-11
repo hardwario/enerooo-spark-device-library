@@ -8,24 +8,18 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from library.exporters import effective_field_mappings_from_config, snapshot_to_schema
 from library.models import (
     DEFAULT_SCHEMA_VERSION,
     APIKey,
-    DeviceHistory,
     DeviceType,
-    DeviceTypeHistory,
     GatewayAssignment,
     LibraryVersion,
-    LibraryVersionDevice,
-    LibraryVersionDeviceType,
-    LibraryVersionMetric,
     Metric,
-    MetricHistory,
     Vendor,
     VendorModel,
 )
 
+from .content import build_version_content, parse_technologies
 from .permissions import HasServiceToken, IsAPIKeyOrSessionAuth, IsEditorOrAdmin
 from .serializers import (
     APIKeySerializer,
@@ -176,7 +170,7 @@ class LibraryVersionSyncViewSet(viewsets.ViewSet):
 
 
 class LibraryContentViewSet(viewsets.ViewSet):
-    """Full library content for a specific version."""
+    """Full library content for a specific version (see ``content.build_version_content``)."""
 
     permission_classes = [HasServiceToken]
 
@@ -190,132 +184,10 @@ class LibraryContentViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Optional ?technology=modbus[,wmbus,...] filter so constrained
-        # clients (edge boxes on cellular links) download only the models
-        # they consume instead of the full library. No param = full content.
-        # Response shape is identical either way.
-        technologies = {
-            t.strip()
-            for t in request.GET.get("technology", "").split(",")
-            if t.strip()
-        }
-
-        entries = lib_version.device_changes.exclude(
-            change_type=LibraryVersionDevice.ChangeType.REMOVED,
-        )
-
-        # Batch-fetch all relevant DeviceHistory snapshots
-        history_lookup = {}
-        for entry in entries:
-            if entry.device_type_id:
-                snapshot = (
-                    DeviceHistory.objects.filter(
-                        device_id=entry.device_type_id,
-                        version=entry.device_version,
-                    )
-                    .values_list("snapshot", flat=True)
-                    .first()
-                )
-                if snapshot:
-                    history_lookup[entry.device_type_id] = snapshot
-
-        # Group devices by vendor
-        vendors = {}
-        for entry in entries:
-            snap = history_lookup.get(entry.device_type_id)
-            if not snap:
-                continue
-            if technologies and snap.get("technology") not in technologies:
-                continue
-            vendor_name = snap.get("vendor", "Unknown")
-            vendor_key = snap.get("vendor_key", "")
-            if vendor_name not in vendors:
-                vendors[vendor_name] = {"key": vendor_key, "models": []}
-            model_schema = snapshot_to_schema(snap)
-            proc = model_schema.get("processor_config")
-            if proc:
-                # Publish the merged field+extra list so instances ingest both
-                # (consumers read ``effective_field_mappings`` and fall back to
-                # ``field_mappings``; extra mappings would otherwise be dropped).
-                model_schema["effective_field_mappings"] = (
-                    effective_field_mappings_from_config(proc)
-                )
-            vendors[vendor_name]["models"].append(model_schema)
-
-        vendor_list = [
-            {"key": info["key"], "name": name, "models": info["models"]}
-            for name, info in sorted(vendors.items())
-        ]
-
-        # Resolve L1 + L2 from the per-version manifest tables so the
-        # response reflects state-at-publish-time, not current state.
-        # Falls back to ``.objects.all()`` for LibraryVersions published
-        # before migration 0035 — those have no metric_changes /
-        # device_type_changes rows; their content is best-effort current.
-        metrics_payload = self._resolve_metric_snapshots(lib_version)
-        device_types_payload = self._resolve_device_type_snapshots(lib_version)
-
-        return Response({
-            "version": lib_version.version,
-            "schema_version": lib_version.schema_version,
-            "metrics": metrics_payload,
-            "device_types": device_types_payload,
-            "vendors": vendor_list,
-        })
-
-    def _resolve_metric_snapshots(self, lib_version):
-        """Return the list of L1 Metric snapshots pinned to this library
-        version. Each entry has the same shape as the MetricSerializer
-        output — bounds/aggregation/kind included. ``REMOVED`` entries
-        are filtered out (they describe deletions, not content)."""
-        entries = lib_version.metric_changes.exclude(
-            change_type=LibraryVersionMetric.ChangeType.REMOVED,
-        )
-        if not entries.exists():
-            # Pre-0035 LibraryVersion (no manifest entries). Best-effort:
-            # serve current state. Operators bump-publish post-migration
-            # to get proper pinning.
-            return MetricSerializer(Metric.objects.all(), many=True).data
-
-        out = []
-        for entry in entries:
-            if not entry.metric_id:
-                continue
-            snap = (
-                MetricHistory.objects.filter(
-                    metric_id=entry.metric_id,
-                    version=entry.metric_version,
-                )
-                .values_list("snapshot", flat=True)
-                .first()
-            )
-            if snap:
-                out.append(snap)
-        return out
-
-    def _resolve_device_type_snapshots(self, lib_version):
-        """L2 sibling of ``_resolve_metric_snapshots``."""
-        entries = lib_version.device_type_changes.exclude(
-            change_type=LibraryVersionDeviceType.ChangeType.REMOVED,
-        )
-        if not entries.exists():
-            return DeviceTypeSerializer(DeviceType.objects.all(), many=True).data
-
-        out = []
-        for entry in entries:
-            if not entry.device_type_id:
-                continue
-            snap = (
-                DeviceTypeHistory.objects.filter(
-                    device_type_id=entry.device_type_id,
-                    version=entry.device_type_version,
-                )
-                .values_list("snapshot", flat=True)
-                .first()
-            )
-            if snap:
-                out.append(snap)
-        return out
+        # Optional ?technology=modbus[,wmbus,...] so constrained clients (edge
+        # boxes on cellular links) download only the models they consume.
+        technologies = parse_technologies(request.GET.get("technology", ""))
+        return Response(build_version_content(lib_version, technologies))
 
 
 class SyncDeviceTypeViewSet(viewsets.ReadOnlyModelViewSet):
