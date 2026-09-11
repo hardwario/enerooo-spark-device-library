@@ -40,9 +40,9 @@
     const preview = editor.querySelector('[data-prov-preview]');
     const template = JSON.parse(editor.querySelector('[data-prov-template]').textContent || '{}');
     const TYPES = JSON.parse(editor.querySelector('[data-prov-types]').textContent);
-    const TYPE_LABEL = {string: 'Text', hex: 'Hex', digits: 'Digits', int: 'Integer', enum: 'Choice'};
-    const CONSTRAINT_LABEL = {hex: 'Length', digits: 'Length', int: 'Range', string: 'Pattern (regex)', enum: 'Choices'};
-    const PLACEHOLDER = {hex: '16', digits: '8', int: '1-247', string: '^[A-Z0-9-]+$', enum: 'a, b, c'};
+    const TYPE_LABEL = {string: 'Text', hex: 'Hex', digits: 'Digits', int: 'Integer'};
+    const CONSTRAINT_LABEL = {hex: 'Length', digits: 'Length', int: 'Range', string: 'Pattern (regex)'};
+    const PLACEHOLDER = {hex: '16', digits: '8', int: '1-247', string: '^[A-Z0-9-]+$'};
 
     let state = {input_data: [], pairing_key: ''};
     try {
@@ -56,12 +56,11 @@
         if (f.type === 'hex' || f.type === 'digits') return f.length ?? '';
         if (f.type === 'int') return (f.min ?? '') + ((f.min != null || f.max != null) ? '-' : '') + (f.max ?? '');
         if (f.type === 'string') return f.pattern ?? '';
-        if (f.type === 'enum') return (f.choices || []).join(', ');
         return '';
     }
     function applyConstraint(f, text) {
         text = text.trim();
-        delete f.length; delete f.min; delete f.max; delete f.pattern; delete f.choices;
+        delete f.length; delete f.min; delete f.max; delete f.pattern;
         if (!text) return;
         if (f.type === 'hex' || f.type === 'digits') { const n = parseInt(text, 10); if (!isNaN(n)) f.length = n; }
         else if (f.type === 'int') {
@@ -69,7 +68,6 @@
             if (m) { if (m[1]) f.min = parseInt(m[1], 10); if (m[2]) f.max = parseInt(m[2], 10); }
         }
         else if (f.type === 'string') f.pattern = text;
-        else if (f.type === 'enum') f.choices = text.split(',').map(s => s.trim()).filter(Boolean);
     }
 
     function readRows() {
@@ -77,16 +75,12 @@
         state.input_data = Array.from(rows.children).map(card => {
             const f = {
                 key: card.querySelector('[data-k]').value.trim(),
-                label: {},
+                label: card.querySelector('[data-l]').value.trim(),
                 type: card.querySelector('[data-t]').value,
                 required: card.querySelector('[data-req]').checked,
                 secret: card.querySelector('[data-sec]').checked,
                 scan: card.querySelector('[data-scan]').checked,
             };
-            const en = card.querySelector('[data-en]').value.trim();
-            const cs = card.querySelector('[data-cs]').value.trim();
-            if (en) f.label.en = en;
-            if (cs) f.label.cs = cs;
             applyConstraint(f, card.querySelector('[data-c]').value);
             if (card.querySelector('[data-pair]').checked) pairing = f.key;
             return f;
@@ -102,7 +96,7 @@
             const first = rows.querySelector('[data-pair]');
             if (first) first.checked = true;
         }
-        const fields = state.input_data.filter(f => f.key || f.label.en);
+        const fields = state.input_data.filter(f => f.key || f.label);
         input.value = fields.length ? JSON.stringify({input_data: fields, pairing_key: state.pairing_key}) : '{}';
         empty.hidden = rows.children.length > 0;
         // Constraint label follows the type.
@@ -116,14 +110,12 @@
     }
 
     function renderPreview() {
-        const fields = state.input_data.filter(f => f.key || f.label.en);
+        const fields = state.input_data.filter(f => f.key || f.label);
         preview.innerHTML = fields.map(f => {
-            const label = f.label.en || f.key;
+            const label = f.label || f.key;
             const hint = f.type === 'hex' ? `${f.length ?? '?'} hex characters` : f.type === 'digits' ? `${f.length ?? '?'} digits`
-                : f.type === 'int' ? `${f.min ?? ''}–${f.max ?? ''}` : f.type === 'enum' ? (f.choices || []).join(' / ') : (f.pattern || 'text');
-            const control = f.type === 'enum'
-                ? `<select class="!py-1.5 !text-sm bg-white" disabled>${(f.choices || []).map(c => `<option>${esc(c)}</option>`).join('')}</select>`
-                : `<input type="${f.secret ? 'password' : 'text'}" class="!py-1.5 !text-sm font-mono bg-white" placeholder="${esc(hint)}" disabled>`;
+                : f.type === 'int' ? `${f.min ?? ''}–${f.max ?? ''}` : (f.pattern || 'text');
+            const control = `<input type="${f.secret ? 'password' : 'text'}" class="!py-1.5 !text-sm font-mono bg-white" placeholder="${esc(hint)}" disabled>`;
             return `<div>
                 <div class="flex items-center gap-2 mb-1 text-xs font-medium text-gray-700">
                     <span>${esc(label)}${f.required ? ' <span class="text-red-600">*</span>' : ''}</span>
@@ -136,7 +128,7 @@
     }
 
     function makeCard(f) {
-        f = f || {key: '', label: {}, type: 'string', required: true, secret: false, scan: false};
+        f = f || {key: '', label: '', type: 'string', required: true, secret: false, scan: false};
         const card = document.createElement('div');
         card.className = 'border border-gray-200 rounded-lg bg-white';
         card.setAttribute('data-prov-card', '');
@@ -152,17 +144,13 @@
                 </div>
             </div>
             <div class="p-4 grid grid-cols-12 gap-3">
-                <div class="col-span-12 sm:col-span-4">
+                <div class="col-span-12 sm:col-span-6">
                     <label class="block text-xs font-medium text-gray-600 mb-1">Key</label>
                     <input type="text" data-k class="!py-1.5 !text-sm font-mono" value="${esc(f.key)}" placeholder="dev_eui" pattern="^[a-z][a-z0-9_]*$">
                 </div>
-                <div class="col-span-6 sm:col-span-4">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Label (EN)</label>
-                    <input type="text" data-en class="!py-1.5 !text-sm" value="${esc(f.label?.en)}" placeholder="DevEUI">
-                </div>
-                <div class="col-span-6 sm:col-span-4">
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Label (CS)</label>
-                    <input type="text" data-cs class="!py-1.5 !text-sm" value="${esc(f.label?.cs)}">
+                <div class="col-span-12 sm:col-span-6">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Label</label>
+                    <input type="text" data-l class="!py-1.5 !text-sm" value="${esc(f.label)}" placeholder="DevEUI">
                 </div>
                 <div class="col-span-6 sm:col-span-4">
                     <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>

@@ -105,8 +105,8 @@
                         {% for f in prov.input_data %}
                         <tr class="border-b last:border-b-0">
                             <td class="py-1.5 px-2 font-mono">{{ f.key }}</td>
-                            <td class="py-1.5 px-2">{{ f.label.en }}{% if f.label.cs %} <span class="text-gray-400">/ {{ f.label.cs }}</span>{% endif %}</td>
-                            <td class="py-1.5 px-2 font-mono text-gray-600">{{ f.type }}{% if f.length %}({{ f.length }}){% elif f.type == "int" %}({{ f.min }}–{{ f.max }}){% elif f.choices %}({{ f.choices|join:", " }}){% endif %}</td>
+                            <td class="py-1.5 px-2">{{ f.label }}</td>
+                            <td class="py-1.5 px-2 font-mono text-gray-600">{{ f.type }}{% if f.length %}({{ f.length }}){% elif f.type == "int" %}({{ f.min }}–{{ f.max }}){% endif %}</td>
                             <td class="py-1.5 px-2 text-xs text-gray-600">{% if f.required %}required{% endif %}{% if f.secret %} · secret{% endif %}{% if f.scan %} · scan{% endif %}</td>
                         </tr>
                         {% endfor %}
@@ -135,16 +135,14 @@
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 flex justify-between items-center gap-4">
                 <div class="flex items-center gap-4 min-w-0">
-                    {% with primary=device.images.all|first %}
-                    {% if primary %}
-                    <img src="{% url 'library:image-file' device.pk primary.pk %}" alt="{{ primary.caption }}" class="w-16 h-12 object-cover rounded border flex-none">
+                    {% if device.image %}
+                    <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="w-16 h-12 object-cover rounded border flex-none">
                     {% endif %}
-                    {% endwith %}
                     <div class="min-w-0">
                         <h5 class="font-semibold">Documentation</h5>
                         <p class="text-sm text-gray-500">
                             {{ device.documents.count }} document{{ device.documents.count|pluralize }} ·
-                            {{ device.images.count }} image{{ device.images.count|pluralize }} ·
+                            image {% if device.image %}✓{% else %}missing{% endif %} ·
                             procedure {% if device.procedure %}v{{ device.procedure.version }}{% else %}missing{% endif %}
                         </p>
                     </div>

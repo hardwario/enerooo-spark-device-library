@@ -70,57 +70,34 @@
     {% endif %}
 </div>
 
-<!-- Images -->
+<!-- Image -->
 <div class="bg-white rounded-lg shadow flex flex-col">
     <div class="border-b border-gray-200 px-6 py-4">
-        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Images</h3>
-        <p class="text-sm text-gray-500 mt-1">The primary image (<i class="bi bi-star-fill text-amber-500"></i>) is shown in unit details and on the procedure.</p>
+        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Product image</h3>
+        <p class="text-sm text-gray-500 mt-1">One photo of the device, shown in unit details and on the procedure.</p>
     </div>
-    <div class="p-6 flex-1">
-        {% with images=device.images.all %}
-        {% if images %}
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {% for img in images %}
-            <div class="border rounded overflow-hidden bg-gray-50 {% if img.is_primary %}ring-2 ring-amber-400{% endif %}">
-                <a href="{% url 'library:image-file' device.pk img.pk %}" target="_blank">
-                    <img src="{% url 'library:image-file' device.pk img.pk %}" alt="{{ img.caption }}" class="w-full aspect-[4/3] object-cover">
-                </a>
-                <div class="px-2 py-1.5 text-xs flex items-center justify-between gap-1">
-                    <span class="truncate">{% if img.is_primary %}<i class="bi bi-star-fill text-amber-500 mr-1"></i>{% endif %}{{ img.caption|default:"—" }}</span>
-                    {% if user.is_editor %}
-                    <span class="flex gap-1 flex-none">
-                        {% if not img.is_primary %}
-                        <form method="post" action="{% url 'library:image-primary' device.pk img.pk %}" class="inline">{% csrf_token %}
-                            <button class="text-gray-400 hover:text-amber-600" title="Set as primary"><i class="bi bi-star"></i></button>
-                        </form>
-                        {% endif %}
-                        <form method="post" action="{% url 'library:image-delete' device.pk img.pk %}" onsubmit="return confirm('Delete this image?')" class="inline">{% csrf_token %}
-                            <button class="text-gray-400 hover:text-red-600" title="Delete"><i class="bi bi-trash"></i></button>
-                        </form>
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
+    <div class="p-6 flex-1 flex items-center justify-center">
+        {% if image %}
+        <div class="relative">
+            <a href="{% url 'library:image-file' device.pk %}" target="_blank">
+                <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="max-h-56 rounded border object-contain bg-gray-50">
+            </a>
+            {% if user.is_editor %}
+            <form method="post" action="{% url 'library:image-delete' device.pk %}" onsubmit="return confirm('Delete the image?')" class="absolute top-2 right-2">{% csrf_token %}
+                <button class="bg-white/90 border border-gray-300 text-gray-500 hover:text-red-600 rounded px-2 py-1 text-sm" title="Delete"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
         </div>
         {% else %}
-        <p class="text-sm text-gray-400 py-6 text-center">No images yet.</p>
+        <p class="text-sm text-gray-400 py-6 text-center">No image yet.</p>
         {% endif %}
-        {% endwith %}
     </div>
     {% if user.is_editor %}
-    <form method="post" action="{% url 'library:image-add' device.pk %}" enctype="multipart/form-data" class="border-t bg-gray-50 rounded-b-lg px-6 py-4 space-y-3">
+    <form method="post" action="{% url 'library:image-upload' device.pk %}" enctype="multipart/form-data" class="border-t bg-gray-50 rounded-b-lg px-6 py-4">
         {% csrf_token %}
         <div class="flex items-end gap-3">
-            <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Caption</label>
-                {{ image_form.caption }}
-            </div>
-            <label class="flex items-center gap-2 text-sm text-gray-700 pb-2 whitespace-nowrap">{{ image_form.is_primary }} Primary</label>
-        </div>
-        <div class="flex items-end gap-3">
             <div class="flex-1 min-w-0">
-                <label class="block text-xs font-medium text-gray-600 mb-1">PNG, JPG or WebP, max 10 MB</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">PNG, JPG or WebP, max 10 MB{% if image %} · replaces the current image{% endif %}</label>
                 <input type="file" name="image" accept="image/png,image/jpeg,image/webp" required class="block w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-white file:border file:border-gray-300 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100">
             </div>
             <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap"><i class="bi bi-upload mr-1"></i>Upload</button>
@@ -158,8 +135,6 @@
                 <div class="font-medium">{{ procedure.title }}</div>
                 <div class="text-xs text-gray-500">
                     v{{ procedure.version }} · {{ procedure.modified|date:"Y-m-d H:i" }}{% if procedure.updated_by %} · {{ procedure.updated_by.username }}{% endif %}
-                    {% if procedure.front_matter.duration_min %} · {{ procedure.front_matter.duration_min }} min{% endif %}
-                    {% if procedure.front_matter.tools %} · {{ procedure.front_matter.tools|join:", " }}{% endif %}
                 </div>
             </div>
         </div>

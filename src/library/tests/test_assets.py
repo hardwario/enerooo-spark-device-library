@@ -5,6 +5,7 @@ import time
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from rest_framework.test import APIClient
 
 from library.assets import assets_payload, parse_procedure_markdown, procedure_to_markdown
@@ -64,25 +65,21 @@ def service_client(settings):
     return client
 
 
-def _procedure(model, **extra):
+def _procedure(model):
     return ModelProcedure.objects.create(
         vendor_model=model,
         title="Oživení APZ V2",
         body="## 1. Kontrola balení\nText.\n\n## 2. Načtení štítku\n> [!TIP] Naskenujte QR.\n",
-        front_matter={"duration_min": 6, "tools": ["čtečka QR"], "requires_input": ["wmbus_id"], **extra},
     )
 
 
 # --- models -----------------------------------------------------------------
 
 
-def test_first_image_becomes_primary_and_only_one_primary(model):
-    first = ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("a.png", PNG))
-    assert first.is_primary
-    second = ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("b.png", PNG), is_primary=True)
-    first.refresh_from_db()
-    assert second.is_primary and not first.is_primary
-    assert model.images.filter(is_primary=True).count() == 1
+def test_image_is_one_per_model(model):
+    ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("a.png", PNG))
+    with pytest.raises(IntegrityError):
+        ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("b.png", PNG))
 
 
 def test_procedure_markdown_roundtrip(model):
@@ -91,8 +88,7 @@ def test_procedure_markdown_roundtrip(model):
     assert text.startswith("---\ntitle: Oživení APZ V2\n")
     front, body = parse_procedure_markdown(text)
     assert front["model_key"] == str(model.key)
-    assert "language" not in front
-    assert front["tools"] == ["čtečka QR"]
+    assert front == {"title": "Oživení APZ V2", "model_key": str(model.key), "version": 1}
     assert body == procedure.body
 
 
@@ -102,13 +98,13 @@ def test_parse_markdown_without_front_matter():
 
 def test_assets_payload_shape(model):
     ModelDocument.objects.create(vendor_model=model, title="Manual", file=SimpleUploadedFile("manual.pdf", PDF))
-    ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("a.png", PNG), caption="Front")
+    ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("a.png", PNG))
     _procedure(model)
     payload = assets_payload(model)
     doc = payload["documents"][0]
     assert doc["title"] == "Manual" and doc["size"] == len(PDF)
     assert doc["url"] == f"/api/v1/models/{model.key}/documents/{doc['id']}/"
-    assert payload["images"][0]["is_primary"] is True
+    assert payload["image"] == {"url": f"/api/v1/models/{model.key}/image/"}
     assert payload["procedure"] == {
         "version": 1, "title": "Oživení APZ V2", "url": f"/api/v1/models/{model.key}/procedure/",
     }
@@ -128,7 +124,6 @@ def test_procedures_export_and_import(tmp_path, model):
     assert stats["errors"] == []
     restored = ModelProcedure.objects.get(vendor_model=model)
     assert restored.title == "Oživení APZ V2"
-    assert restored.front_matter == {"duration_min": 6, "tools": ["čtečka QR"], "requires_input": ["wmbus_id"]}
     assert "## 2. Načtení štítku" in restored.body
 
 
@@ -143,7 +138,7 @@ def test_assets_api_serves_metadata_and_files(service_client, model):
     doc = ModelDocument.objects.create(
         vendor_model=model, title="Manual", file=SimpleUploadedFile("manual.pdf", PDF),
     )
-    image = ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("a.png", PNG))
+    ModelImage.objects.create(vendor_model=model, image=SimpleUploadedFile("a.png", PNG))
     _procedure(model)
 
     meta = service_client.get(f"/api/v1/models/{model.key}/assets/").json()
@@ -153,7 +148,7 @@ def test_assets_api_serves_metadata_and_files(service_client, model):
     assert pdf.status_code == 200 and pdf["Content-Type"] == "application/pdf"
     assert b"".join(pdf.streaming_content) == PDF
 
-    png = service_client.get(f"/api/v1/models/{model.key}/images/{image.id}/")
+    png = service_client.get(f"/api/v1/models/{model.key}/image/")
     assert png.status_code == 200 and png["Content-Type"] == "image/png"
 
     md = service_client.get(f"/api/v1/models/{model.key}/procedure/")
@@ -171,7 +166,7 @@ def test_published_content_carries_assets(service_client, model):
     )
     body = service_client.get("/api/v1/library/content/1/").json()
     assets = body["vendors"][0]["models"][0]["assets"]
-    assert assets["documents"] == [] and assets["images"] == []
+    assert assets["documents"] == [] and assets["image"] is None
     assert assets["procedure"]["title"] == "Oživení APZ V2"
 
 
@@ -180,7 +175,7 @@ def test_devices_detail_carries_assets(model):
     client = APIClient()
     client.force_authenticate(user=user)
     detail = client.get(f"/api/v1/devices/{model.pk}/").json()
-    assert detail["assets"] == {"documents": [], "images": [], "procedure": None}
+    assert detail["assets"] == {"documents": [], "image": None, "procedure": None}
 
 
 # --- UI -----------------------------------------------------------------------
@@ -212,32 +207,28 @@ def test_upload_document_and_reject_non_pdf(editor_client, model):
     assert model.documents.count() == 0
 
 
-def test_image_upload_primary_switch_and_delete(editor_client, model):
-    add = f"/models/{model.pk}/images/add/"
-    editor_client.post(add, {"image": SimpleUploadedFile("a.png", PNG), "caption": "A"})
-    editor_client.post(add, {"image": SimpleUploadedFile("b.webp", PNG), "caption": "B"})
-    a, b = model.images.order_by("created")
-    assert a.is_primary and not b.is_primary
+def test_image_upload_replace_and_delete(editor_client, model):
+    upload = f"/models/{model.pk}/image/upload/"
+    editor_client.post(upload, {"image": SimpleUploadedFile("a.png", PNG)})
+    editor_client.post(upload, {"image": SimpleUploadedFile("b.webp", PNG)})
+    image = model.image
+    assert image.image.name.endswith("b.webp")
+    assert ModelImage.objects.filter(vendor_model=model).count() == 1
 
-    editor_client.post(f"/models/{model.pk}/images/{b.pk}/primary/")
-    a.refresh_from_db()
-    b.refresh_from_db()
-    assert b.is_primary and not a.is_primary
+    served = editor_client.get(f"/models/{model.pk}/image/file/")
+    assert served.status_code == 200 and served["Content-Type"] == "image/webp"
 
-    editor_client.post(f"/models/{model.pk}/images/{b.pk}/delete/")
-    a.refresh_from_db()
-    assert model.images.count() == 1 and a.is_primary
+    editor_client.post(f"/models/{model.pk}/image/delete/")
+    assert not ModelImage.objects.filter(vendor_model=model).exists()
 
 
 def test_procedure_edit_creates_then_bumps_version(editor_client, model):
     url = f"/models/{model.pk}/procedure/edit/"
     assert editor_client.get(url).status_code == 200
-    data = {"title": "Oživení", "body": "## 1. Krok", "duration_min": "5", "tools": "čtečka QR, Bridge",
-            "requires_input": ["wmbus_id", "wmbus_key"]}
+    data = {"title": "Oživení", "body": "## 1. Krok"}
     assert editor_client.post(url, data).status_code == 302
     proc = model.procedure
     assert proc.version == 1
-    assert proc.front_matter == {"duration_min": 5, "tools": ["čtečka QR", "Bridge"], "requires_input": ["wmbus_id", "wmbus_key"]}
     assert proc.updated_by.username == "ed"
 
     editor_client.post(url, data)  # unchanged: no bump

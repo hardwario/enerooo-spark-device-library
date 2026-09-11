@@ -194,9 +194,9 @@ class ModelAssetsViewSet(viewsets.ViewSet):
         doc = get_object_or_404(ModelDocument, pk=doc_id, vendor_model=self._model(pk))
         return FileResponse(doc.file.open("rb"), content_type="application/pdf", filename=doc.file.name.rsplit("/", 1)[-1])
 
-    @action(detail=True, methods=["get"], url_path=r"images/(?P<image_id>[0-9a-f-]{36})")
-    def image(self, request, pk=None, image_id=None):
-        image = get_object_or_404(ModelImage, pk=image_id, vendor_model=self._model(pk))
+    @action(detail=True, methods=["get"])
+    def image(self, request, pk=None):
+        image = get_object_or_404(ModelImage, vendor_model=self._model(pk))
         content_type = mimetypes.guess_type(image.image.name)[0] or "application/octet-stream"
         return FileResponse(image.image.open("rb"), content_type=content_type)
 

@@ -62,7 +62,7 @@ def build_version_content(lib_version: LibraryVersion, technologies: set[str] | 
         str(m.key): assets_payload(m)
         for m in VendorModel.objects.filter(
             pk__in=[e.device_type_id for e in entries if e.device_type_id],
-        ).prefetch_related("documents", "images").select_related("procedure")
+        ).prefetch_related("documents").select_related("image", "procedure")
     }
 
     vendors: dict[str, dict] = {}

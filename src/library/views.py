@@ -953,6 +953,7 @@ class ModelAssetsView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["document_form"] = ModelDocumentForm()
         ctx["image_form"] = ModelImageForm()
+        ctx["image"] = ModelImage.objects.filter(vendor_model=self.object).first()
         ctx["procedure"] = ModelProcedure.objects.filter(vendor_model=self.object).first()
         return ctx
 
@@ -1003,46 +1004,40 @@ class ModelDocumentFileView(LoginRequiredMixin, View):
         return FileResponse(doc.file.open("rb"), content_type="application/pdf", filename=doc.file.name.rsplit("/", 1)[-1])
 
 
-class ModelImageCreateView(_ModelAssetMutationView):
+class ModelImageUploadView(_ModelAssetMutationView):
+    """Upload or replace the model's product image."""
+
     def post(self, request, pk):
         form = ModelImageForm(request.POST, request.FILES)
-        if form.is_valid():
+        if not form.is_valid():
+            self.flash_errors(form)
+            return self.back()
+        image = ModelImage.objects.filter(vendor_model=self.device).first()
+        if image:
+            image.image.delete(save=False)
+            image.image = form.cleaned_data["image"]
+            image.save()
+        else:
             image = form.save(commit=False)
             image.vendor_model = self.device
             image.save()
-            log_action(request, "created", image, details=f"Image uploaded to {self.device}")
-        else:
-            self.flash_errors(form)
+        log_action(request, "updated", image, details=f"Image uploaded to {self.device}")
         return self.back()
 
 
 class ModelImageDeleteView(_ModelAssetMutationView):
-    def post(self, request, pk, image_pk):
-        image = get_object_or_404(ModelImage, pk=image_pk, vendor_model=self.device)
+    def post(self, request, pk):
+        image = get_object_or_404(ModelImage, vendor_model=self.device)
         image.image.delete(save=False)
         image.delete()
-        # Keep exactly one primary when the primary was removed.
-        if not self.device.images.filter(is_primary=True).exists():
-            first = self.device.images.first()
-            if first:
-                first.is_primary = True
-                first.save()
-        return self.back()
-
-
-class ModelImagePrimaryView(_ModelAssetMutationView):
-    def post(self, request, pk, image_pk):
-        image = get_object_or_404(ModelImage, pk=image_pk, vendor_model=self.device)
-        image.is_primary = True
-        image.save()
         return self.back()
 
 
 class ModelImageFileView(LoginRequiredMixin, View):
-    def get(self, request, pk, image_pk):
+    def get(self, request, pk):
         import mimetypes
 
-        image = get_object_or_404(ModelImage, pk=image_pk, vendor_model_id=pk)
+        image = get_object_or_404(ModelImage, vendor_model_id=pk)
         content_type = mimetypes.guess_type(image.image.name)[0] or "application/octet-stream"
         return FileResponse(image.image.open("rb"), content_type=content_type)
 

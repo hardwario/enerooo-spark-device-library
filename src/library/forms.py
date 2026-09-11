@@ -539,7 +539,7 @@ class ModelDocumentForm(forms.ModelForm):
 class ModelImageForm(forms.ModelForm):
     class Meta:
         model = ModelImage
-        fields = ["image", "caption", "is_primary"]
+        fields = ["image"]
 
     def clean_image(self):
         f = self.cleaned_data["image"]
@@ -547,18 +547,8 @@ class ModelImageForm(forms.ModelForm):
             raise forms.ValidationError("Image must be 10 MB or smaller.")
         return f
 
-
 class ModelProcedureForm(forms.ModelForm):
-    """Title + Markdown body on the model, the front matter extras as plain
-    form fields. Saving an existing procedure with any change bumps ``version``."""
-
-    duration_min = forms.IntegerField(required=False, min_value=1, label="Duration (min)")
-    tools = forms.CharField(required=False, help_text="Comma-separated, e.g. QR reader, Enerooo Bridge")
-    requires_input = forms.MultipleChoiceField(
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-        help_text="Provisioning input fields the technician needs at hand",
-    )
+    """Title + Markdown body. Saving an existing procedure with any change bumps ``version``."""
 
     class Meta:
         model = ModelProcedure
@@ -567,30 +557,7 @@ class ModelProcedureForm(forms.ModelForm):
             "body": forms.Textarea(attrs={"rows": 24, "class": "font-mono text-sm", "data-md-source": ""}),
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        keys = [f["key"] for f in (self.instance.vendor_model.provisioning or {}).get("input_data", [])]
-        if keys:
-            self.fields["requires_input"].choices = [(k, k) for k in keys]
-        else:
-            del self.fields["requires_input"]
-        fm = self.instance.front_matter or {}
-        self.fields["duration_min"].initial = fm.get("duration_min")
-        self.fields["tools"].initial = ", ".join(fm.get("tools", []))
-        if "requires_input" in self.fields:
-            self.fields["requires_input"].initial = fm.get("requires_input", [])
-
     def save(self, commit=True):
-        fm = {}
-        if self.cleaned_data.get("duration_min"):
-            fm["duration_min"] = self.cleaned_data["duration_min"]
-        tools = [t.strip() for t in self.cleaned_data.get("tools", "").split(",") if t.strip()]
-        if tools:
-            fm["tools"] = tools
-        if self.cleaned_data.get("requires_input"):
-            fm["requires_input"] = list(self.cleaned_data["requires_input"])
-        if not self.instance._state.adding and (self.has_changed() or fm != (self.instance.front_matter or {})):
+        if not self.instance._state.adding and self.has_changed():
             self.instance.version += 1
-        self.instance.front_matter = fm
         return super().save(commit=commit)
-

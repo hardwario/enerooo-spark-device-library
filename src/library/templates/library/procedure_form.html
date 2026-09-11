@@ -34,37 +34,16 @@
     {% endif %}
 
     <div class="bg-white rounded-lg shadow mb-6">
-        <div class="border-b border-gray-200 px-6 py-4">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Front matter</h3>
-        </div>
-        <div class="p-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div class="sm:col-span-2">
-                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                {{ form.title }}
-            </div>
-            <div>
-                <label for="{{ form.duration_min.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.duration_min.label }}</label>
-                {{ form.duration_min }}
-            </div>
-            <div>
-                <label for="{{ form.tools.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Tools</label>
-                {{ form.tools }}
-                <div class="text-xs text-gray-500 mt-1">{{ form.tools.help_text }}</div>
-            </div>
-            {% if form.requires_input %}
-            <div class="sm:col-span-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Requires input</label>
-                <div class="flex flex-wrap gap-4 text-sm font-mono">{{ form.requires_input }}</div>
-                <div class="text-xs text-gray-500 mt-1">{{ form.requires_input.help_text }}</div>
-            </div>
-            {% endif %}
+        <div class="p-6 max-w-xl">
+            <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            {{ form.title }}
         </div>
     </div>
 
     <div class="bg-white rounded-lg shadow mb-6">
         <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Markdown</h3>
-            <span class="text-xs text-gray-500">Steps as <code>## 1.</code>, <code>## 2.</code> headings · callouts <code>&gt; [!TIP]</code>, <code>&gt; [!WARNING]</code> · images by URL from the Images tab</span>
+            <span class="text-xs text-gray-500">Steps as <code>## 1.</code>, <code>## 2.</code> headings · callouts <code>&gt; [!TIP]</code>, <code>&gt; [!WARNING]</code> · image by its URL from the Documentation page</span>
         </div>
         <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>{{ form.body }}</div>

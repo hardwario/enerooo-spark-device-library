@@ -142,13 +142,11 @@ def _import_procedures(procedures_dir: Path, stats: dict) -> int:
         try:
             front, body = parse_procedure_markdown(path.read_text(encoding="utf-8"))
             model = VendorModel.objects.get(key=front.get("model_key") or path.stem)
-            extras = {k: v for k, v in front.items() if k not in ("title", "model_key", "version")}
             ModelProcedure.objects.update_or_create(
                 vendor_model=model,
                 defaults={
                     "title": front.get("title") or path.stem,
                     "body": body,
-                    "front_matter": extras,
                     "version": int(front.get("version") or 1),
                 },
             )

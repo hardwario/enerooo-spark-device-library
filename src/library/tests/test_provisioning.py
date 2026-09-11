@@ -91,7 +91,7 @@ def test_empty_schema_is_valid():
 
 
 def _field(**overrides):
-    base = {"key": "dev_eui", "label": {"en": "DevEUI"}, "type": "hex", "length": 16, "required": True}
+    base = {"key": "dev_eui", "label": "DevEUI", "type": "hex", "length": 16, "required": True}
     base.update(overrides)
     return base
 
@@ -106,14 +106,13 @@ def _field(**overrides):
         {"input_data": [], "pairing_key": "dev_eui"},
         {"input_data": [_field(key="DevEUI")], "pairing_key": "DevEUI"},
         {"input_data": [_field(), _field()], "pairing_key": "dev_eui"},  # duplicate key
-        {"input_data": [_field(label="DevEUI")], "pairing_key": "dev_eui"},
-        {"input_data": [_field(label={"cs": "DevEUI"})], "pairing_key": "dev_eui"},  # en missing
+        {"input_data": [_field(label="")], "pairing_key": "dev_eui"},
+        {"input_data": [_field(label={"en": "DevEUI"})], "pairing_key": "dev_eui"},
         {"input_data": [_field(type="uuid")], "pairing_key": "dev_eui"},
         {"input_data": [_field(length=None)], "pairing_key": "dev_eui"},
         {"input_data": [_field(length="16")], "pairing_key": "dev_eui"},
         {"input_data": [_field(type="int", length=None, min=10, max=1)], "pairing_key": "dev_eui"},
         {"input_data": [_field(type="string", length=None, pattern="[")], "pairing_key": "dev_eui"},
-        {"input_data": [_field(type="enum", length=None, choices=[])], "pairing_key": "dev_eui"},
         {"input_data": [_field(required="yes")], "pairing_key": "dev_eui"},
         {"input_data": [_field()], "pairing_key": "dev_eui", "extra": 1},
     ],
