@@ -269,3 +269,29 @@ class TestContentEndpoint:
         # Should fall back to current Metric.objects.all()
         assert any(m["key"] == "heat:total_energy" for m in resp.data["metrics"])
         assert any(dt["code"] == "water_meter" for dt in resp.data["device_types"])
+
+
+class TestVersionExportParity:
+    """The UI download (``/versions/<pk>/export/``) is what an air-gapped Spark
+    imports with ``sync_device_library --from-file``. It must be the very same
+    document the sync API serves, otherwise offline and online instances drift."""
+
+    def test_ui_download_equals_content_endpoint(self, admin_session_client):
+        import json
+
+        admin_session_client.post("/versions/create/")
+        lv = LibraryVersion.objects.order_by("-version").first()
+
+        rf = RequestFactory()
+        view = LibraryContentViewSet()
+        req = rf.get(f"/api/v1/library/content/{lv.version}/?technology=wmbus")
+        view.request = req
+        api_doc = view.retrieve(req, pk=str(lv.version)).data
+
+        resp = admin_session_client.get(f"/versions/{lv.pk}/export/?format=json&technology=wmbus")
+        assert resp.status_code == 200
+        assert resp["Content-Disposition"].endswith(f'library-v{lv.version}-wmbus.json"')
+        ui_doc = json.loads(resp.content)
+
+        assert ui_doc == json.loads(json.dumps(api_doc))
+        assert set(ui_doc) == {"version", "schema_version", "metrics", "device_types", "vendors"}

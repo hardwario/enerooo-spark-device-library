@@ -17,7 +17,7 @@ from auditlog.models import AuditLog
 from core.models import User
 from core.permissions import RoleRequiredMixin
 
-from .exporters import export_to_yaml, snapshot_to_schema
+from .exporters import export_to_yaml
 from .forms import (
     AlarmConfigForm,
     AlarmForm,
@@ -1687,64 +1687,31 @@ class VersionCreateView(RoleRequiredMixin, View):
 
 
 class VersionExportView(LoginRequiredMixin, View):
-    """Export a library version as JSON or YAML download."""
+    """Download a library version as the same document the sync API serves.
+
+    ``?format=json`` (default) is what an air-gapped Spark instance imports
+    with ``sync_device_library --from-file``; ``?format=yaml`` is the
+    human-readable twin. ``?technology=wmbus[,modbus]`` narrows the models.
+    """
 
     def get(self, request, pk):
+        from library.api.content import build_version_content, parse_technologies
+
         lib_version = get_object_or_404(LibraryVersion, pk=pk)
         fmt = request.GET.get("format", "json")
+        technologies = parse_technologies(request.GET.get("technology", ""))
+        document = build_version_content(lib_version, technologies)
 
-        entries = lib_version.device_changes.select_related("device_type").exclude(
-            change_type=LibraryVersionDevice.ChangeType.REMOVED,
-        )
-
-        # Batch-fetch all relevant DeviceHistory snapshots
-        history_lookup = {}
-        for entry in entries:
-            if entry.device_type_id:
-                history_entry = (
-                    DeviceHistory.objects.filter(
-                        device_id=entry.device_type_id,
-                        version=entry.device_version,
-                    )
-                    .values_list("snapshot", flat=True)
-                    .first()
-                )
-                if history_entry:
-                    history_lookup[entry.device_type_id] = history_entry
-
-        # Group devices by vendor and convert snapshots to schema format
-        vendors = {}
-        for entry in entries:
-            snapshot = history_lookup.get(entry.device_type_id)
-            if not snapshot:
-                continue
-            vendor_name = snapshot.get("vendor", "Unknown")
-            if vendor_name not in vendors:
-                vendors[vendor_name] = []
-            vendors[vendor_name].append(snapshot_to_schema(snapshot))
-
-        # Build final document
-        vendor_list = []
-        for vendor_name in sorted(vendors):
-            vendor_list.append({
-                "name": vendor_name,
-                "models": vendors[vendor_name],
-            })
-
-        document = {
-            "version": lib_version.version,
-            "schema_version": lib_version.schema_version,
-            "vendors": vendor_list,
-        }
-
+        suffix = f"-{'-'.join(sorted(technologies))}" if technologies else ""
+        filename = f"library-v{lib_version.version}{suffix}"
         if fmt == "yaml":
             content = yaml.dump(document, default_flow_style=False, sort_keys=False, allow_unicode=True)
             response = HttpResponse(content, content_type="application/x-yaml")
-            response["Content-Disposition"] = f'attachment; filename="library-v{lib_version.version}.yaml"'
+            response["Content-Disposition"] = f'attachment; filename="{filename}.yaml"'
         else:
             content = json.dumps(document, indent=2, ensure_ascii=False)
             response = HttpResponse(content, content_type="application/json")
-            response["Content-Disposition"] = f'attachment; filename="library-v{lib_version.version}.json"'
+            response["Content-Disposition"] = f'attachment; filename="{filename}.json"'
 
         return response
 
