@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Procedure - {{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:model-detail' device.pk %}" class="hover:text-gray-700">{{ device.name }}</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'library:model-assets' device.pk %}" class="hover:text-gray-700">Documentation</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-800">Procedure</span>
+</nav>
+
+<div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
+        <i class="bi bi-list-ol text-sky-700 text-lg"></i>
+    </div>
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">Commissioning procedure</h2>
+        <p class="text-sm text-gray-500">{{ device.vendor.name }} {{ device.model_number }}{% if procedure.pk %} · v{{ procedure.version }}, saving with changes creates v{{ procedure.version|add:1 }}{% else %} · new{% endif %}</p>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        {% for field in form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Front matter</h3>
+        </div>
+        <div class="p-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="sm:col-span-2">
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                {{ form.title }}
+            </div>
+            <div>
+                <label for="{{ form.duration_min.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.duration_min.label }}</label>
+                {{ form.duration_min }}
+            </div>
+            <div>
+                <label for="{{ form.tools.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Tools</label>
+                {{ form.tools }}
+                <div class="text-xs text-gray-500 mt-1">{{ form.tools.help_text }}</div>
+            </div>
+            {% if form.requires_input %}
+            <div class="sm:col-span-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Requires input</label>
+                <div class="flex flex-wrap gap-4 text-sm font-mono">{{ form.requires_input }}</div>
+                <div class="text-xs text-gray-500 mt-1">{{ form.requires_input.help_text }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Markdown</h3>
+            <span class="text-xs text-gray-500">Steps as <code>## 1.</code>, <code>## 2.</code> headings · callouts <code>&gt; [!TIP]</code>, <code>&gt; [!WARNING]</code> · images by URL from the Images tab</span>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>{{ form.body }}</div>
+            <div>
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Preview</div>
+                <div data-md-preview class="prose prose-sm max-w-none border border-dashed border-gray-300 rounded p-4 min-h-[300px] bg-gray-50"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex gap-2">
+        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
+            <i class="bi bi-check-lg mr-1"></i> Save procedure
+        </button>
+        <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-5 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script>
+(function() {
+    const source = document.querySelector('[data-md-source]');
+    const preview = document.querySelector('[data-md-preview]');
+    if (!source || !preview || !window.marked) return;
+    // Render "> [!TIP] text" callouts as tinted blockquotes; everything else is plain Markdown.
+    function render() {
+        let html = marked.parse(source.value || '');
+        html = html.replace(/<blockquote>\s*<p>\[!(TIP|WARNING|NOTE)\]\s*/g, (m, kind) => {
+            const tone = {TIP: 'border-green-500 bg-green-50', WARNING: 'border-amber-500 bg-amber-50', NOTE: 'border-sky-500 bg-sky-50'}[kind];
+            return `<blockquote class="border-l-4 ${tone} pl-3 py-1 not-italic"><p><strong>${kind}</strong> `;
+        });
+        preview.innerHTML = html;
+    }
+    source.addEventListener('input', render);
+    render();
+})();
+</script>
+{% endblock %}

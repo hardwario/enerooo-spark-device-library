@@ -5,8 +5,11 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator, RegexValidator
 from django.db import models
 from model_utils.models import TimeStampedModel
+
+from .provisioning import PRODUCT_CODE_RE, validate_provisioning
 
 # Wire-format version emitted in /api/v1/sync/, /api/v1/manifest/,
 # /api/v1/library/content/<v>/ and manifest.yaml exports. Bump when the
@@ -274,6 +277,19 @@ class VendorModel(TimeStampedModel):
     )
     technology = models.CharField(max_length=20, choices=Technology.choices)
     description = models.TextField(blank=True, default="")
+    # ENEROOO product code (ER code), the prefix of every Enerooo ID printed
+    # on a unit label. Assigned by the product owner, never generated. One
+    # code per model; models without a code are not offered in Provisioning.
+    product_code = models.CharField(
+        max_length=5,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[RegexValidator(PRODUCT_CODE_RE, "Five characters, A–Z or 0–9.")],
+        help_text="ENEROOO ER code, e.g. ER10V. Assigned by the product owner.",
+    )
+    # Per-unit input-data schema + pairing key; see ``library.provisioning``.
+    provisioning = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["vendor__name", "model_number"]
@@ -281,6 +297,12 @@ class VendorModel(TimeStampedModel):
 
     def __str__(self):
         return f"{self.vendor.name} {self.model_number}"
+
+    def clean(self):
+        super().clean()
+        if self.product_code == "":
+            self.product_code = None
+        validate_provisioning(self.provisioning)
 
     @property
     def effective_field_mappings(self) -> list[dict]:
@@ -394,6 +416,87 @@ class VendorModel(TimeStampedModel):
         if self.device_type_fk_id and self.device_type_fk.code and self.device_type != self.device_type_fk.code:
             self.device_type = self.device_type_fk.code
         super().save(*args, **kwargs)
+
+
+def _asset_upload_to(instance, filename: str) -> str:
+    """``models/<model key>/<filename>`` under ``MEDIA_ROOT``."""
+    return f"models/{instance.vendor_model.key}/{filename}"
+
+
+class ModelDocument(TimeStampedModel):
+    """PDF manual or datasheet attached to a model. Served to Provisioning
+    and Spark through the service-token assets API, never public."""
+
+    MAX_BYTES = 25 * 1024 * 1024
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vendor_model = models.ForeignKey(VendorModel, on_delete=models.CASCADE, related_name="documents")
+    file = models.FileField(upload_to=_asset_upload_to, validators=[FileExtensionValidator(["pdf"])])
+    title = models.CharField(max_length=255)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        ordering = ["title"]
+
+    def __str__(self):
+        return self.title
+
+
+class ModelImage(TimeStampedModel):
+    """Photo of the device. The primary image is what consumers show in a
+    unit's detail; the first uploaded image becomes primary automatically."""
+
+    MAX_BYTES = 10 * 1024 * 1024
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vendor_model = models.ForeignKey(VendorModel, on_delete=models.CASCADE, related_name="images")
+    image = models.FileField(
+        upload_to=_asset_upload_to, validators=[FileExtensionValidator(["png", "jpg", "jpeg", "webp"])]
+    )
+    is_primary = models.BooleanField(default=False)
+    caption = models.CharField(max_length=255, blank=True, default="")
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "created"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["vendor_model"], condition=models.Q(is_primary=True), name="one_primary_image_per_model"
+            ),
+        ]
+
+    def __str__(self):
+        return self.caption or self.image.name
+
+    def save(self, *args, **kwargs):
+        siblings = ModelImage.objects.filter(vendor_model_id=self.vendor_model_id).exclude(pk=self.pk)
+        if self.is_primary:
+            siblings.filter(is_primary=True).update(is_primary=False)
+        elif not siblings.filter(is_primary=True).exists():
+            self.is_primary = True
+        super().save(*args, **kwargs)
+
+
+class ModelProcedure(TimeStampedModel):
+    """Commissioning procedure of a model (one, in Czech for now). Markdown
+    body with steps as ``## N.`` headings; ``front_matter`` holds the extras
+    (duration_min, tools, requires_input) that travel in the exported
+    ``.md`` front matter next to title / version."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vendor_model = models.OneToOneField(VendorModel, on_delete=models.CASCADE, related_name="procedure")
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True, default="")
+    front_matter = models.JSONField(default=dict, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    def __str__(self):
+        return self.title
 
 
 class ModbusConfig(TimeStampedModel):

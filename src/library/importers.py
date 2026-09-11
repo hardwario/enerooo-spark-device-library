@@ -124,7 +124,38 @@ def import_from_yaml(devices_path: str | Path, manifest_path: str | Path, clear:
                 stats["errors"].append(error_msg)
                 logger.error(error_msg)
 
+    stats["procedures_imported"] = _import_procedures(devices_path.parent / "procedures", stats)
+
     return stats
+
+
+def _import_procedures(procedures_dir: Path, stats: dict) -> int:
+    """Load ``procedures/<model key>.md`` written by the exporter.
+    Unknown model keys are reported in ``stats["errors"]`` and skipped."""
+    from .assets import parse_procedure_markdown
+    from .models import ModelProcedure
+
+    if not procedures_dir.is_dir():
+        return 0
+    count = 0
+    for path in sorted(procedures_dir.glob("*.md")):
+        try:
+            front, body = parse_procedure_markdown(path.read_text(encoding="utf-8"))
+            model = VendorModel.objects.get(key=front.get("model_key") or path.stem)
+            extras = {k: v for k, v in front.items() if k not in ("title", "model_key", "version")}
+            ModelProcedure.objects.update_or_create(
+                vendor_model=model,
+                defaults={
+                    "title": front.get("title") or path.stem,
+                    "body": body,
+                    "front_matter": extras,
+                    "version": int(front.get("version") or 1),
+                },
+            )
+            count += 1
+        except Exception as e:
+            stats["errors"].append(f"Error importing procedure {path.name}: {e}")
+    return count
 
 
 def _import_metric(data: dict) -> Metric:
@@ -326,6 +357,8 @@ def _import_device(vendor: Vendor, data: dict, stats: dict) -> VendorModel:
             "device_type_fk": device_type_fk,
             "technology": technology,
             "description": data.get("description", "") or "",
+            "product_code": data.get("product_code") or None,
+            "provisioning": data.get("provisioning") or {},
         },
     )
 

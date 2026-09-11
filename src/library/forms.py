@@ -12,6 +12,9 @@ from .models import (
     LoRaWANConfig,
     Metric,
     ModbusConfig,
+    ModelDocument,
+    ModelImage,
+    ModelProcedure,
     ProcessorConfig,
     RegisterDefinition,
     Vendor,
@@ -222,15 +225,71 @@ class VendorModelForm(forms.ModelForm):
             "device_type_fk",
             "technology",
             "description",
+            "product_code",
         ]
         labels = {
             # The legacy ``device_type`` charfield is derived from this FK on
             # save, so the FK is the only "device type" the operator edits.
             "device_type_fk": "Device type",
+            "product_code": "ENEROOO product code",
         }
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
+            "product_code": forms.TextInput(attrs={"placeholder": "ER10V", "maxlength": 5, "class": "font-mono uppercase"}),
         }
+
+    def clean_product_code(self):
+        code = (self.cleaned_data.get("product_code") or "").strip().upper()
+        return code or None
+
+
+class ProvisioningWidget(forms.Textarea):
+    """Tabular editor for ``VendorModel.provisioning``: one row per input
+    field, a pairing-key select, per-technology prefill and a live preview
+    of the operator form. Hidden textarea keeps the JSON for submit."""
+
+    template_name = "library/widgets/provisioning.html"
+    technology: str = ""
+
+    def format_value(self, value):
+        import json
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value) if value else {}
+            except json.JSONDecodeError:
+                parsed = {}
+        elif value is None:
+            parsed = {}
+        else:
+            parsed = value
+        return json.dumps(parsed, ensure_ascii=False)
+
+    def get_context(self, name, value, attrs):
+        import json
+
+        from .provisioning import TEMPLATES, TYPES
+
+        ctx = super().get_context(name, value, attrs)
+        ctx["widget"]["template_json"] = json.dumps(TEMPLATES.get(self.technology) or {}, ensure_ascii=False)
+        ctx["widget"]["types_json"] = json.dumps(TYPES)
+        ctx["widget"]["technology"] = self.technology
+        return ctx
+
+
+class ProvisioningForm(forms.ModelForm):
+    """Edits only ``VendorModel.provisioning``; validation lives in
+    ``VendorModel.clean`` → ``library.provisioning.validate_provisioning``."""
+
+    class Meta:
+        model = VendorModel
+        fields = ["provisioning"]
+        widgets = {"provisioning": ProvisioningWidget}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["provisioning"].widget.technology = self.instance.technology
+        self.fields["provisioning"].required = False
 
 
 class DeviceTypeForm(forms.ModelForm):
@@ -460,3 +519,78 @@ class YAMLImportForm(forms.Form):
         label="Clear existing data",
         help_text="Delete all existing vendors and devices before importing",
     )
+
+
+# === Model documentation assets ===
+
+
+class ModelDocumentForm(forms.ModelForm):
+    class Meta:
+        model = ModelDocument
+        fields = ["title", "file"]
+
+    def clean_file(self):
+        f = self.cleaned_data["file"]
+        if f.size > ModelDocument.MAX_BYTES:
+            raise forms.ValidationError("PDF must be 25 MB or smaller.")
+        return f
+
+
+class ModelImageForm(forms.ModelForm):
+    class Meta:
+        model = ModelImage
+        fields = ["image", "caption", "is_primary"]
+
+    def clean_image(self):
+        f = self.cleaned_data["image"]
+        if f.size > ModelImage.MAX_BYTES:
+            raise forms.ValidationError("Image must be 10 MB or smaller.")
+        return f
+
+
+class ModelProcedureForm(forms.ModelForm):
+    """Title + Markdown body on the model, the front matter extras as plain
+    form fields. Saving an existing procedure with any change bumps ``version``."""
+
+    duration_min = forms.IntegerField(required=False, min_value=1, label="Duration (min)")
+    tools = forms.CharField(required=False, help_text="Comma-separated, e.g. QR reader, Enerooo Bridge")
+    requires_input = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Provisioning input fields the technician needs at hand",
+    )
+
+    class Meta:
+        model = ModelProcedure
+        fields = ["title", "body"]
+        widgets = {
+            "body": forms.Textarea(attrs={"rows": 24, "class": "font-mono text-sm", "data-md-source": ""}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        keys = [f["key"] for f in (self.instance.vendor_model.provisioning or {}).get("input_data", [])]
+        if keys:
+            self.fields["requires_input"].choices = [(k, k) for k in keys]
+        else:
+            del self.fields["requires_input"]
+        fm = self.instance.front_matter or {}
+        self.fields["duration_min"].initial = fm.get("duration_min")
+        self.fields["tools"].initial = ", ".join(fm.get("tools", []))
+        if "requires_input" in self.fields:
+            self.fields["requires_input"].initial = fm.get("requires_input", [])
+
+    def save(self, commit=True):
+        fm = {}
+        if self.cleaned_data.get("duration_min"):
+            fm["duration_min"] = self.cleaned_data["duration_min"]
+        tools = [t.strip() for t in self.cleaned_data.get("tools", "").split(",") if t.strip()]
+        if tools:
+            fm["tools"] = tools
+        if self.cleaned_data.get("requires_input"):
+            fm["requires_input"] = list(self.cleaned_data["requires_input"])
+        if not self.instance._state.adding and (self.has_changed() or fm != (self.instance.front_matter or {})):
+            self.instance.version += 1
+        self.instance.front_matter = fm
+        return super().save(commit=commit)
+

@@ -14,6 +14,7 @@ from .viewsets import (
     LibraryContentViewSet,
     LibraryVersionSyncViewSet,
     ManifestViewSet,
+    ModelAssetsViewSet,
     SyncDeviceTypeViewSet,
     SyncDeviceViewSet,
     SyncVendorViewSet,
@@ -36,6 +37,7 @@ router.register("assignments", GatewayAssignmentViewSet, basename="assignment")
 # HMAC-authenticated library sync
 router.register("library/version", LibraryVersionSyncViewSet, basename="library-version")
 router.register("library/content", LibraryContentViewSet, basename="library-content")
+router.register("models", ModelAssetsViewSet, basename="model-assets")
 
 # Agent API (API key auth; consumed by the library MCP server)
 router.register("agent/models", AgentModelViewSet, basename="agent-model")

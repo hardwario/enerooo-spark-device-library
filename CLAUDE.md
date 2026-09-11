@@ -29,6 +29,10 @@ device_types:
     controllable: boolean
   processor_config: # optional
     decoder_type: string
+  product_code: string (optional) # ENEROOO ER code, 5 chars, unique per model; Enerooo ID prefix
+  provisioning: # optional, per-unit input-data schema for Enerooo Provisioning (see src/library/provisioning.py)
+    input_data: [{key, label: {en, cs}, type: string|hex|digits|int|enum, required, secret, scan, ...}]
+    pairing_key: string # one of input_data keys
 ```
 
 ### Technology-Specific Fields

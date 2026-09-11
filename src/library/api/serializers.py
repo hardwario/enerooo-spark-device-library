@@ -1,7 +1,9 @@
 """API serializers for the device library."""
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from library.assets import assets_payload
 from library.models import (
     AlarmConfig,
     APIKey,
@@ -19,6 +21,7 @@ from library.models import (
     VendorModel,
     WMBusConfig,
 )
+from library.provisioning import validate_provisioning
 
 
 class MetricSerializer(serializers.ModelSerializer):
@@ -192,6 +195,7 @@ class VendorModelListSerializer(serializers.ModelSerializer):
             "device_type",
             "device_type_key",
             "technology",
+            "product_code",
         ]
 
 
@@ -216,6 +220,7 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
     alarm_config = serializers.SerializerMethodField()
     effective_field_mappings = serializers.ListField(read_only=True)
     declared_metrics = serializers.ListField(read_only=True)
+    assets = serializers.SerializerMethodField()
 
     class Meta:
         model = VendorModel
@@ -228,6 +233,9 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "device_type",
             "device_type_key",
             "description",
+            "product_code",
+            "provisioning",
+            "assets",
             "technology_config",
             "control_config",
             "processor_config",
@@ -235,6 +243,9 @@ class VendorModelDetailSerializer(serializers.ModelSerializer):
             "effective_field_mappings",
             "declared_metrics",
         ]
+
+    def get_assets(self, obj):
+        return assets_payload(obj)
 
     def get_control_config(self, obj):
         try:
@@ -331,10 +342,19 @@ class VendorModelAdminSerializer(serializers.ModelSerializer):
             "device_type_fk",
             "technology",
             "description",
+            "product_code",
+            "provisioning",
             "created",
             "modified",
         ]
         read_only_fields = ["id", "created", "modified"]
+
+    def validate_provisioning(self, value):
+        try:
+            validate_provisioning(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict["provisioning"]) from exc
+        return value
 
 
 class GatewayAssignmentSerializer(serializers.ModelSerializer):

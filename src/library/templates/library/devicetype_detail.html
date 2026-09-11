@@ -60,12 +60,101 @@
                         <dd>{{ device.description }}</dd>
                     </div>
                     {% endif %}
+                    <div>
+                        <dt class="font-medium text-gray-600">ENEROOO product code</dt>
+                        <dd>
+                            {% if device.product_code %}
+                            <span class="font-mono font-semibold">{{ device.product_code }}</span>
+                            <span class="text-xs text-gray-500 ml-1">Enerooo ID prefix {{ device.product_code }}-XXXXX-CC</span>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            <span class="text-xs text-amber-700 ml-1">not offered in Provisioning</span>
+                            {% endif %}
+                        </dd>
+                    </div>
                 </dl>
             </div>
         </div>
     </div>
 
     <div class="md:col-span-8">
+        <!-- Provisioning schema (per-unit input data) -->
+        {% with prov=device.provisioning %}
+        {% if prov.input_data %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h5 class="font-semibold">Provisioning</h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-500 mb-3">Input data entered per unit. Pairing key: <span class="font-mono">{{ prov.pairing_key }}</span></p>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b text-left">
+                            <th class="py-1.5 px-2 font-semibold">Key</th>
+                            <th class="py-1.5 px-2 font-semibold">Label</th>
+                            <th class="py-1.5 px-2 font-semibold">Type</th>
+                            <th class="py-1.5 px-2 font-semibold">Flags</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in prov.input_data %}
+                        <tr class="border-b last:border-b-0">
+                            <td class="py-1.5 px-2 font-mono">{{ f.key }}</td>
+                            <td class="py-1.5 px-2">{{ f.label.en }}{% if f.label.cs %} <span class="text-gray-400">/ {{ f.label.cs }}</span>{% endif %}</td>
+                            <td class="py-1.5 px-2 font-mono text-gray-600">{{ f.type }}{% if f.length %}({{ f.length }}){% elif f.type == "int" %}({{ f.min }}–{{ f.max }}){% elif f.choices %}({{ f.choices|join:", " }}){% endif %}</td>
+                            <td class="py-1.5 px-2 text-xs text-gray-600">{% if f.required %}required{% endif %}{% if f.secret %} · secret{% endif %}{% if f.scan %} · scan{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h5 class="font-semibold">Provisioning</h5>
+                    <p class="text-sm text-gray-500">No per-unit input data schema yet.</p>
+                </div>
+                {% if user.is_editor %}
+                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
+                    <i class="bi bi-plus-lg mr-1"></i>Add
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Documentation assets -->
+        <div class="bg-white rounded-lg shadow mb-4">
+            <div class="px-6 py-4 flex justify-between items-center gap-4">
+                <div class="flex items-center gap-4 min-w-0">
+                    {% with primary=device.images.all|first %}
+                    {% if primary %}
+                    <img src="{% url 'library:image-file' device.pk primary.pk %}" alt="{{ primary.caption }}" class="w-16 h-12 object-cover rounded border flex-none">
+                    {% endif %}
+                    {% endwith %}
+                    <div class="min-w-0">
+                        <h5 class="font-semibold">Documentation</h5>
+                        <p class="text-sm text-gray-500">
+                            {{ device.documents.count }} document{{ device.documents.count|pluralize }} ·
+                            {{ device.images.count }} image{{ device.images.count|pluralize }} ·
+                            procedure {% if device.procedure %}v{{ device.procedure.version }}{% else %}missing{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50 whitespace-nowrap">
+                    <i class="bi bi-journal-text mr-1"></i>Open
+                </a>
+            </div>
+        </div>
+
         <!-- Technology Config -->
         {% if device.technology == "modbus" %}
         <div class="bg-white rounded-lg shadow mb-4">
