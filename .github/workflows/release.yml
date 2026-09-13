@@ -83,6 +83,20 @@ jobs:
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
             docker compose pull
             docker compose up -d
+            # `up -d` returns as soon as the container starts, so a container that
+            # dies seconds later (failed migration, bad config) used to leave a green
+            # deploy behind a 502. Wait for the app to actually answer.
+            PORT=$(grep -E '^PORT=' .env | cut -d= -f2 || true)
+            answered=0
+            for _ in $(seq 1 20); do
+              if curl -s -o /dev/null "http://127.0.0.1:${PORT:-8002}/"; then answered=1; break; fi
+              sleep 3
+            done
+            if [ "$answered" != "1" ]; then
+              echo "The library did not answer after the deploy:"
+              docker compose logs --tail 50 web
+              exit 1
+            fi
             docker image prune -f
             # Install daily backup cron if not already present
             CRON_CMD="0 3 * * * cd /opt/spark-device-library && ./scripts/backup-db.sh >> /var/log/spark-device-library-backup.log 2>&1"
