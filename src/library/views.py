@@ -785,7 +785,6 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
                     "label": f"{count} field{'s' if count > 1 else ''} modified",
                     "details": detail_items,
                 }
-                print(entry.summary["details"] if entry.summary else "No summary")
 
         ctx["history"] = history_entries
         return ctx
