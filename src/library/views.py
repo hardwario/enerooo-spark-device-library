@@ -630,6 +630,7 @@ class DeviceTypeDeleteView(RoleRequiredMixin, View):
 
 class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
+    partial_template_name = "library/partials/devicetype_results.html"
     context_object_name = "models"
     paginate_by = 50
     ALLOWED_SORT_FIELDS = {
@@ -640,6 +641,11 @@ class VendorModelListView(LoginRequiredMixin, ListView):
         "technology": "technology",
         "product_code": "product_code",
     }
+
+    def get_template_names(self):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return [self.partial_template_name]
+        return [self.template_name]
 
     def get_queryset(self):
         latest_version = (
