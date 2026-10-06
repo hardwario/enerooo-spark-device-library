@@ -75,6 +75,7 @@
             })
             .then(function (html) {
                 results.innerHTML = html;
+                lucide.createIcons();
                 if (pushHistory) history.pushState({}, '', url);
             })
             .catch(function (error) {
