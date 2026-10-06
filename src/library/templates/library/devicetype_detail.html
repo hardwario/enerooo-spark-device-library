@@ -566,20 +566,18 @@
                                 {% endif %}">{{ entry.get_action_display }}</span>
                         </td>
                         <td class="py-2 px-2 text-gray-600 text-xs">
-                            {% if entry.changes %}
-                                {% for field, change in entry.changes.items %}
-                                    {% if field == "registers" %}
-                                        <span class="text-gray-500">registers changed</span>
-                                    {% elif ".capabilities" in field or ".data_record_mapping" in field %}
-                                        <span class="font-medium">{{ field }}</span>: <span class="text-gray-500">updated</span>
-                                    {% else %}
-                                        <span class="font-medium">{{ field }}</span>:
-                                        <span class="text-red-500 line-through">{{ change.old|truncatechars:30 }}</span>
-                                        &rarr;
-                                        <span class="text-green-600">{{ change.new|truncatechars:30 }}</span>
-                                    {% endif %}
-                                    {% if not forloop.last %}<br>{% endif %}
-                                {% endfor %}
+                            {% if entry.summary %}
+                                <div class="flex items-center">
+                                    <button type="button"
+                                            class="view-diff-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded font-mono bg-slate-100 text-slate-800 border border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition cursor-pointer text-left group"
+                                            data-version="v{{ entry.version }}"
+                                            data-root="{{ entry.summary.root }}">
+                                        <span class="font-semibold">{{ entry.summary.root }}</span>
+                                        <span class="text-gray-500 group-hover:text-blue-600 font-sans">({{ entry.summary.label }})</span>
+                                        <i class="bi bi-chevron-right text-[10px] text-gray-400 group-hover:text-blue-600 ml-0.5 mt-0.5"></i>
+                                    </button>
+                                    {{ entry.summary.details|json_script:entry.version }}
+                                </div>
                             {% elif entry.action == "created" %}
                                 <span class="text-gray-400">Initial version</span>
                             {% endif %}
@@ -598,6 +596,158 @@
         </form>
     </div>
 </div>
+
+<!-- Modal for Quick Single-Version Diff -->
+<div id="diff-modal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full flex flex-col max-h-[85vh] overflow-hidden border border-gray-200">
+        <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50/50">
+            <div>
+                <h5 class="font-semibold text-gray-800" id="diff-modal-title">Change Details</h5>
+                <p class="text-xs text-gray-500 mt-0.5" id="diff-modal-subtitle"></p>
+            </div>
+            <button type="button" id="close-diff-modal" class="text-gray-400 hover:text-gray-600 text-xl leading-none cursor-pointer">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 font-mono text-xs text-gray-800 bg-white" id="diff-modal-content">
+            <!-- Diff items injected dynamically -->
+        </div>
+        <div class="px-6 py-3 border-t bg-gray-50 flex justify-end">
+            <button type="button" id="close-diff-modal-btn" class="px-4 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-xs cursor-pointer">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+  const modal = document.getElementById("diff-modal");
+  const modalTitle = document.getElementById("diff-modal-title");
+  const modalSubtitle = document.getElementById("diff-modal-subtitle");
+  const modalContent = document.getElementById("diff-modal-content");
+  const closeModal = () => modal.classList.add("hidden");
+
+  document
+    .getElementById("close-diff-modal")
+    .addEventListener("click", closeModal);
+  document
+    .getElementById("close-diff-modal-btn")
+    .addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Recursively flattens nested objects/arrays into dot paths (e.g. extra_mappings[0].tier)
+  function flatten(obj, prefix = "", res = {}) {
+    if (obj === null || obj === undefined || obj === "" || obj === "∅") {
+      return res;
+    }
+    if (typeof obj !== "object") {
+      res[prefix] = obj;
+      return res;
+    }
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) {
+        res[prefix] = "[]";
+      } else {
+        obj.forEach((item, index) => {
+          flatten(item, prefix ? `${prefix}[${index}]` : `[${index}]`, res);
+        });
+      }
+      return res;
+    }
+    const keys = Object.keys(obj);
+    if (keys.length === 0 && prefix) {
+      res[prefix] = "{}";
+      return res;
+    }
+    for (const key of keys) {
+      flatten(obj[key], prefix ? `${prefix}.${key}` : key, res);
+    }
+    return res;
+  }
+
+  document.querySelectorAll(".view-diff-btn").forEach((button) => {
+    button.addEventListener("click", function () {
+      const version = this.dataset.version;
+      const root = this.dataset.root;
+      const scriptId = version.replace("v", "");
+      const scriptTag = document.getElementById(scriptId);
+      const details = scriptTag ? JSON.parse(scriptTag.textContent) : [];
+
+      modalTitle.textContent = root;
+      modalSubtitle.textContent = `Applied in version ${version}`;
+
+      let html = '<div class="space-y-1.5">';
+
+      details.forEach((item) => {
+        const isOldComplex = typeof item.old === "object" && item.old !== null;
+        const isNewComplex = typeof item.new === "object" && item.new !== null;
+
+        if (isOldComplex || isNewComplex) {
+          // Flatten complex nested dicts / lists
+          const oldFlat = flatten(item.old, item.key);
+          const newFlat = flatten(item.new, item.key);
+          const allKeys = Array.from(
+            new Set([...Object.keys(oldFlat), ...Object.keys(newFlat)])
+          );
+
+          allKeys.forEach((path) => {
+            const oldVal = oldFlat[path];
+            const newVal = newFlat[path];
+
+            if (oldVal === undefined) {
+              // Added property
+              html += `<div class="px-2.5 py-1 rounded bg-green-50 border border-green-200 text-green-900 flex items-center gap-2">
+                                <span class="font-bold text-green-600 select-none">+</span>
+                                <span class="font-semibold text-gray-700">${path}:</span> 
+                                <span class="text-green-800">${JSON.stringify(newVal)}</span>
+                            </div>`;
+            } else if (newVal === undefined) {
+              // Removed property
+              html += `<div class="px-2.5 py-1 rounded bg-red-50 border border-red-200 text-red-900 flex items-center gap-2">
+                                <span class="font-bold text-red-600 select-none">-</span>
+                                <span class="font-semibold text-gray-700">${path}:</span> 
+                                <span class="text-red-800 line-through">${JSON.stringify(oldVal)}</span>
+                            </div>`;
+            } else if (oldVal !== newVal) {
+              // Modified property
+              html += `<div class="px-2.5 py-1 rounded bg-amber-50/60 border border-amber-200 text-gray-800 flex flex-col gap-0.5">
+                                <div class="font-semibold text-gray-700 mb-0.5">${path}:</div>
+                                <div class="text-red-700"><span class="font-bold text-red-500 mr-1 select-none">-</span><span class="line-through">${JSON.stringify(oldVal)}</span></div>
+                                <div class="text-green-700"><span class="font-bold text-green-600 mr-1 select-none">+</span>${JSON.stringify(newVal)}</div>
+                            </div>`;
+            }
+          });
+        } else {
+          // Scalar/primitive value change (string, number, boolean)
+          const oldVal =
+            item.old === "" || item.old === null
+              ? "∅"
+              : JSON.stringify(item.old);
+          const newVal =
+            item.new === "" || item.new === null
+              ? "∅"
+              : JSON.stringify(item.new);
+
+          html += `<div class="px-2.5 py-1.5 rounded bg-gray-50 border border-gray-200 flex items-center flex-wrap gap-2">
+                        <span class="font-semibold text-gray-700">${item.key}:</span>
+                        ${oldVal !== "∅" ? `<span class="text-red-600 line-through">${oldVal}</span> <span class="text-gray-400">&rarr;</span>` : ""}
+                        <span class="text-green-700 font-medium">${newVal}</span>
+                    </div>`;
+        }
+      });
+
+      html += "</div>";
+
+      modalContent.innerHTML =
+        details.length > 0
+          ? html
+          : '<div class="text-gray-400 italic">No details available.</div>';
+      modal.classList.remove("hidden");
+    });
+  });
+})();
+</script>
 
 <script>
 (function() {

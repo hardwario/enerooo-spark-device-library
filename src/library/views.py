@@ -630,6 +630,7 @@ class DeviceTypeDeleteView(RoleRequiredMixin, View):
 
 class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
+    partial_template_name = "library/partials/devicetype_results.html"
     context_object_name = "models"
     paginate_by = 50
     ALLOWED_SORT_FIELDS = {
@@ -640,6 +641,11 @@ class VendorModelListView(LoginRequiredMixin, ListView):
         "technology": "technology",
         "product_code": "product_code",
     }
+
+    def get_template_names(self):
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return [self.partial_template_name]
+        return [self.template_name]
 
     def get_queryset(self):
         latest_version = (
@@ -747,8 +753,41 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
             ctx["registers"] = []
 
         # History
-        ctx["history"] = device.history.select_related("user").all()[:20]
+        history_entries = device.history.select_related("user").all()[:20]
 
+        for entry in history_entries:
+            changes = entry.changes or {}
+            entry.summary = None
+
+            if changes:
+                first_key = next(iter(changes.keys()))
+                root_field = first_key.split(".")[0]
+
+                detail_items = []
+                for full_key, diff in changes.items():
+                    sub_key = (
+                        full_key.split(".", 1)[1]
+                        if "." in full_key
+                        else full_key
+                    )
+                    detail_items.append(
+                        {
+                            "key": sub_key,
+                            "old": diff.get("old"),
+                            "new": diff.get("new"),
+                        }
+                    )
+
+                count = len(changes)
+                entry.summary = {
+                    "root": root_field,
+                    "count": count,
+                    "label": f"{count} field{'s' if count > 1 else ''} modified",
+                    "details": detail_items,
+                }
+                print(entry.summary["details"] if entry.summary else "No summary")
+
+        ctx["history"] = history_entries
         return ctx
 
 
