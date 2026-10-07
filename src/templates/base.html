@@ -200,7 +200,7 @@
                 {% endfor %}
             {% endif %}
 
-            {% if unpublished_changes.total %}
+            {% if unpublished_changes.total and request.resolver_match.view_name != 'library:version-list' %}
                 <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded mb-4 flex items-start justify-between gap-4" role="status">
                     <div class="flex items-start gap-3">
                         <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 shrink-0"></i>
@@ -222,7 +222,7 @@
                         </div>
                     </div>
                     <a href="{% url 'library:version-list' %}" class="shrink-0 bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-amber-700 whitespace-nowrap">
-                        Publish v{{ unpublished_changes.next_version }}
+                        View changes
                     </a>
                 </div>
             {% endif %}
