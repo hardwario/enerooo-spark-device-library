@@ -647,7 +647,7 @@ class VendorModelListView(LoginRequiredMixin, ListView):
             .order_by("-version")
             .values("version")[:1]
         )
-        qs = VendorModel.objects.select_related("vendor").annotate(
+        qs = VendorModel.objects.select_related("vendor", "device_type_fk").annotate(
             current_version=Subquery(latest_version),
         )
         vendor = self.request.GET.get("vendor")
@@ -694,6 +694,7 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
     def get_queryset(self):
         return VendorModel.objects.select_related(
             "vendor",
+            "device_type_fk",
             "modbus_config",
             "lorawan_config",
             "wmbus_config",

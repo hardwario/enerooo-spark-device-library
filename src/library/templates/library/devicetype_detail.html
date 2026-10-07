@@ -12,21 +12,47 @@
     <span class="text-gray-800">{{ device.model_number }}</span>
 </nav>
 
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <div>
-        <h2 class="text-2xl font-bold">{{ device.name }}</h2>
-        {% if device.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ device.key }}</p>{% endif %}
+        <div class="flex flex-wrap items-center gap-2.5">
+            <h2 class="text-2xl font-bold text-gray-900">{{ device.name }}</h2>
+
+            {% if device.device_type_fk %}
+                {% device_type_badge device.device_type_fk.code device.device_type_fk.label %}
+            {% else %}
+                {% device_type_badge device.device_type %}
+            {% endif %}
+
+            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-blue-600{% elif device.technology == 'lorawan' %}bg-emerald-600{% elif device.technology == 'wmbus' %}bg-purple-600{% else %}bg-gray-500{% endif %}">
+                {{ device.get_technology_display }}
+            </span>
+        </div>
+
+        {% if device.key %}
+        <div class="flex items-center gap-2 mt-1.5">
+            <span class="text-xs font-mono text-gray-400 select-all">{{ device.key }}</span>
+            <button type="button"
+                    onclick="navigator.clipboard.writeText('{{ device.key }}'); this.querySelector('i').className = 'bi bi-check text-green-500'; setTimeout(() => this.querySelector('i').className = 'bi bi-clipboard text-gray-400', 1500);"
+                    title="Copy Key"
+                    class="hover:opacity-75 text-xs inline-flex items-center">
+                <i class="bi bi-clipboard text-gray-400"></i>
+            </button>
+        </div>
+        {% endif %}
     </div>
+
     {% if user.is_editor %}
-    <div class="flex gap-2">
-        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
-            <i class="bi bi-pencil mr-1"></i>Edit
+    <div class="flex items-center gap-2 shrink-0">
+        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-3.5 py-1.5 rounded-md hover:bg-blue-50 text-sm font-medium transition inline-flex items-center gap-1.5 shadow-sm">
+            <i class="bi bi-pencil"></i>
+            <span>Edit</span>
         </a>
         <button
             data-confirm-delete="{{ device.vendor.name }} {{ device.model_number }}"
             data-delete-url="{% url 'library:model-delete' device.pk %}"
-            class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
-            <i class="bi bi-trash mr-1"></i>Delete
+            class="border border-red-600 text-red-600 px-3.5 py-1.5 rounded-md hover:bg-red-50 text-sm font-medium transition inline-flex items-center gap-1.5 shadow-sm">
+            <i class="bi bi-trash"></i>
+            <span>Delete</span>
         </button>
     </div>
     {% endif %}
@@ -39,20 +65,8 @@
             <div class="p-6">
                 <dl class="space-y-3 text-sm">
                     <div>
-                        <dt class="font-medium text-gray-600">Vendor</dt>
-                        <dd>{{ device.vendor.name }}</dd>
-                    </div>
-                    <div>
-                        <dt class="font-medium text-gray-600">Model</dt>
-                        <dd>{{ device.model_number }}</dd>
-                    </div>
-                    <div>
-                        <dt class="font-medium text-gray-600">Device Type</dt>
-                        <dd>{{ device.get_device_type_display }}</dd>
-                    </div>
-                    <div>
-                        <dt class="font-medium text-gray-600">Technology</dt>
-                        <dd><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-[#0d6efd]{% elif device.technology == 'lorawan' %}bg-[#198754]{% elif device.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ device.get_technology_display }}</span></dd>
+                        <dt class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-0.5">Vendor & Model</dt>
+                        <dd class="text-gray-900 font-medium">{{ device.vendor.name }} · {{ device.model_number }}</dd>
                     </div>
                     {% if device.description %}
                     <div>
@@ -133,23 +147,32 @@
 
         <!-- Documentation assets -->
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center gap-4">
-                <div class="flex items-center gap-4 min-w-0">
+            <div class="px-6 py-3.5 border-b border-gray-100 flex justify-between items-center">
+                <h5 class="font-semibold">Documentation</h5>
+                <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50 whitespace-nowrap inline-flex items-center">
+                    <i class="bi bi-journal-text mr-1"></i>Open
+                </a>
+            </div>
+            <div class="px-6 pb-6">
+                <div class="flex items-start gap-4">
                     {% if device.image %}
                     <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="w-16 h-12 object-cover rounded border flex-none">
                     {% endif %}
-                    <div class="min-w-0">
-                        <h5 class="font-semibold">Documentation</h5>
-                        <p class="text-sm text-gray-500">
-                            {{ device.documents.count }} document{{ device.documents.count|pluralize }} ·
-                            image {% if device.image %}✓{% else %}missing{% endif %} ·
-                            procedure {% if device.procedure %}v{{ device.procedure.version }}{% else %}missing{% endif %}
-                        </p>
+                    <div class="text-sm space-y-1.5 text-gray-500">
+                        <div class="flex items-center gap-1.5">
+                            <i class="bi bi-files text-gray-400"></i>
+                            <span>{{ device.documents.count }} document{{ device.documents.count|pluralize }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <i class="bi {% if device.image %}bi-check-circle-fill text-green-600{% else %}bi-dash-circle text-gray-400{% endif %}"></i>
+                            <span>Image: {% if device.image %}Attached{% else %}Missing{% endif %}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <i class="bi {% if device.procedure %}bi-check-circle-fill text-green-600{% else %}bi-dash-circle text-gray-400{% endif %}"></i>
+                            <span>Procedure: {% if device.procedure %}v{{ device.procedure.version }}{% else %}Missing{% endif %}</span>
+                        </div>
                     </div>
                 </div>
-                <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50 whitespace-nowrap">
-                    <i class="bi bi-journal-text mr-1"></i>Open
-                </a>
             </div>
         </div>
 
@@ -160,7 +183,7 @@
                 <h5 class="font-semibold">Modbus Configuration</h5>
                 {% if user.is_editor %}
                 <a href="{% url 'library:modbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    <i class="bi bi-pencil"></i>
+                    {% if modbus_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
                 {% endif %}
             </div>
@@ -282,8 +305,11 @@
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Control Configuration</h5>
+            <div class="px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h5 class="font-semibold">Control Configuration</h5>
+                    <p class="text-sm text-gray-500">Not configured yet.</p>
+                </div>
                 {% if user.is_editor %}
                 <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
                     <i class="bi bi-plus-lg mr-1"></i>Add
@@ -363,8 +389,11 @@
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Processor Configuration</h5>
+            <div class="px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h5 class="font-semibold">Processor Configuration</h5>
+                    <p class="text-sm text-gray-500">Not configured yet.</p>
+                </div>
                 {% if user.is_editor %}
                 <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
                     <i class="bi bi-plus-lg mr-1"></i>Add
@@ -441,8 +470,11 @@
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Alarm Configuration</h5>
+            <div class="px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h5 class="font-semibold">Alarm Configuration</h5>
+                    <p class="text-sm text-gray-500">Not configured yet.</p>
+                </div>
                 {% if user.is_editor %}
                 <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
                     <i class="bi bi-plus-lg mr-1"></i>Add
