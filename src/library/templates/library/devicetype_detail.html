@@ -574,12 +574,14 @@
                             {% if entry.summary %}
                                 <div class="flex items-center">
                                     <button type="button"
-                                            class="view-diff-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded font-mono bg-slate-100 text-slate-800 border border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition cursor-pointer text-left group"
+                                            class="view-diff-btn flex w-full max-w-full flex-col items-start gap-0.5 rounded border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-left font-mono text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 group lg:inline-flex lg:flex-row lg:w-auto lg:items-center lg:gap-1.5 lg:px-2.5 lg:py-1"
                                             data-version="v{{ entry.version }}"
                                             data-root="{{ entry.summary.root }}">
-                                        <span class="font-semibold">{{ entry.summary.root }}</span>
-                                        <span class="text-gray-500 group-hover:text-blue-600 font-sans">({{ entry.summary.label }})</span>
-                                        <i class="bi bi-chevron-right text-[10px] text-gray-400 group-hover:text-blue-600 ml-0.5 mt-0.5"></i>
+                                        <span class="flex w-full min-w-0 items-center gap-1 lg:contents">
+                                            <span class="block min-w-0 flex-1 break-words font-semibold lg:inline lg:flex-none">{{ entry.summary.root }}</span>
+                                            <i class="bi bi-chevron-right shrink-0 text-[10px] text-gray-400 group-hover:text-blue-600 lg:order-3 lg:ml-0.5"></i>
+                                        </span>
+                                        <span class="block break-words text-xs text-gray-500 group-hover:text-blue-600 font-sans lg:inline lg:text-sm">({{ entry.summary.label }})</span>
                                     </button>
                                     {{ entry.summary.details|json_script:entry.version }}
                                 </div>
