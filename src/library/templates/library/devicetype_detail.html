@@ -747,6 +747,8 @@
 <script type="module">
   import {EditorView, basicSetup} from 'https://esm.sh/codemirror@6.0.1';
   import {javascript} from 'https://esm.sh/@codemirror/lang-javascript@6.2.3';
+  import {EditorState} from 'https://esm.sh/@codemirror/state@6';
+  import {unifiedMergeView} from 'https://esm.sh/@codemirror/merge@6.7.4';
 
 (function () {
   const modal = document.getElementById("diff-modal");
@@ -923,14 +925,15 @@
 
   // Code Block Formatter
   function renderCodeBlockDiff(item) {
-    const isNew = !item.old && item.new;
+    const label = !item.old ? "Added Code" : !item.new ? "Removed Code" : "Modified Code";
     return `
       <div class="border rounded-md overflow-hidden">
         <div class="bg-gray-100 px-3 py-1.5 border-b font-sans font-semibold text-xs text-gray-700 flex justify-between">
           <span>${item.key}</span>
-          <span class="text-[11px] font-normal text-gray-500">${isNew ? "Added Code" : "Modified Code"}</span>
+          <span class="text-[11px] font-normal text-gray-500">${label}</span>
         </div>
-        <div class="history-code-source hidden">${escapeHtml(item.new || item.old || "")}</div>
+        <div class="history-code-old hidden">${escapeHtml(item.old || "")}</div>
+        <div class="history-code-new hidden">${escapeHtml(item.new || "")}</div>
         <div class="history-code-editor"></div>
       </div>
     `;
@@ -941,14 +944,23 @@
     codeEditors = [];
 
     modalContent.querySelectorAll(".history-code-editor").forEach((container) => {
-      const source = container.previousElementSibling.textContent;
+      const oldSource = container.parentElement.querySelector(".history-code-old").textContent;
+      const newSource = container.parentElement.querySelector(".history-code-new").textContent;
       codeEditors.push(new EditorView({
-        doc: source,
+        doc: newSource,
         extensions: [
           basicSetup,
           javascript(),
           EditorView.lineWrapping,
           EditorView.editable.of(false),
+          EditorState.readOnly.of(true),
+          unifiedMergeView({
+            original: oldSource,
+            mergeControls: false,
+            highlightChanges: true,
+            gutter: true,
+            collapseUnchanged: {margin: 3, minSize: 6},
+          }),
           theme,
         ],
         parent: container,
@@ -977,7 +989,8 @@
         }
 
         // Long script or code block
-        if (typeof item.new === "string" && (item.new.includes("\n") || item.new.length > 80)) {
+        const isLongText = (v) => typeof v === "string" && (v.includes("\n") || v.length > 80);
+        if (isLongText(item.new) || isLongText(item.old)) {
           html += renderCodeBlockDiff(item);
           return;
         }
