@@ -653,7 +653,7 @@ class VendorModelListView(LoginRequiredMixin, ListView):
             .order_by("-version")
             .values("version")[:1]
         )
-        qs = VendorModel.objects.select_related("vendor").annotate(
+        qs = VendorModel.objects.select_related("vendor", "device_type_fk").annotate(
             current_version=Subquery(latest_version),
         )
         vendor = self.request.GET.get("vendor")
@@ -700,6 +700,7 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
     def get_queryset(self):
         return VendorModel.objects.select_related(
             "vendor",
+            "device_type_fk",
             "modbus_config",
             "lorawan_config",
             "wmbus_config",
@@ -751,6 +752,17 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
             ctx["registers"] = ctx["modbus_config"].register_definitions.all()
         else:
             ctx["registers"] = []
+
+        # Wide content (tables, codec) for the main column; when there is
+        # none the template shows an empty state there instead.
+        ctx["field_mappings"] = device.effective_field_mappings
+        has_codec = bool(ctx["lorawan_config"] and ctx["lorawan_config"].payload_codec)
+        ctx["has_main_content"] = bool(
+            ctx["field_mappings"]
+            or (ctx["alarm_config"] and ctx["alarm_config"].mappings)
+            or (device.technology == "lorawan" and has_codec)
+            or device.technology == "modbus"
+        )
 
         # History
         history_entries = device.history.select_related("user").all()[:20]

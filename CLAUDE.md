@@ -56,3 +56,15 @@ device_types:
 - Keep device entries alphabetically ordered within files when practical
 - PR-based workflow: changes go through pull requests, not direct pushes
 
+## Web UI Conventions
+
+Pages are being redesigned one at a time; `src/library/templates/library/devicetype_detail.html` is the reference for updated pages.
+
+- **Tailwind** is v3 from the Play CDN (`src/templates/base.html`), so there is no build step: arbitrary values (`grid-cols-[...]`) and the `container-queries` plugin work directly.
+- **Size layouts by the content area, not the viewport.** From `md` up, the app nav takes 224px, so viewport breakpoints don't match the space a page actually has. An updated page opts in with `{% block main_container %}@container{% endblock %}` and uses `@2xl:` / `@5xl:` for layout changes (columns, card grids, header row vs. stacked). `sm:` is fine for small cosmetic tweaks such as padding.
+- **Don't put `@container` on `<main>` globally** until every page has opted in. A size container stops `<main>` from growing with wide tables, which breaks list pages that haven't been updated yet.
+- **Detail page layout:** key facts go in the page header rather than a "General" card. Wide content (tables, code) goes in the main column, and compact key/value cards go in a fixed-width sidebar. Missing config sections share a single "Not configured yet" card instead of an empty card each.
+- Tables sit inside cards and scroll horizontally (`overflow-x-auto`) instead of overflowing the page.
+- Icon-only buttons need an `aria-label` (or screen-reader-only text when the visible label changes, e.g. Add/Edit).
+- Check responsive changes at roughly 390, 800, 1100 and 1300px viewport widths.
+
