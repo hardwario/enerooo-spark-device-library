@@ -753,6 +753,17 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
         else:
             ctx["registers"] = []
 
+        # Wide content (tables, codec) for the main column; when there is
+        # none the template shows an empty state there instead.
+        ctx["field_mappings"] = device.effective_field_mappings
+        has_codec = bool(ctx["lorawan_config"] and ctx["lorawan_config"].payload_codec)
+        ctx["has_main_content"] = bool(
+            ctx["field_mappings"]
+            or (ctx["alarm_config"] and ctx["alarm_config"].mappings)
+            or (device.technology == "lorawan" and has_codec)
+            or device.technology == "modbus"
+        )
+
         # History
         history_entries = device.history.select_related("user").all()[:20]
 
