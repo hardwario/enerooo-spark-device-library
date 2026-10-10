@@ -4,18 +4,18 @@
 {% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
-<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
-    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
-    <span class="mx-1">/</span>
-    <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="hover:text-gray-700">{{ device.vendor.name }}</a>
-    <span class="mx-1">/</span>
-    <span class="text-gray-800">{{ device.model_number }}</span>
+<nav class="flex items-center gap-1 text-sm text-gray-500 mb-4 min-w-0" aria-label="breadcrumb">
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700 shrink-0">Models</a>
+    <span class="text-gray-300">/</span>
+    <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="hover:text-gray-700 truncate">{{ device.vendor.name }}</a>
+    <span class="text-gray-300">/</span>
+    <span class="text-gray-800 truncate" aria-current="page">{{ device.model_number }}</span>
 </nav>
 
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+<div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
     <div>
-        <div class="flex flex-wrap items-center gap-2.5">
-            <h2 class="text-2xl font-bold text-gray-900">{{ device.name }}</h2>
+        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 break-words">{{ device.name }}</h2>
 
             {% if device.device_type_fk %}
                 {% device_type_badge device.device_type_fk.code device.device_type_fk.label %}
@@ -29,12 +29,13 @@
         </div>
 
         {% if device.key %}
-        <div class="flex items-center gap-2 mt-1.5">
-            <span class="text-xs font-mono text-gray-400 select-all">{{ device.key }}</span>
+        <div class="flex items-center gap-1 mt-1.5 min-w-0">
+            <span class="text-xs font-mono text-gray-400 select-all break-all">{{ device.key }}</span>
             <button type="button"
                     onclick="navigator.clipboard.writeText('{{ device.key }}'); this.querySelector('i').className = 'bi bi-check text-green-500'; setTimeout(() => this.querySelector('i').className = 'bi bi-clipboard text-gray-400', 1500);"
-                    title="Copy Key"
-                    class="hover:opacity-75 text-xs inline-flex items-center">
+                    title="Copy key"
+                    aria-label="Copy key"
+                    class="shrink-0 p-1.5 rounded hover:bg-gray-100 text-xs inline-flex items-center">
                 <i class="bi bi-clipboard text-gray-400"></i>
             </button>
         </div>
@@ -42,15 +43,15 @@
     </div>
 
     {% if user.is_editor %}
-    <div class="flex items-center gap-2 shrink-0">
-        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-3.5 py-1.5 rounded-md hover:bg-blue-50 text-sm font-medium transition inline-flex items-center gap-1.5 shadow-sm">
+    <div class="grid grid-cols-2 gap-2 md:flex md:items-center md:shrink-0">
+        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-3.5 py-2 md:py-1.5 rounded-md hover:bg-blue-50 text-sm font-medium transition inline-flex items-center justify-center gap-1.5 shadow-sm">
             <i class="bi bi-pencil"></i>
             <span>Edit</span>
         </a>
         <button
             data-confirm-delete="{{ device.vendor.name }} {{ device.model_number }}"
             data-delete-url="{% url 'library:model-delete' device.pk %}"
-            class="border border-red-600 text-red-600 px-3.5 py-1.5 rounded-md hover:bg-red-50 text-sm font-medium transition inline-flex items-center gap-1.5 shadow-sm">
+            class="border border-red-600 text-red-600 px-3.5 py-2 md:py-1.5 rounded-md hover:bg-red-50 text-sm font-medium transition inline-flex items-center justify-center gap-1.5 shadow-sm">
             <i class="bi bi-trash"></i>
             <span>Delete</span>
         </button>
@@ -59,30 +60,32 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-    <div class="md:col-span-4">
+    <div class="md:col-span-4 min-w-0">
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
-            <div class="p-6">
-                <dl class="space-y-3 text-sm">
+            <div class="px-4 sm:px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
+            <div class="p-4 sm:p-6">
+                <dl class="space-y-4 text-sm">
                     <div>
                         <dt class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-0.5">Vendor & Model</dt>
-                        <dd class="text-gray-900 font-medium">{{ device.vendor.name }} · {{ device.model_number }}</dd>
+                        <dd class="text-gray-900 font-medium break-words">
+                            <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="hover:text-blue-700">{{ device.vendor.name }}</a> · {{ device.model_number }}
+                        </dd>
                     </div>
                     {% if device.description %}
                     <div>
-                        <dt class="font-medium text-gray-600">Description</dt>
-                        <dd>{{ device.description }}</dd>
+                        <dt class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-0.5">Description</dt>
+                        <dd class="text-gray-700 break-words whitespace-pre-line">{{ device.description }}</dd>
                     </div>
                     {% endif %}
                     <div>
-                        <dt class="font-medium text-gray-600">ENEROOO product code</dt>
+                        <dt class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-0.5">ENEROOO product code</dt>
                         <dd>
                             {% if device.product_code %}
-                            <span class="font-mono font-semibold">{{ device.product_code }}</span>
-                            <span class="text-xs text-gray-500 ml-1">Enerooo ID prefix {{ device.product_code }}-XXXXX-CC</span>
+                            <span class="font-mono font-semibold text-gray-900">{{ device.product_code }}</span>
+                            <span class="block text-xs text-gray-500 mt-0.5">Enerooo ID prefix <span class="font-mono">{{ device.product_code }}-XXXXX-CC</span></span>
                             {% else %}
                             <span class="text-gray-400">—</span>
-                            <span class="text-xs text-amber-700 ml-1">not offered in Provisioning</span>
+                            <span class="block text-xs text-amber-700 mt-0.5"><i class="bi bi-exclamation-triangle mr-1"></i>Not offered in Provisioning</span>
                             {% endif %}
                         </dd>
                     </div>
@@ -91,21 +94,22 @@
         </div>
     </div>
 
-    <div class="md:col-span-8">
+    <div class="md:col-span-8 min-w-0">
         <!-- Provisioning schema (per-unit input data) -->
         {% with prov=device.provisioning %}
         {% if prov.input_data %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">Provisioning</h5>
                 {% if user.is_editor %}
-                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit" aria-label="Edit">
                     <i class="bi bi-pencil"></i>
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
+            <div class="p-4 sm:p-6">
                 <p class="text-sm text-gray-500 mb-3">Input data entered per unit. Pairing key: <span class="font-mono">{{ prov.pairing_key }}</span></p>
+                <div class="max-w-full overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b text-left">
@@ -126,11 +130,12 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 flex justify-between items-center gap-3">
                 <div>
                     <h5 class="font-semibold">Provisioning</h5>
                     <p class="text-sm text-gray-500">No per-unit input data schema yet.</p>
@@ -147,18 +152,20 @@
 
         <!-- Documentation assets -->
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-3.5 border-b border-gray-100 flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">Documentation</h5>
                 <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50 whitespace-nowrap inline-flex items-center">
                     <i class="bi bi-journal-text mr-1"></i>Open
                 </a>
             </div>
-            <div class="px-6 pb-6">
-                <div class="flex items-start gap-4">
+            <div class="p-4 sm:p-6">
+                <div class="flex items-center gap-4">
                     {% if device.image %}
-                    <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="w-16 h-12 object-cover rounded border flex-none">
+                    <a href="{% url 'library:model-assets' device.pk %}" class="flex-none" title="Open documentation">
+                        <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="w-20 h-16 object-cover rounded border">
+                    </a>
                     {% endif %}
-                    <div class="text-sm space-y-1.5 text-gray-500">
+                    <div class="text-sm space-y-1.5 text-gray-600 min-w-0">
                         <div class="flex items-center gap-1.5">
                             <i class="bi bi-files text-gray-400"></i>
                             <span>{{ device.documents.count }} document{{ device.documents.count|pluralize }}</span>
@@ -179,26 +186,26 @@
         <!-- Technology Config -->
         {% if device.technology == "modbus" %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">Modbus Configuration</h5>
                 {% if user.is_editor %}
                 <a href="{% url 'library:modbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    {% if modbus_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
+                    {% if modbus_config %}<i class="bi bi-pencil"></i><span class="sr-only">Edit</span>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
+            <div class="p-4 sm:p-6">
                 {% if modbus_config %}
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+                <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Function</dt>
-                    <dd class="col-span-2">{{ modbus_config.function|default:"—" }}</dd>
+                    <dd class="min-w-0 break-words">{{ modbus_config.function|default:"—" }}</dd>
                     <dt class="font-medium text-gray-600">Byte Order</dt>
-                    <dd class="col-span-2">{{ modbus_config.byte_order|default:"—" }}</dd>
+                    <dd class="min-w-0 break-words">{{ modbus_config.byte_order|default:"—" }}</dd>
                     <dt class="font-medium text-gray-600">Word Order</dt>
-                    <dd class="col-span-2">{{ modbus_config.word_order|default:"—" }}</dd>
+                    <dd class="min-w-0 break-words">{{ modbus_config.word_order|default:"—" }}</dd>
                 </dl>
                 {% else %}
-                <p class="text-sm text-gray-400">Not configured yet. Click edit to set up.</p>
+                <p class="text-sm text-gray-400">Not configured yet.</p>
                 {% endif %}
             </div>
         </div>
@@ -206,22 +213,22 @@
 
         {% if device.technology == "lorawan" %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">LoRaWAN Configuration</h5>
                 {% if user.is_editor %}
                 <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    {% if lorawan_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
+                    {% if lorawan_config %}<i class="bi bi-pencil"></i><span class="sr-only">Edit</span>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <div class="p-4 sm:p-6">
+                <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Device Class</dt>
-                    <dd class="col-span-2">{% if lorawan_config and lorawan_config.device_class %}{{ lorawan_config.get_device_class_display }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                    <dd class="min-w-0 break-words">{% if lorawan_config and lorawan_config.device_class %}{{ lorawan_config.get_device_class_display }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
                     <dt class="font-medium text-gray-600">Downlink F-Port</dt>
-                    <dd class="col-span-2">{% if lorawan_config and lorawan_config.downlink_f_port %}{{ lorawan_config.downlink_f_port }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                    <dd class="min-w-0 break-words">{% if lorawan_config and lorawan_config.downlink_f_port %}{{ lorawan_config.downlink_f_port }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
                     <dt class="font-medium text-gray-600">Payload Codec</dt>
-                    <dd class="col-span-2">
+                    <dd class="min-w-0 break-words">
                         {% if lorawan_config and lorawan_config.payload_codec %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="bi bi-check-circle-fill mr-1"></i>{{ lorawan_config.get_codec_format_display }}</span>
                         {% else %}
@@ -235,30 +242,30 @@
 
         {% if device.technology == "wmbus" %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">wM-Bus Configuration</h5>
                 {% if user.is_editor %}
                 <a href="{% url 'library:wmbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    {% if wmbus_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
+                    {% if wmbus_config %}<i class="bi bi-pencil"></i><span class="sr-only">Edit</span>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
                 </a>
                 {% endif %}
             </div>
             {% if wmbus_config %}
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <div class="p-4 sm:p-6">
+                <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Manufacturer</dt>
-                    <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
+                    <dd class="min-w-0 break-words">{{ wmbus_config.manufacturer_code }}</dd>
                     <dt class="font-medium text-gray-600">Version</dt>
-                    <dd class="col-span-2">{% if wmbus_config.wmbus_version %}<code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbus_version }}</code>{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                    <dd class="min-w-0 break-words">{% if wmbus_config.wmbus_version %}<code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbus_version }}</code>{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
                     <dt class="font-medium text-gray-600">Device Type</dt>
-                    <dd class="col-span-2">
+                    <dd class="min-w-0 break-words">
                         {{ wmbus_config.wmbus_device_type }}
                         {% if wmbus_config.wmbus_device_type_label %}
                         {% device_type_badge device.device_type wmbus_config.wmbus_device_type_label %}
                         {% endif %}
                     </dd>
                     <dt class="font-medium text-gray-600">Encryption</dt>
-                    <dd class="col-span-2">
+                    <dd class="min-w-0 break-words">
                         {% if wmbus_config.encryption_required %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><i class="bi bi-lock-fill mr-1"></i>Required</span>
                         {% else %}
@@ -267,10 +274,10 @@
                     </dd>
                     {% if wmbus_config.shared_encryption_key %}
                     <dt class="font-medium text-gray-600">Shared Key</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.shared_encryption_key }}</code></dd>
+                    <dd class="min-w-0 break-words"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.shared_encryption_key }}</code></dd>
                     {% endif %}
                     <dt class="font-medium text-gray-600">MVT Default</dt>
-                    <dd class="col-span-2">
+                    <dd class="min-w-0 break-words">
                         {% if wmbus_config.is_mvt_default %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-wmbus/10 text-wmbus"><i class="bi bi-check-circle-fill mr-1"></i>Default</span>
                         {% else %}
@@ -278,8 +285,12 @@
                         {% endif %}
                     </dd>
                     <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
+                    <dd class="min-w-0 break-words"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
                 </dl>
+            </div>
+            {% else %}
+            <div class="p-4 sm:p-6">
+                <p class="text-sm text-gray-400">Not configured yet.</p>
             </div>
             {% endif %}
         </div>
@@ -288,24 +299,24 @@
         <!-- Control Config -->
         {% if control_config %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">Control Configuration</h5>
                 {% if user.is_editor %}
-                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit" aria-label="Edit">
                     <i class="bi bi-pencil"></i>
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
+            <div class="p-4 sm:p-6">
+                <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-sm">
                     <dt class="font-medium text-gray-600">Controllable</dt>
-                    <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
+                    <dd class="min-w-0 break-words">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
                 </dl>
             </div>
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 flex justify-between items-center gap-3">
                 <div>
                     <h5 class="font-semibold">Control Configuration</h5>
                     <p class="text-sm text-gray-500">Not configured yet.</p>
@@ -327,17 +338,17 @@
         {% with eff_mappings=device.effective_field_mappings %}
         {% if eff_mappings %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">Processor Configuration</h5>
                 {% if user.is_editor %}
-                <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit" aria-label="Edit">
                     <i class="bi bi-pencil"></i>
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
+            <div class="p-4 sm:p-6">
                 <div>
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <h6 class="text-sm font-medium text-gray-600">Field Mappings</h6>
                         <button type="button"
                                 data-copy-json
@@ -389,7 +400,7 @@
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 flex justify-between items-center gap-3">
                 <div>
                     <h5 class="font-semibold">Processor Configuration</h5>
                     <p class="text-sm text-gray-500">Not configured yet.</p>
@@ -407,16 +418,16 @@
         <!-- Alarm Config -->
         {% if alarm_config.mappings %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
                 <h5 class="font-semibold">Alarm Configuration</h5>
                 {% if user.is_editor %}
-                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit" aria-label="Edit">
                     <i class="bi bi-pencil"></i>
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-2">
+            <div class="p-4 sm:p-6">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <h6 class="text-sm font-medium text-gray-600">
                         Status → Alarm Mappings
                         <span class="ml-2 inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs font-mono" title="How match values are evaluated: flag = token in flag list, equals = value equality, mask = (value & mask) == pattern">{{ alarm_config.match_type }}</span>
@@ -470,7 +481,7 @@
         </div>
         {% else %}
         <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center">
+            <div class="px-4 sm:px-6 py-4 flex justify-between items-center gap-3">
                 <div>
                     <h5 class="font-semibold">Alarm Configuration</h5>
                     <p class="text-sm text-gray-500">Not configured yet.</p>
@@ -489,13 +500,13 @@
 {# Payload Codec — full-width second row with CodeMirror read-only viewer #}
 {% if device.technology == "lorawan" and lorawan_config.payload_codec %}
 <div class="bg-white rounded-lg shadow mt-6" style="min-width: 0;">
-    <div class="px-6 py-4 border-b flex justify-between items-center">
-        <div class="flex items-center gap-3">
+    <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <h5 class="font-semibold">Payload Codec</h5>
             <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ lorawan_config.get_codec_format_display }}</span>
         </div>
         {% if user.is_editor %}
-        <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+        <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit" aria-label="Edit">
             <i class="bi bi-pencil"></i>
         </a>
         {% endif %}
@@ -510,7 +521,7 @@
 <!-- Register Definitions (Modbus) -->
 {% if device.technology == "modbus" %}
 <div class="bg-white rounded-lg shadow mt-4">
-    <div class="px-6 py-4 border-b flex justify-between items-center">
+    <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
         <h5 class="font-semibold">Register Definitions ({{ registers|length }})</h5>
         {% if user.is_editor %}
         <a href="{% url 'library:register-create' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
@@ -518,8 +529,9 @@
         </a>
         {% endif %}
     </div>
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
         {% if registers %}
+        <div class="max-w-full overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b">
@@ -541,16 +553,19 @@
                     <td class="py-2 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.data_type }}</code></td>
                     <td class="py-2 px-2">{{ reg.scale }}</td>
                     <td class="py-2 px-2">{{ reg.offset }}</td>
-                    <td class="py-2 px-2 flex gap-1">
+                    <td class="py-2 px-2 whitespace-nowrap text-right">
                         {% if user.is_editor %}
-                        <a href="{% url 'library:register-edit' reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50"><i class="bi bi-pencil"></i></a>
-                        <a href="{% url 'library:register-delete' reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50"><i class="bi bi-trash"></i></a>
+                        <div class="inline-flex gap-1">
+                            <a href="{% url 'library:register-edit' reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit register" aria-label="Edit register"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'library:register-delete' reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete register" aria-label="Delete register"><i class="bi bi-trash"></i></a>
+                        </div>
                         {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <p class="text-sm text-gray-500">No registers defined yet.</p>
         {% endif %}
