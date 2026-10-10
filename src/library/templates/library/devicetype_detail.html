@@ -3,6 +3,8 @@
 
 {% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
 
+{% block main_container %}@container{% endblock %}
+
 {% block content %}
 <nav class="flex items-center gap-1 text-sm text-gray-500 mb-4 min-w-0" aria-label="breadcrumb">
     <a href="{% url 'library:model-list' %}" class="hover:text-gray-700 shrink-0">Models</a>
