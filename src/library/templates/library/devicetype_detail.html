@@ -12,7 +12,7 @@
     <span class="text-gray-800">{{ device.model_number }}</span>
 </nav>
 
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
     <div>
         <h2 class="text-2xl font-bold">{{ device.name }}</h2>
         {% if device.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ device.key }}</p>{% endif %}
@@ -33,7 +33,7 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-    <div class="md:col-span-4">
+    <div class="md:col-span-4 min-w-0">
         <div class="bg-white rounded-lg shadow mb-4">
             <div class="px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
             <div class="p-6">
@@ -77,7 +77,7 @@
         </div>
     </div>
 
-    <div class="md:col-span-8">
+    <div class="md:col-span-8 min-w-0">
         <!-- Provisioning schema (per-unit input data) -->
         {% with prov=device.provisioning %}
         {% if prov.input_data %}
@@ -92,6 +92,7 @@
             </div>
             <div class="p-6">
                 <p class="text-sm text-gray-500 mb-3">Input data entered per unit. Pairing key: <span class="font-mono">{{ prov.pairing_key }}</span></p>
+                <div class="max-w-full overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b text-left">
@@ -112,6 +113,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
         {% else %}
@@ -488,6 +490,7 @@
     </div>
     <div class="p-6">
         {% if registers %}
+        <div class="max-w-full overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b">
@@ -519,6 +522,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <p class="text-sm text-gray-500">No registers defined yet.</p>
         {% endif %}
@@ -534,6 +538,7 @@
     </div>
     <div class="p-6">
         <form id="history-diff-form" method="get" action="{% url 'library:model-history-diff' device.pk %}">
+            <div class="hidden md:block max-w-full overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b">
@@ -566,20 +571,20 @@
                                 {% endif %}">{{ entry.get_action_display }}</span>
                         </td>
                         <td class="py-2 px-2 text-gray-600 text-xs">
-                            {% if entry.changes %}
-                                {% for field, change in entry.changes.items %}
-                                    {% if field == "registers" %}
-                                        <span class="text-gray-500">registers changed</span>
-                                    {% elif ".capabilities" in field or ".data_record_mapping" in field %}
-                                        <span class="font-medium">{{ field }}</span>: <span class="text-gray-500">updated</span>
-                                    {% else %}
-                                        <span class="font-medium">{{ field }}</span>:
-                                        <span class="text-red-500 line-through">{{ change.old|truncatechars:30 }}</span>
-                                        &rarr;
-                                        <span class="text-green-600">{{ change.new|truncatechars:30 }}</span>
-                                    {% endif %}
-                                    {% if not forloop.last %}<br>{% endif %}
-                                {% endfor %}
+                            {% if entry.summary %}
+                                <div class="flex items-center">
+                                    <button type="button"
+                                            class="view-diff-btn flex w-full max-w-full flex-col items-start gap-0.5 rounded border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-left font-mono text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 group lg:inline-flex lg:flex-row lg:w-auto lg:items-center lg:gap-1.5 lg:px-2.5 lg:py-1"
+                                            data-version="v{{ entry.version }}"
+                                            data-root="{{ entry.summary.root }}">
+                                        <span class="flex w-full min-w-0 items-center gap-1 lg:contents">
+                                            <span class="block min-w-0 flex-1 break-words font-semibold lg:inline lg:flex-none">{{ entry.summary.root }}</span>
+                                            <i class="bi bi-chevron-right shrink-0 text-[10px] text-gray-400 group-hover:text-blue-600 lg:order-3 lg:ml-0.5"></i>
+                                        </span>
+                                        <span class="block break-words text-xs text-gray-500 group-hover:text-blue-600 font-sans lg:inline lg:text-sm">({{ entry.summary.label }})</span>
+                                    </button>
+                                    {{ entry.summary.details|json_script:entry.version }}
+                                </div>
                             {% elif entry.action == "created" %}
                                 <span class="text-gray-400">Initial version</span>
                             {% endif %}
@@ -588,6 +593,51 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
+            <div class="md:hidden space-y-3">
+                {% for entry in history %}
+                <article class="rounded border border-gray-200 p-3 space-y-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <label class="flex items-center gap-2 text-xs text-gray-500">
+                            <input type="checkbox" class="history-check" value="{{ entry.version }}" data-version="{{ entry.version }}">
+                            <span>Compare</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                                {% if entry.action == 'created' %}bg-green-100 text-green-700
+                                {% elif entry.action == 'updated' %}bg-blue-100 text-blue-700
+                                {% elif entry.action == 'deleted' %}bg-red-100 text-red-700
+                                {% endif %}">{{ entry.get_action_display }}</span>
+                            <a href="{% url 'library:model-history-snapshot' device.pk entry.version %}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">v{{ entry.version }}</a>
+                        </div>
+                    </div>
+                    <dl class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-sm">
+                        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Time</dt>
+                        <dd class="text-gray-600">{{ entry.created|timesince }} ago</dd>
+                        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">User</dt>
+                        <dd class="break-words">{% if entry.user %}{{ entry.user.get_full_name|default:entry.user.username }}{% else %}System{% endif %}</dd>
+                        {% if entry.summary %}
+                        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Changes</dt>
+                        <dd class="min-w-0">
+                            <button type="button"
+                                    class="view-diff-btn flex w-full max-w-full items-start gap-1.5 rounded border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-left text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 group"
+                                    data-version="v{{ entry.version }}"
+                                    data-root="{{ entry.summary.root }}">
+                                <span class="min-w-0 flex-1">
+                                    <span class="block break-words font-mono font-semibold">{{ entry.summary.root }}</span>
+                                    <span class="block break-words font-sans text-xs text-gray-500 group-hover:text-blue-600">{{ entry.summary.label }}</span>
+                                </span>
+                                <i class="bi bi-chevron-right mt-0.5 shrink-0 text-[10px] text-gray-400 group-hover:text-blue-600"></i>
+                            </button>
+                        </dd>
+                        {% elif entry.action == "created" %}
+                        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Changes</dt>
+                        <dd class="text-gray-400">Initial version</dd>
+                        {% endif %}
+                    </dl>
+                </article>
+                {% endfor %}
+            </div>
             <div class="mt-3 flex items-center gap-3">
                 <button type="submit" id="compare-btn" disabled
                     class="border border-blue-600 text-blue-600 px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -596,6 +646,27 @@
                 <span id="compare-hint" class="text-xs text-gray-400">Select exactly 2 versions to compare</span>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal for Quick Single-Version Diff -->
+<div id="diff-modal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full flex flex-col max-h-[85vh] overflow-hidden border border-gray-200">
+        <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50/50">
+            <div>
+                <h5 class="font-semibold text-gray-800" id="diff-modal-title">Change Details</h5>
+                <p class="text-xs text-gray-500 mt-0.5" id="diff-modal-subtitle"></p>
+            </div>
+            <button type="button" id="close-diff-modal" class="text-gray-400 hover:text-gray-600 text-xl leading-none cursor-pointer">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 font-mono text-xs text-gray-800 bg-white space-y-4" id="diff-modal-content">
+            <!-- Diff items injected dynamically -->
+        </div>
+        <div class="px-6 py-3 border-t bg-gray-50 flex justify-end">
+            <button type="button" id="close-diff-modal-btn" class="px-4 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-xs cursor-pointer">
+                Close
+            </button>
+        </div>
     </div>
 </div>
 
@@ -669,6 +740,311 @@
     ],
     parent: container,
   });
+</script>
+{% endif %}
+
+{% if history %}
+<script type="module">
+  import {EditorView, basicSetup} from 'https://esm.sh/codemirror@6.0.1';
+  import {javascript} from 'https://esm.sh/@codemirror/lang-javascript@6.2.3';
+  import {EditorState} from 'https://esm.sh/@codemirror/state@6';
+  import {unifiedMergeView} from 'https://esm.sh/@codemirror/merge@6.7.4';
+
+(function () {
+  const modal = document.getElementById("diff-modal");
+  const modalTitle = document.getElementById("diff-modal-title");
+  const modalSubtitle = document.getElementById("diff-modal-subtitle");
+  const modalContent = document.getElementById("diff-modal-content");
+  let codeEditors = [];
+
+  const theme = EditorView.theme({
+    '&': { maxHeight: '600px' },
+    '.cm-scroller': { overflow: 'auto' },
+    '.cm-gutters': { backgroundColor: '#f9fafb', borderRight: '1px solid #e5e7eb' },
+  });
+
+  const closeModal = () => {
+    codeEditors.forEach((editor) => editor.destroy());
+    codeEditors = [];
+    modal.classList.add("hidden");
+  };
+
+  document.getElementById("close-diff-modal")?.addEventListener("click", closeModal);
+  document.getElementById("close-diff-modal-btn")?.addEventListener("click", closeModal);
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  const escapeHtml = (str) => {
+    if (str === null || str === undefined) return "";
+    if (typeof str !== "string") str = JSON.stringify(str);
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  };
+
+  function getItemTitle(item, index) {
+    if (!item) return `Item #${index + 1}`;
+    if (item.label && item.key) return `${item.label} (${item.key})`;
+    if (item.label) return item.label;
+    if (item.key) return item.key;
+    if (item.alarm) return `${item.alarm} (Match: ${item.match ? JSON.stringify(item.match) : "—"})`;
+    if (item.field_name) return `${item.field_name} (Address ${item.address})`;
+    if (item.address !== undefined) return `Register Address ${item.address}`;
+    return `Item #${index + 1}`;
+  }
+
+  // Registers Diff Renderer with specific property changes
+  function renderRegistersDiff(item) {
+    let out = '<div class="space-y-3">';
+
+    if (item.added && item.added.length > 0) {
+      out += '<div><div class="font-sans font-semibold text-xs text-gray-700 mb-1.5">Added Register:</div>';
+      item.added.forEach((reg) => {
+        out += `<div class="p-2.5 rounded bg-green-50 border border-green-200 text-green-900">
+          <div class="font-bold mb-1 flex items-center gap-1.5">
+            <span class="text-green-600 font-bold">+</span>
+            <span>Address ${reg.address}: ${escapeHtml(reg.field_name || "Register")}</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-green-800">
+            <div><span class="text-gray-500">Unit:</span> ${escapeHtml(reg.field_unit || "—")}</div>
+            <div><span class="text-gray-500">Type:</span> ${escapeHtml(reg.data_type || "—")}</div>
+            <div><span class="text-gray-500">Scale:</span> ${escapeHtml(reg.scale ?? 1)}</div>
+            <div><span class="text-gray-500">Offset:</span> ${escapeHtml(reg.offset ?? 0)}</div>
+          </div>
+        </div>`;
+      });
+      out += '</div>';
+    }
+
+    if (item.removed && item.removed.length > 0) {
+      out += '<div><div class="font-sans font-semibold text-xs text-gray-700 mb-1.5">Removed Register:</div>';
+      item.removed.forEach((reg) => {
+        out += `<div class="p-2.5 rounded bg-red-50 border border-red-200 text-red-900 opacity-80">
+          <div class="font-bold mb-1 flex items-center gap-1.5">
+            <span class="text-red-600 font-bold">-</span>
+            <span>Address ${reg.address}: ${escapeHtml(reg.field_name || "Register")}</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-red-800 line-through">
+            <div><span class="text-gray-500">Unit:</span> ${escapeHtml(reg.field_unit || "—")}</div>
+            <div><span class="text-gray-500">Type:</span> ${escapeHtml(reg.data_type || "—")}</div>
+            <div><span class="text-gray-500">Scale:</span> ${escapeHtml(reg.scale ?? 1)}</div>
+            <div><span class="text-gray-500">Offset:</span> ${escapeHtml(reg.offset ?? 0)}</div>
+          </div>
+        </div>`;
+      });
+      out += '</div>';
+    }
+
+    if (item.modified && item.modified.length > 0) {
+      out += '<div><div class="font-sans font-semibold text-xs text-gray-700 mb-1.5">Modified Register:</div>';
+      item.modified.forEach((mod) => {
+        const oldReg = mod.old || {};
+        const newReg = mod.new || {};
+        const allKeys = Array.from(new Set([...Object.keys(oldReg), ...Object.keys(newReg)]));
+        const diffs = allKeys.filter((k) => JSON.stringify(oldReg[k]) !== JSON.stringify(newReg[k]));
+
+        out += `<div class="p-2.5 rounded bg-amber-50/60 border border-amber-200">
+          <div class="font-bold text-gray-800 mb-1.5">Address ${mod.address} (${escapeHtml(newReg.field_name || oldReg.field_name || "Register")})</div>
+          <div class="space-y-1 text-[11px]">
+            ${diffs.map((k) => `
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-gray-600 w-24">${k}:</span>
+                <span class="text-red-600 line-through">${escapeHtml(oldReg[k] ?? "∅")}</span>
+                <span class="text-gray-400">&rarr;</span>
+                <span class="text-green-700 font-semibold">${escapeHtml(newReg[k] ?? "∅")}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>`;
+      });
+      out += '</div>';
+    }
+
+    out += "</div>";
+    return out;
+  }
+
+  // Render object lists
+  function renderArrayOfObjects(oldList = [], newList = [], fieldName) {
+    oldList = Array.isArray(oldList) ? oldList : [];
+    newList = Array.isArray(newList) ? newList : [];
+
+    let out = `<div class="space-y-2">
+      <div class="font-sans font-semibold text-xs text-gray-700 mb-1 border-b pb-1">${fieldName}</div>`;
+
+    const maxLen = Math.max(oldList.length, newList.length);
+    for (let i = 0; i < maxLen; i++) {
+      const oldObj = oldList[i];
+      const newObj = newList[i];
+
+      if (!oldObj && newObj) {
+        out += `<div class="p-2.5 rounded bg-green-50/70 border border-green-200">
+          <div class="font-bold text-green-800 mb-1 flex items-center gap-1.5">
+            <span class="text-green-600 font-bold">+</span> ${getItemTitle(newObj, i)}
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-green-900 mt-1.5">
+            ${Object.entries(newObj).map(([k, v]) => `<div><span class="text-gray-500">${k}:</span> <span class="font-medium">${escapeHtml(v)}</span></div>`).join("")}
+          </div>
+        </div>`;
+      } else if (oldObj && !newObj) {
+        out += `<div class="p-2.5 rounded bg-red-50/70 border border-red-200 opacity-80">
+          <div class="font-bold text-red-800 mb-1 flex items-center gap-1.5">
+            <span class="text-red-600 font-bold">-</span> ${getItemTitle(oldObj, i)}
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-red-900 line-through mt-1.5">
+            ${Object.entries(oldObj).map(([k, v]) => `<div><span class="text-gray-500">${k}:</span> ${escapeHtml(v)}</div>`).join("")}
+          </div>
+        </div>`;
+      } else {
+        const allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]));
+        const diffs = allKeys.filter((k) => JSON.stringify(oldObj[k]) !== JSON.stringify(newObj[k]));
+
+        if (diffs.length > 0) {
+          out += `<div class="p-2.5 rounded bg-amber-50/60 border border-amber-200">
+            <div class="font-bold text-gray-800 mb-1.5">${getItemTitle(newObj || oldObj, i)}</div>
+            <div class="space-y-1 text-[11px]">
+              ${diffs.map((k) => `
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-gray-600 w-24">${k}:</span>
+                  <span class="text-red-600 line-through">${escapeHtml(oldObj[k] ?? "∅")}</span>
+                  <span class="text-gray-400">&rarr;</span>
+                  <span class="text-green-700 font-semibold">${escapeHtml(newObj[k] ?? "∅")}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>`;
+        }
+      }
+    }
+
+    out += "</div>";
+    return out;
+  }
+
+  // Code Block Formatter
+  function renderCodeBlockDiff(item) {
+    const label = !item.old ? "Added Code" : !item.new ? "Removed Code" : "Modified Code";
+    return `
+      <div class="border rounded-md overflow-hidden">
+        <div class="bg-gray-100 px-3 py-1.5 border-b font-sans font-semibold text-xs text-gray-700 flex justify-between">
+          <span>${item.key}</span>
+          <span class="text-[11px] font-normal text-gray-500">${label}</span>
+        </div>
+        <div class="history-code-old hidden">${escapeHtml(item.old || "")}</div>
+        <div class="history-code-new hidden">${escapeHtml(item.new || "")}</div>
+        <div class="history-code-editor"></div>
+      </div>
+    `;
+  }
+
+  function initializeCodeEditors() {
+    codeEditors.forEach((editor) => editor.destroy());
+    codeEditors = [];
+
+    modalContent.querySelectorAll(".history-code-editor").forEach((container) => {
+      const oldSource = container.parentElement.querySelector(".history-code-old").textContent;
+      const newSource = container.parentElement.querySelector(".history-code-new").textContent;
+      codeEditors.push(new EditorView({
+        doc: newSource,
+        extensions: [
+          basicSetup,
+          javascript(),
+          EditorView.lineWrapping,
+          EditorView.editable.of(false),
+          EditorState.readOnly.of(true),
+          unifiedMergeView({
+            original: oldSource,
+            mergeControls: false,
+            highlightChanges: true,
+            gutter: true,
+            collapseUnchanged: {margin: 3, minSize: 6},
+          }),
+          theme,
+        ],
+        parent: container,
+      }));
+    });
+  }
+
+  // Bind to diff click buttons
+  document.querySelectorAll(".view-diff-btn").forEach((button) => {
+    button.addEventListener("click", function () {
+      const version = this.dataset.version;
+      const root = this.dataset.root;
+      const scriptId = version.replace("v", "");
+      const scriptTag = document.getElementById(scriptId);
+      const details = scriptTag ? JSON.parse(scriptTag.textContent) : [];
+
+      modalTitle.textContent = root;
+      modalSubtitle.textContent = `Applied in version ${version}`;
+
+      let html = "";
+
+      details.forEach((item) => {
+        if (item.type === "registers" || item.key === "registers") {
+          html += renderRegistersDiff(item);
+          return;
+        }
+
+        // Long script or code block
+        const isLongText = (v) => typeof v === "string" && (v.includes("\n") || v.length > 80);
+        if (isLongText(item.new) || isLongText(item.old)) {
+          html += renderCodeBlockDiff(item);
+          return;
+        }
+
+        // Object containing nested arrays
+        if (
+          (item.old && typeof item.old === "object" && item.old.input_data) ||
+          (item.new && typeof item.new === "object" && item.new.input_data)
+        ) {
+          const oldData = item.old || {};
+          const newData = item.new || {};
+          html += renderArrayOfObjects(oldData.input_data, newData.input_data, `${item.key}.input_data`);
+          if (oldData.pairing_key !== newData.pairing_key) {
+            html += `<div class="px-2.5 py-1.5 rounded bg-gray-50 border border-gray-200 flex items-center gap-2 mt-2">
+              <span class="font-semibold text-gray-700">${item.key}.pairing_key:</span>
+              ${oldData.pairing_key ? `<span class="text-red-600 line-through">${escapeHtml(oldData.pairing_key)}</span> <span class="text-gray-400">&rarr;</span>` : ""}
+              <span class="text-green-700 font-medium">${escapeHtml(newData.pairing_key || "∅")}</span>
+            </div>`;
+          }
+          return;
+        }
+
+        // Lists of objects (mappings, extra_mappings, etc.)
+        if (
+          (Array.isArray(item.old) && item.old.some((x) => typeof x === "object")) ||
+          (Array.isArray(item.new) && item.new.some((x) => typeof x === "object"))
+        ) {
+          html += renderArrayOfObjects(item.old, item.new, item.key);
+          return;
+        }
+
+        // Primitive values (strings, numbers, booleans)
+        const oldVal = item.old === "" || item.old === null || item.old === undefined
+          ? "∅"
+          : JSON.stringify(item.old);
+        const newVal = item.new === "" || item.new === null || item.new === undefined
+          ? "∅"
+          : JSON.stringify(item.new);
+
+        html += `<div class="px-2.5 py-1.5 rounded bg-gray-50 border border-gray-200 flex items-center flex-wrap gap-2">
+          <span class="font-semibold text-gray-700">${item.key}:</span>
+          ${oldVal !== "∅" ? `<span class="text-red-600 line-through">${escapeHtml(oldVal)}</span> <span class="text-gray-400">&rarr;</span>` : ""}
+          <span class="text-green-700 font-medium">${escapeHtml(newVal)}</span>
+        </div>`;
+      });
+
+      modalContent.innerHTML = details.length > 0
+        ? html
+        : '<div class="text-gray-400 italic">No details available.</div>';
+      initializeCodeEditors();
+      modal.classList.remove("hidden");
+    });
+  });
+})();
 </script>
 {% endif %}
 {% endblock %}
