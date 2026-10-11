@@ -174,7 +174,7 @@ class MetricListView(LoginRequiredMixin, ListView):
     template_name = "library/metric_list.html"
     context_object_name = "metrics"
 
-    ALLOWED_SORT_FIELDS = {"key", "label", "unit", "data_type", "model_count", "type_count"}
+    ALLOWED_SORT_FIELDS = {"key", "label", "unit", "data_type", "kind", "aggregation", "model_count", "type_count"}
 
     def get_queryset(self):
         qs = Metric.objects.all()
