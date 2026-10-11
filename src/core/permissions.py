@@ -12,11 +12,14 @@ class RoleRequiredMixin(LoginRequiredMixin):
     required_role = User.Role.VIEWER
 
     def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
-        if hasattr(request, "user") and request.user.is_authenticated:
-            if not request.user.has_role(self.required_role):
-                raise PermissionDenied
-        return response
+        # Check before dispatching: the handler must not run for a user without
+        # the role. ATOMIC_REQUESTS would roll back DB writes, but not side
+        # effects such as deleted files or sent emails.
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if not request.user.has_role(self.required_role):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
 
 
 class SuperuserRequiredMixin(LoginRequiredMixin):

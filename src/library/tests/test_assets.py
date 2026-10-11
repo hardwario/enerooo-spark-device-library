@@ -251,3 +251,15 @@ def test_viewer_cannot_mutate_assets(model):
     response = client.post(f"/models/{model.pk}/documents/add/", {"title": "M", "file": SimpleUploadedFile("m.pdf", PDF)})
     assert response.status_code == 403
     assert model.documents.count() == 0
+
+
+def test_viewer_document_delete_keeps_the_file(model):
+    """The role check must run before the view: the DB rollback on 403 doesn't restore a deleted file."""
+    doc = ModelDocument.objects.create(vendor_model=model, title="Manual", file=SimpleUploadedFile("manual.pdf", PDF))
+    viewer = User.objects.create_user(username="v", password="x", role=User.Role.VIEWER)
+    client = APIClient()
+    client.force_login(viewer)
+    response = client.post(f"/models/{model.pk}/documents/{doc.pk}/delete/")
+    assert response.status_code == 403
+    assert ModelDocument.objects.filter(pk=doc.pk).exists()
+    assert doc.file.storage.exists(doc.file.name)
