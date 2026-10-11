@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Model - {{ COMPANY_NAME }}{% endblock %}
+{% block title %}{% if object %}Edit{% else %}Create{% endif %} Model - {{ COMPANY_NAME }}{% endblock %}
 
 {% block content %}
 <nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
     <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
     <span class="mx-1">/</span>
-    <span class="text-gray-800">{% if form.instance.pk %}Edit {{ form.instance.name }}{% else %}Create Model{% endif %}</span>
+    <span class="text-gray-800">{% if object %}Edit {{ form.instance.name }}{% else %}Create Model{% endif %}</span>
 </nav>
 
 <div class="mb-6">
-    <h2 class="text-2xl font-bold">{% if form.instance.pk %}Edit Model{% else %}Create Model{% endif %}</h2>
-    {% if form.instance.pk and form.instance.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ form.instance.key }}</p>{% endif %}
+    <h2 class="text-2xl font-bold">{% if object %}Edit Model{% else %}Create Model{% endif %}</h2>
+    {% if object and form.instance.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ form.instance.key }}</p>{% endif %}
 </div>
 
 <div class="bg-white rounded-lg shadow">
