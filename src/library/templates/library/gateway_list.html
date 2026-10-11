@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 {% load sorting %}
 
 {% block title %}Gateway Assignments - {{ COMPANY_NAME }}{% endblock %}
@@ -7,7 +8,7 @@
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold">Gateway Assignments</h2>
     {% if user.is_editor %}
-    <a href="{% url 'library:gateway-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+    <a href="{% url_with_next 'library:gateway-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
         <i class="bi bi-plus-lg mr-1"></i>Add Assignment
     </a>
     {% endif %}
@@ -70,13 +71,13 @@
                     <td class="py-3 px-2">{{ assignment.last_seen|date:"Y-m-d H:i"|default:"—" }}</td>
                     <td class="py-3 px-2 flex gap-1">
                         {% if user.is_editor %}
-                        <a href="{% url 'library:gateway-edit' assignment.pk %}" class="border border-gray-300 text-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                        <a href="{% url_with_next 'library:gateway-edit' assignment.pk %}" class="border border-gray-300 text-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-50">
                             <i class="bi bi-pencil"></i>
                         </a>
                         <button type="button"
                                 class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50"
                                 data-confirm-delete="{{ assignment.serial_number }}"
-                                data-delete-url="{% url 'library:gateway-delete' assignment.pk %}">
+                                data-delete-url="{% url_with_next 'library:gateway-delete' assignment.pk %}">
                             <i class="bi bi-trash"></i>
                         </button>
                         {% endif %}

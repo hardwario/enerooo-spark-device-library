@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 {% load sorting device_tags %}
 
 {% block title %}wM-Bus Mappings - {{ COMPANY_NAME }}{% endblock %}
@@ -71,7 +72,7 @@
                         {% endif %}
                     </td>
                     <td class="py-3 px-2">
-                        <a href="{% url 'library:wmbus-config-edit' cfg.device_type.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                        <a href="{% url_with_next 'library:wmbus-config-edit' cfg.device_type.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
                             <i class="bi bi-pencil"></i>
                         </a>
                     </td>

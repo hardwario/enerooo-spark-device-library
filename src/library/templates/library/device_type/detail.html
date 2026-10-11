@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 {% block title %}{{ device_type.label }} - {{ COMPANY_NAME }}{% endblock %}
 {% block content %}
     <div class="mb-6">
@@ -19,7 +20,7 @@
                     <button type="button"
                             class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium"
                             data-confirm-delete="{{ device_type.label }}"
-                            data-delete-url="{% url 'library:devicetype-delete' device_type.pk %}">
+                            data-delete-url="{% url_with_next 'library:devicetype-delete' device_type.pk %}">
                         <i class="bi bi-trash mr-1"></i>Delete
                     </button>
                 {% endif %}
