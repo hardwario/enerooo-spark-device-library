@@ -3,531 +3,566 @@
 
 {% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
 
+{% block main_container %}@container{% endblock %}
+
 {% block content %}
-<nav class="text-sm text-gray-500 mb-4" aria-label="breadcrumb">
-    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700">Models</a>
-    <span class="mx-1">/</span>
-    <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="hover:text-gray-700">{{ device.vendor.name }}</a>
-    <span class="mx-1">/</span>
-    <span class="text-gray-800">{{ device.model_number }}</span>
+<nav class="flex items-center gap-1 text-sm text-gray-500 mb-4 min-w-0" aria-label="breadcrumb">
+    <a href="{% url 'library:model-list' %}" class="hover:text-gray-700 shrink-0">Models</a>
+    <span class="text-gray-300">/</span>
+    <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="hover:text-gray-700 truncate">{{ device.vendor.name }}</a>
+    <span class="text-gray-300">/</span>
+    <span class="text-gray-800 truncate" aria-current="page">{{ device.model_number }}</span>
 </nav>
 
-<div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
-    <div>
-        <h2 class="text-2xl font-bold">{{ device.name }}</h2>
-        {% if device.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ device.key }}</p>{% endif %}
+<!-- Header: identity, key facts and description (replaces the former General card) -->
+<div class="flex flex-col @2xl:flex-row @2xl:justify-between @2xl:items-start gap-4 mb-6">
+    <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 break-words">{{ device.name }}</h2>
+
+            {% if device.device_type_fk %}
+                {% device_type_badge device.device_type_fk.code device.device_type_fk.label %}
+            {% else %}
+                {% device_type_badge device.device_type %}
+            {% endif %}
+
+            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-blue-600{% elif device.technology == 'lorawan' %}bg-emerald-600{% elif device.technology == 'wmbus' %}bg-purple-600{% else %}bg-gray-500{% endif %}">
+                {{ device.get_technology_display }}
+            </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 text-sm text-gray-500">
+            <span class="break-words">
+                <a href="{% url 'library:vendor-detail' device.vendor.slug %}" class="text-gray-700 hover:text-blue-700">{{ device.vendor.name }}</a>
+                <span class="text-gray-300 mx-0.5">·</span>
+                <span class="text-gray-700">{{ device.model_number }}</span>
+            </span>
+
+            {% if device.product_code %}
+            <span class="inline-flex items-center gap-1.5" title="ENEROOO product code — Enerooo ID prefix {{ device.product_code }}-XXXXX-CC">
+                <span class="text-xs text-gray-400">Product code</span>
+                <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-gray-800">{{ device.product_code }}</span>
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800 ring-1 ring-inset ring-amber-200" title="Models without an ENEROOO product code are not offered in Provisioning">
+                <i class="bi bi-exclamation-triangle"></i>No product code · not in Provisioning
+            </span>
+            {% endif %}
+
+            {% if device.key %}
+            <span class="inline-flex items-center gap-0.5 min-w-0">
+                <span class="text-xs font-mono text-gray-400 select-all break-all">{{ device.key }}</span>
+                <button type="button"
+                        onclick="navigator.clipboard.writeText('{{ device.key }}'); this.querySelector('i').className = 'bi bi-check text-green-500'; setTimeout(() => this.querySelector('i').className = 'bi bi-clipboard text-gray-400', 1500);"
+                        title="Copy key"
+                        aria-label="Copy key"
+                        class="shrink-0 p-1.5 rounded hover:bg-gray-100 text-xs inline-flex items-center">
+                    <i class="bi bi-clipboard text-gray-400"></i>
+                </button>
+            </span>
+            {% endif %}
+        </div>
+
+        {% if device.description %}
+        <div class="mt-3 max-w-3xl">
+            <p id="device-description" class="text-sm text-gray-600 break-words whitespace-pre-line line-clamp-3">{{ device.description }}</p>
+            <button type="button" id="device-description-toggle" class="hidden mt-1 text-xs font-medium text-blue-600 hover:text-blue-800" aria-expanded="false" aria-controls="device-description">Show more</button>
+        </div>
+        {% endif %}
     </div>
+
     {% if user.is_editor %}
-    <div class="flex gap-2">
-        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 text-sm font-medium">
-            <i class="bi bi-pencil mr-1"></i>Edit
+    <div class="grid grid-cols-2 gap-2 @2xl:flex @2xl:items-center @2xl:shrink-0">
+        <a href="{% url 'library:model-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-3.5 py-2 @2xl:py-1.5 rounded-md hover:bg-blue-50 text-sm font-medium transition inline-flex items-center justify-center gap-1.5 shadow-sm">
+            <i class="bi bi-pencil"></i>
+            <span>Edit</span>
         </a>
         <button
             data-confirm-delete="{{ device.vendor.name }} {{ device.model_number }}"
             data-delete-url="{% url 'library:model-delete' device.pk %}"
-            class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
-            <i class="bi bi-trash mr-1"></i>Delete
+            class="border border-red-600 text-red-600 px-3.5 py-2 @2xl:py-1.5 rounded-md hover:bg-red-50 text-sm font-medium transition inline-flex items-center justify-center gap-1.5 shadow-sm">
+            <i class="bi bi-trash"></i>
+            <span>Delete</span>
         </button>
     </div>
     {% endif %}
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-    <div class="md:col-span-4 min-w-0">
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b"><h5 class="font-semibold">General</h5></div>
-            <div class="p-6">
-                <dl class="space-y-3 text-sm">
-                    <div>
-                        <dt class="font-medium text-gray-600">Vendor</dt>
-                        <dd>{{ device.vendor.name }}</dd>
-                    </div>
-                    <div>
-                        <dt class="font-medium text-gray-600">Model</dt>
-                        <dd>{{ device.model_number }}</dd>
-                    </div>
-                    <div>
-                        <dt class="font-medium text-gray-600">Device Type</dt>
-                        <dd>{{ device.get_device_type_display }}</dd>
-                    </div>
-                    <div>
-                        <dt class="font-medium text-gray-600">Technology</dt>
-                        <dd><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if device.technology == 'modbus' %}bg-[#0d6efd]{% elif device.technology == 'lorawan' %}bg-[#198754]{% elif device.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ device.get_technology_display }}</span></dd>
-                    </div>
-                    {% if device.description %}
-                    <div>
-                        <dt class="font-medium text-gray-600">Description</dt>
-                        <dd>{{ device.description }}</dd>
-                    </div>
+{% with prov=device.provisioning %}
+{# Sized by the content area (container queries on <main>), not the viewport.  #}
+{# @5xl: wide content left, fixed 22rem summary column right.                 #}
+{# @2xl: summary cards in pairs above full-width content; below: all stacked. #}
+<div class="grid grid-cols-1 @5xl:grid-cols-[minmax(0,1fr)_22rem] gap-4 @5xl:gap-6 items-start mb-4">
+    <aside class="@5xl:order-2 min-w-0 grid grid-cols-1 @2xl:grid-cols-2 @5xl:grid-cols-1 gap-4 items-start">
+
+        <!-- Technology Config (+ Control) -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-5 py-3.5 border-b flex justify-between items-center gap-3">
+                <h5 class="font-semibold">{% if device.technology == "modbus" %}Modbus{% elif device.technology == "lorawan" %}LoRaWAN{% elif device.technology == "wmbus" %}wM-Bus{% else %}{{ device.get_technology_display }}{% endif %} Configuration</h5>
+                {% if user.is_editor %}
+                {% if device.technology == "modbus" %}
+                <a href="{% url 'library:modbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    {% if modbus_config %}<i class="bi bi-pencil"></i><span class="sr-only">Edit</span>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
+                </a>
+                {% elif device.technology == "lorawan" %}
+                <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    {% if lorawan_config %}<i class="bi bi-pencil"></i><span class="sr-only">Edit</span>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
+                </a>
+                {% elif device.technology == "wmbus" %}
+                <a href="{% url 'library:wmbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                    {% if wmbus_config %}<i class="bi bi-pencil"></i><span class="sr-only">Edit</span>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
+                </a>
+                {% endif %}
+                {% endif %}
+            </div>
+            <div class="px-4 sm:px-5 py-4">
+                {% if device.technology == "modbus" %}
+                    {% if modbus_config %}
+                    <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
+                        <dt class="text-gray-500">Function</dt>
+                        <dd class="min-w-0 break-words">{{ modbus_config.function|default:"—" }}</dd>
+                        <dt class="text-gray-500">Byte Order</dt>
+                        <dd class="min-w-0 break-words">{{ modbus_config.byte_order|default:"—" }}</dd>
+                        <dt class="text-gray-500">Word Order</dt>
+                        <dd class="min-w-0 break-words">{{ modbus_config.word_order|default:"—" }}</dd>
+                    </dl>
+                    {% else %}
+                    <p class="text-sm text-gray-400">Not configured yet.</p>
                     {% endif %}
-                    <div>
-                        <dt class="font-medium text-gray-600">ENEROOO product code</dt>
-                        <dd>
-                            {% if device.product_code %}
-                            <span class="font-mono font-semibold">{{ device.product_code }}</span>
-                            <span class="text-xs text-gray-500 ml-1">Enerooo ID prefix {{ device.product_code }}-XXXXX-CC</span>
+                {% elif device.technology == "lorawan" %}
+                    <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
+                        <dt class="text-gray-500">Device Class</dt>
+                        <dd class="min-w-0 break-words">{% if lorawan_config and lorawan_config.device_class %}{{ lorawan_config.get_device_class_display }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                        <dt class="text-gray-500">Downlink F-Port</dt>
+                        <dd class="min-w-0 break-words">{% if lorawan_config and lorawan_config.downlink_f_port %}{{ lorawan_config.downlink_f_port }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                        <dt class="text-gray-500">Payload Codec</dt>
+                        <dd class="min-w-0 break-words">
+                            {% if lorawan_config and lorawan_config.payload_codec %}
+                            <a href="#payload-codec" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200"><i class="bi bi-check-circle-fill mr-1"></i>{{ lorawan_config.get_codec_format_display }}</a>
                             {% else %}
                             <span class="text-gray-400">—</span>
-                            <span class="text-xs text-amber-700 ml-1">not offered in Provisioning</span>
                             {% endif %}
                         </dd>
-                    </div>
-                </dl>
+                    </dl>
+                {% elif device.technology == "wmbus" %}
+                    {% if wmbus_config %}
+                    <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
+                        <dt class="text-gray-500">Manufacturer</dt>
+                        <dd class="min-w-0 break-words">{{ wmbus_config.manufacturer_code }}</dd>
+                        <dt class="text-gray-500">Version</dt>
+                        <dd class="min-w-0 break-words">{% if wmbus_config.wmbus_version %}<code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbus_version }}</code>{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
+                        <dt class="text-gray-500">Device Type</dt>
+                        <dd class="min-w-0 break-words">
+                            {{ wmbus_config.wmbus_device_type }}
+                            {% if wmbus_config.wmbus_device_type_label %}
+                            {% device_type_badge device.device_type wmbus_config.wmbus_device_type_label %}
+                            {% endif %}
+                        </dd>
+                        <dt class="text-gray-500">Encryption</dt>
+                        <dd class="min-w-0 break-words">
+                            {% if wmbus_config.encryption_required %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><i class="bi bi-lock-fill mr-1"></i>Required</span>
+                            {% else %}
+                            <span class="text-gray-500">Not required</span>
+                            {% endif %}
+                        </dd>
+                        {% if wmbus_config.shared_encryption_key %}
+                        <dt class="text-gray-500">Shared Key</dt>
+                        <dd class="min-w-0 break-all"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.shared_encryption_key }}</code></dd>
+                        {% endif %}
+                        <dt class="text-gray-500">MVT Default</dt>
+                        <dd class="min-w-0 break-words">
+                            {% if wmbus_config.is_mvt_default %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-wmbus/10 text-wmbus"><i class="bi bi-check-circle-fill mr-1"></i>Default</span>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </dd>
+                        <dt class="text-gray-500">wmbusmeters Driver</dt>
+                        <dd class="min-w-0 break-words"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
+                    </dl>
+                    {% else %}
+                    <p class="text-sm text-gray-400">Not configured yet.</p>
+                    {% endif %}
+                {% endif %}
             </div>
-        </div>
-    </div>
-
-    <div class="md:col-span-8 min-w-0">
-        <!-- Provisioning schema (per-unit input data) -->
-        {% with prov=device.provisioning %}
-        {% if prov.input_data %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Provisioning</h5>
+            {% if control_config %}
+            <div class="px-4 sm:px-5 py-3 border-t flex items-center justify-between gap-3 text-sm">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-gray-500">Control</span>
+                    {% if control_config.controllable %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="bi bi-toggle-on mr-1"></i>Controllable</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Not controllable</span>
+                    {% endif %}
+                </div>
                 {% if user.is_editor %}
-                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
+                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit control configuration" aria-label="Edit control configuration">
                     <i class="bi bi-pencil"></i>
                 </a>
                 {% endif %}
             </div>
-            <div class="p-6">
-                <p class="text-sm text-gray-500 mb-3">Input data entered per unit. Pairing key: <span class="font-mono">{{ prov.pairing_key }}</span></p>
-                <div class="max-w-full overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b text-left">
-                            <th class="py-1.5 px-2 font-semibold">Key</th>
-                            <th class="py-1.5 px-2 font-semibold">Label</th>
-                            <th class="py-1.5 px-2 font-semibold">Type</th>
-                            <th class="py-1.5 px-2 font-semibold">Flags</th>
+            {% endif %}
+        </div>
+
+        <!-- Documentation assets -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-5 py-3.5 border-b flex justify-between items-center gap-3">
+                <h5 class="font-semibold">Documentation</h5>
+                <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50 whitespace-nowrap inline-flex items-center">
+                    <i class="bi bi-journal-text mr-1"></i>Open
+                </a>
+            </div>
+            <div class="px-4 sm:px-5 py-4">
+                <div class="flex items-center gap-4">
+                    {% if device.image %}
+                    <a href="{% url 'library:model-assets' device.pk %}" class="flex-none" title="Open documentation">
+                        <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="w-20 h-16 object-cover rounded border">
+                    </a>
+                    {% endif %}
+                    <div class="text-sm space-y-1.5 text-gray-600 min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <i class="bi bi-files text-gray-400"></i>
+                            <span>{{ device.documents.count }} document{{ device.documents.count|pluralize }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <i class="bi {% if device.image %}bi-check-circle-fill text-green-600{% else %}bi-dash-circle text-gray-400{% endif %}"></i>
+                            <span>Image: {% if device.image %}Attached{% else %}Missing{% endif %}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <i class="bi {% if device.procedure %}bi-check-circle-fill text-green-600{% else %}bi-dash-circle text-gray-400{% endif %}"></i>
+                            <span>Procedure: {% if device.procedure %}v{{ device.procedure.version }}{% else %}Missing{% endif %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Provisioning schema (per-unit input data) -->
+        {% if prov.input_data %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-5 py-3.5 border-b flex justify-between items-center gap-3">
+                <h5 class="font-semibold">Provisioning</h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit provisioning" aria-label="Edit provisioning">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="px-4 sm:px-5 py-3">
+                <p class="text-xs text-gray-500 mb-1">Input data entered per unit</p>
+                <ul class="divide-y divide-gray-100">
+                    {% for f in prov.input_data %}
+                    <li class="py-2 flex items-start justify-between gap-3 text-sm">
+                        <div class="min-w-0">
+                            <div class="text-gray-800 break-words">
+                                {{ f.label|default:f.key }}
+                                {% if f.key == prov.pairing_key %}<span class="ml-1 inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-inset ring-blue-200" title="Pairing key">pairing key</span>{% endif %}
+                            </div>
+                            <div class="font-mono text-xs text-gray-400 break-all">{{ f.key }}</div>
+                        </div>
+                        <div class="shrink-0 text-right">
+                            <div class="font-mono text-xs text-gray-600">{{ f.type }}{% if f.length %}({{ f.length }}){% elif f.type == "int" %}({{ f.min }}–{{ f.max }}){% endif %}</div>
+                            <div class="text-[11px] text-gray-400">{% if f.required %}required{% else %}optional{% endif %}{% if f.secret %} · secret{% endif %}{% if f.scan %} · scan{% endif %}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Configuration sections not set up yet (one card instead of an empty card each) -->
+        {% if not prov.input_data or not control_config or not field_mappings or not alarm_config.mappings %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-5 py-3.5 border-b">
+                <h5 class="font-semibold">Not configured yet</h5>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                {% if not prov.input_data %}
+                <li class="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-gray-800">Provisioning</div>
+                        <div class="text-xs text-gray-500">Per-unit input data schema</div>
+                    </div>
+                    {% if user.is_editor %}
+                    <a href="{% url 'library:provisioning-edit' device.pk %}" class="shrink-0 border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50" aria-label="Add provisioning">
+                        <i class="bi bi-plus-lg mr-1"></i>Add
+                    </a>
+                    {% endif %}
+                </li>
+                {% endif %}
+                {% if not control_config %}
+                <li class="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-gray-800">Control</div>
+                        <div class="text-xs text-gray-500">Capabilities and controllability</div>
+                    </div>
+                    {% if user.is_editor %}
+                    <a href="{% url 'library:control-config-edit' device.pk %}" class="shrink-0 border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50" aria-label="Add control configuration">
+                        <i class="bi bi-plus-lg mr-1"></i>Add
+                    </a>
+                    {% endif %}
+                </li>
+                {% endif %}
+                {# Gate on the merged field mappings only — decoder_type is derived from #}
+                {# technology (always truthy for wM-Bus/LoRaWAN), so gating on it would   #}
+                {# render an empty body for models that carry no mappings.                #}
+                {% if not field_mappings %}
+                <li class="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-gray-800">Processor</div>
+                        <div class="text-xs text-gray-500">Field mappings</div>
+                    </div>
+                    {% if user.is_editor %}
+                    <a href="{% url 'library:processor-config-edit' device.pk %}" class="shrink-0 border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50" aria-label="Add processor configuration">
+                        <i class="bi bi-plus-lg mr-1"></i>Add
+                    </a>
+                    {% endif %}
+                </li>
+                {% endif %}
+                {% if not alarm_config.mappings %}
+                <li class="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-gray-800">Alarms</div>
+                        <div class="text-xs text-gray-500">Status → alarm mappings</div>
+                    </div>
+                    {% if user.is_editor %}
+                    <a href="{% url 'library:alarm-config-edit' device.pk %}" class="shrink-0 border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50" aria-label="Add alarm configuration">
+                        <i class="bi bi-plus-lg mr-1"></i>Add
+                    </a>
+                    {% endif %}
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+    </aside>
+
+    <div class="@5xl:order-1 min-w-0 space-y-4 @5xl:space-y-6">
+        <!-- Processor Config -->
+        {% if field_mappings %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
+                <h5 class="font-semibold">Field Mappings <span class="ml-1 text-sm font-normal text-gray-400">{{ field_mappings|length }}</span></h5>
+                <div class="flex items-center gap-2">
+                    <button type="button"
+                            data-copy-json
+                            data-json='{{ field_mappings|raw_json }}'
+                            class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
+                        <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
+                    </button>
+                    {% if user.is_editor %}
+                    <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit processor configuration" aria-label="Edit processor configuration">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 border-b text-left text-gray-500">
+                        <tr>
+                            <th class="py-2 px-2 pl-4 sm:pl-6 font-medium whitespace-nowrap">Source</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Target (L1 key)</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Label</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Unit</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Tier</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Scale</th>
+                            <th class="py-2 px-2 pr-4 sm:pr-6 font-medium whitespace-nowrap">Offset</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for f in prov.input_data %}
-                        <tr class="border-b last:border-b-0">
-                            <td class="py-1.5 px-2 font-mono">{{ f.key }}</td>
-                            <td class="py-1.5 px-2">{{ f.label }}</td>
-                            <td class="py-1.5 px-2 font-mono text-gray-600">{{ f.type }}{% if f.length %}({{ f.length }}){% elif f.type == "int" %}({{ f.min }}–{{ f.max }}){% endif %}</td>
-                            <td class="py-1.5 px-2 text-xs text-gray-600">{% if f.required %}required{% endif %}{% if f.secret %} · secret{% endif %}{% if f.scan %} · scan{% endif %}</td>
+                        {% for entry in field_mappings %}
+                        <tr class="border-b last:border-b-0 hover:bg-gray-50">
+                            <td class="py-1.5 px-2 pl-4 sm:pl-6 font-mono">{{ entry.source|default:"—" }}</td>
+                            <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.target|default:"—" }}</td>
+                            <td class="py-1.5 px-2 text-gray-700">{{ entry.label|default:"—" }}</td>
+                            <td class="py-1.5 px-2">
+                                {% if entry.unit %}<code class="bg-gray-100 px-1 rounded">{{ entry.unit }}</code>{% else %}<span class="text-gray-300">—</span>{% endif %}
+                            </td>
+                            <td class="py-1.5 px-2">
+                                {% if entry.tier == "primary" %}
+                                    <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">primary</span>
+                                {% elif entry.tier == "diagnostic" %}
+                                    <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">diagnostic</span>
+                                {% else %}
+                                    <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">{{ entry.tier|default:"secondary" }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-1.5 px-2 font-mono">{{ entry.scale|default:"—" }}</td>
+                            <td class="py-1.5 px-2 pr-4 sm:pr-6 font-mono">{{ entry.offset|default:"—" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center">
-                <div>
-                    <h5 class="font-semibold">Provisioning</h5>
-                    <p class="text-sm text-gray-500">No per-unit input data schema yet.</p>
-                </div>
-                {% if user.is_editor %}
-                <a href="{% url 'library:provisioning-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
-                    <i class="bi bi-plus-lg mr-1"></i>Add
-                </a>
-                {% endif %}
             </div>
         </div>
         {% endif %}
-        {% endwith %}
-
-        <!-- Documentation assets -->
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 flex justify-between items-center gap-4">
-                <div class="flex items-center gap-4 min-w-0">
-                    {% if device.image %}
-                    <img src="{% url 'library:image-file' device.pk %}" alt="{{ device.name }}" class="w-16 h-12 object-cover rounded border flex-none">
-                    {% endif %}
-                    <div class="min-w-0">
-                        <h5 class="font-semibold">Documentation</h5>
-                        <p class="text-sm text-gray-500">
-                            {{ device.documents.count }} document{{ device.documents.count|pluralize }} ·
-                            image {% if device.image %}✓{% else %}missing{% endif %} ·
-                            procedure {% if device.procedure %}v{{ device.procedure.version }}{% else %}missing{% endif %}
-                        </p>
-                    </div>
-                </div>
-                <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-50 whitespace-nowrap">
-                    <i class="bi bi-journal-text mr-1"></i>Open
-                </a>
-            </div>
-        </div>
-
-        <!-- Technology Config -->
-        {% if device.technology == "modbus" %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Modbus Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:modbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    <i class="bi bi-pencil"></i>
-                </a>
-                {% endif %}
-            </div>
-            <div class="p-6">
-                {% if modbus_config %}
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    <dt class="font-medium text-gray-600">Function</dt>
-                    <dd class="col-span-2">{{ modbus_config.function|default:"—" }}</dd>
-                    <dt class="font-medium text-gray-600">Byte Order</dt>
-                    <dd class="col-span-2">{{ modbus_config.byte_order|default:"—" }}</dd>
-                    <dt class="font-medium text-gray-600">Word Order</dt>
-                    <dd class="col-span-2">{{ modbus_config.word_order|default:"—" }}</dd>
-                </dl>
-                {% else %}
-                <p class="text-sm text-gray-400">Not configured yet. Click edit to set up.</p>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
-        {% if device.technology == "lorawan" %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">LoRaWAN Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    {% if lorawan_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
-                </a>
-                {% endif %}
-            </div>
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    <dt class="font-medium text-gray-600">Device Class</dt>
-                    <dd class="col-span-2">{% if lorawan_config and lorawan_config.device_class %}{{ lorawan_config.get_device_class_display }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
-                    <dt class="font-medium text-gray-600">Downlink F-Port</dt>
-                    <dd class="col-span-2">{% if lorawan_config and lorawan_config.downlink_f_port %}{{ lorawan_config.downlink_f_port }}{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
-                    <dt class="font-medium text-gray-600">Payload Codec</dt>
-                    <dd class="col-span-2">
-                        {% if lorawan_config and lorawan_config.payload_codec %}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="bi bi-check-circle-fill mr-1"></i>{{ lorawan_config.get_codec_format_display }}</span>
-                        {% else %}
-                        <span class="text-gray-400">—</span>
-                        {% endif %}
-                    </dd>
-                </dl>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if device.technology == "wmbus" %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">wM-Bus Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:wmbus-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    {% if wmbus_config %}<i class="bi bi-pencil"></i>{% else %}<i class="bi bi-plus-lg mr-1"></i>Add{% endif %}
-                </a>
-                {% endif %}
-            </div>
-            {% if wmbus_config %}
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    <dt class="font-medium text-gray-600">Manufacturer</dt>
-                    <dd class="col-span-2">{{ wmbus_config.manufacturer_code }}</dd>
-                    <dt class="font-medium text-gray-600">Version</dt>
-                    <dd class="col-span-2">{% if wmbus_config.wmbus_version %}<code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbus_version }}</code>{% else %}<span class="text-gray-400">—</span>{% endif %}</dd>
-                    <dt class="font-medium text-gray-600">Device Type</dt>
-                    <dd class="col-span-2">
-                        {{ wmbus_config.wmbus_device_type }}
-                        {% if wmbus_config.wmbus_device_type_label %}
-                        {% device_type_badge device.device_type wmbus_config.wmbus_device_type_label %}
-                        {% endif %}
-                    </dd>
-                    <dt class="font-medium text-gray-600">Encryption</dt>
-                    <dd class="col-span-2">
-                        {% if wmbus_config.encryption_required %}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><i class="bi bi-lock-fill mr-1"></i>Required</span>
-                        {% else %}
-                        <span class="text-gray-500">Not required</span>
-                        {% endif %}
-                    </dd>
-                    {% if wmbus_config.shared_encryption_key %}
-                    <dt class="font-medium text-gray-600">Shared Key</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.shared_encryption_key }}</code></dd>
-                    {% endif %}
-                    <dt class="font-medium text-gray-600">MVT Default</dt>
-                    <dd class="col-span-2">
-                        {% if wmbus_config.is_mvt_default %}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-wmbus/10 text-wmbus"><i class="bi bi-check-circle-fill mr-1"></i>Default</span>
-                        {% else %}
-                        <span class="text-gray-400">—</span>
-                        {% endif %}
-                    </dd>
-                    <dt class="font-medium text-gray-600">wmbusmeters Driver</dt>
-                    <dd class="col-span-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ wmbus_config.wmbusmeters_driver|default:"—" }}</code></dd>
-                </dl>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <!-- Control Config -->
-        {% if control_config %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Control Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    <i class="bi bi-pencil"></i>
-                </a>
-                {% endif %}
-            </div>
-            <div class="p-6">
-                <dl class="grid grid-cols-3 gap-y-3 text-sm">
-                    <dt class="font-medium text-gray-600">Controllable</dt>
-                    <dd class="col-span-2">{% if control_config.controllable %}Yes{% else %}No{% endif %}</dd>
-                </dl>
-            </div>
-        </div>
-        {% else %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Control Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:control-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
-                    <i class="bi bi-plus-lg mr-1"></i>Add
-                </a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Processor Config -->
-        {# Gate on the merged field mappings only — decoder_type is derived from #}
-        {# technology (always truthy for wM-Bus/LoRaWAN), so gating on it would   #}
-        {# render an empty body for models that carry no mappings. Empty → the    #}
-        {# compact "Add" state, matching Control/Alarm Configuration.             #}
-        {% with eff_mappings=device.effective_field_mappings %}
-        {% if eff_mappings %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Processor Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    <i class="bi bi-pencil"></i>
-                </a>
-                {% endif %}
-            </div>
-            <div class="p-6">
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h6 class="text-sm font-medium text-gray-600">Field Mappings</h6>
-                        <button type="button"
-                                data-copy-json
-                                data-json='{{ eff_mappings|raw_json }}'
-                                class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
-                            <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
-                        </button>
-                    </div>
-                    <div class="border border-gray-200 rounded overflow-x-auto">
-                        <table class="w-full text-xs">
-                            <thead class="bg-gray-50 border-b text-left text-gray-500">
-                                <tr>
-                                    <th class="py-1.5 px-2 font-medium">Source</th>
-                                    <th class="py-1.5 px-2 font-medium">Target (L1 key)</th>
-                                    <th class="py-1.5 px-2 font-medium">Label</th>
-                                    <th class="py-1.5 px-2 font-medium">Unit</th>
-                                    <th class="py-1.5 px-2 font-medium">Tier</th>
-                                    <th class="py-1.5 px-2 font-medium">Scale</th>
-                                    <th class="py-1.5 px-2 font-medium">Offset</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for entry in eff_mappings %}
-                                <tr class="border-b last:border-b-0">
-                                    <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"—" }}</td>
-                                    <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.target|default:"—" }}</td>
-                                    <td class="py-1.5 px-2 text-gray-700">{{ entry.label|default:"—" }}</td>
-                                    <td class="py-1.5 px-2">
-                                        {% if entry.unit %}<code class="bg-gray-100 px-1 rounded">{{ entry.unit }}</code>{% else %}<span class="text-gray-300">—</span>{% endif %}
-                                    </td>
-                                    <td class="py-1.5 px-2">
-                                        {% if entry.tier == "primary" %}
-                                            <span class="inline-block bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-medium">primary</span>
-                                        {% elif entry.tier == "diagnostic" %}
-                                            <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">diagnostic</span>
-                                        {% else %}
-                                            <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">{{ entry.tier|default:"secondary" }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="py-1.5 px-2 font-mono">{{ entry.scale|default:"—" }}</td>
-                                    <td class="py-1.5 px-2 font-mono">{{ entry.offset|default:"—" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Processor Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:processor-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
-                    <i class="bi bi-plus-lg mr-1"></i>Add
-                </a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-        {% endwith %}
 
         <!-- Alarm Config -->
         {% if alarm_config.mappings %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Alarm Configuration</h5>
-                {% if user.is_editor %}
-                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-                    <i class="bi bi-pencil"></i>
-                </a>
-                {% endif %}
-            </div>
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-2">
-                    <h6 class="text-sm font-medium text-gray-600">
-                        Status → Alarm Mappings
-                        <span class="ml-2 inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs font-mono" title="How match values are evaluated: flag = token in flag list, equals = value equality, mask = (value & mask) == pattern">{{ alarm_config.match_type }}</span>
-                    </h6>
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-6 py-4 border-b flex flex-wrap justify-between items-center gap-3">
+                <h5 class="font-semibold flex flex-wrap items-center gap-2">
+                    Status → Alarm Mappings
+                    <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs font-mono font-normal" title="How match values are evaluated: flag = token in flag list, equals = value equality, mask = (value & mask) == pattern">{{ alarm_config.match_type }}</span>
+                </h5>
+                <div class="flex items-center gap-2">
                     <button type="button"
                             data-copy-json
                             data-json='{{ alarm_mappings_resolved|raw_json }}'
                             class="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
                         <i class="bi bi-clipboard mr-1"></i><span data-copy-label>Copy JSON</span>
                     </button>
-                </div>
-                <div class="border border-gray-200 rounded overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-gray-50 border-b text-left text-gray-500">
-                            <tr>
-                                <th class="py-1.5 px-2 font-medium">Source</th>
-                                <th class="py-1.5 px-2 font-medium">Match</th>
-                                <th class="py-1.5 px-2 font-medium">Alarm</th>
-                                <th class="py-1.5 px-2 font-medium">Severity</th>
-                                <th class="py-1.5 px-2 font-medium">Description</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for entry in alarm_mappings_resolved %}
-                            <tr class="border-b last:border-b-0">
-                                <td class="py-1.5 px-2 font-mono">{{ entry.source|default:"status" }}</td>
-                                <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.match|default:"—" }}</td>
-                                <td class="py-1.5 px-2">
-                                    {% if entry.alarm %}
-                                        <code class="bg-gray-100 px-1 rounded font-mono">{{ entry.alarm }}</code>
-                                    {% else %}
-                                        <span class="text-gray-300">—</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-1.5 px-2">
-                                    {% if entry.severity == "critical" %}
-                                        <span class="inline-block bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">critical</span>
-                                    {% elif entry.severity == "info" %}
-                                        <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">info</span>
-                                    {% else %}
-                                        <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">{{ entry.severity|default:"warning" }}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-1.5 px-2 text-gray-700">{{ entry.description|default:"—" }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    {% if user.is_editor %}
+                    <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit alarm configuration" aria-label="Edit alarm configuration">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    {% endif %}
                 </div>
             </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 border-b text-left text-gray-500">
+                        <tr>
+                            <th class="py-2 px-2 pl-4 sm:pl-6 font-medium whitespace-nowrap">Source</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Match</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Alarm</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Severity</th>
+                            <th class="py-2 px-2 pr-4 sm:pr-6 font-medium whitespace-nowrap">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in alarm_mappings_resolved %}
+                        <tr class="border-b last:border-b-0 hover:bg-gray-50">
+                            <td class="py-1.5 px-2 pl-4 sm:pl-6 font-mono">{{ entry.source|default:"status" }}</td>
+                            <td class="py-1.5 px-2 font-mono text-blue-700">{{ entry.match|default:"—" }}</td>
+                            <td class="py-1.5 px-2">
+                                {% if entry.alarm %}
+                                    <code class="bg-gray-100 px-1 rounded font-mono">{{ entry.alarm }}</code>
+                                {% else %}
+                                    <span class="text-gray-300">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-1.5 px-2">
+                                {% if entry.severity == "critical" %}
+                                    <span class="inline-block bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-xs font-medium">critical</span>
+                                {% elif entry.severity == "info" %}
+                                    <span class="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">info</span>
+                                {% else %}
+                                    <span class="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs font-medium">{{ entry.severity|default:"warning" }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-1.5 px-2 pr-4 sm:pr-6 text-gray-700">{{ entry.description|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        {% else %}
-        <div class="bg-white rounded-lg shadow mb-4">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h5 class="font-semibold">Alarm Configuration</h5>
+        {% endif %}
+
+        {# Payload Codec — CodeMirror read-only viewer #}
+        {% if device.technology == "lorawan" and lorawan_config.payload_codec %}
+        <div id="payload-codec" class="bg-white rounded-lg shadow min-w-0 scroll-mt-4">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+                    <h5 class="font-semibold">Payload Codec</h5>
+                    <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ lorawan_config.get_codec_format_display }}</span>
+                </div>
                 {% if user.is_editor %}
-                <a href="{% url 'library:alarm-config-edit' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
-                    <i class="bi bi-plus-lg mr-1"></i>Add
+                <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit" aria-label="Edit">
+                    <i class="bi bi-pencil"></i>
                 </a>
                 {% endif %}
             </div>
+            <div class="overflow-hidden rounded-b-lg">
+                <script type="text/plain" id="codec-source">{{ lorawan_config.payload_codec }}</script>
+                <div id="codec-viewer"></div>
+            </div>
         </div>
         {% endif %}
-    </div>
-</div>
 
-{# Payload Codec — full-width second row with CodeMirror read-only viewer #}
-{% if device.technology == "lorawan" and lorawan_config.payload_codec %}
-<div class="bg-white rounded-lg shadow mt-6" style="min-width: 0;">
-    <div class="px-6 py-4 border-b flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <h5 class="font-semibold">Payload Codec</h5>
-            <span class="inline-block text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ lorawan_config.get_codec_format_display }}</span>
+        <!-- Register Definitions (Modbus) -->
+        {% if device.technology == "modbus" %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-4 sm:px-6 py-4 border-b flex justify-between items-center gap-3">
+                <h5 class="font-semibold">Register Definitions <span class="ml-1 text-sm font-normal text-gray-400">{{ registers|length }}</span></h5>
+                {% if user.is_editor %}
+                <a href="{% url 'library:register-create' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50 whitespace-nowrap">
+                    <i class="bi bi-plus-lg mr-1"></i>Add Register
+                </a>
+                {% endif %}
+            </div>
+            {% if registers %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b text-left text-gray-500">
+                        <tr>
+                            <th class="py-2 px-2 pl-4 sm:pl-6 font-medium whitespace-nowrap">Address</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Field Name</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Unit</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Data Type</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Scale</th>
+                            <th class="py-2 px-2 font-medium whitespace-nowrap">Offset</th>
+                            <th class="py-2 px-2 pr-4 sm:pr-6"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reg in registers %}
+                        <tr class="border-b last:border-b-0 hover:bg-gray-50">
+                            <td class="py-2 px-2 pl-4 sm:pl-6"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.address }}</code></td>
+                            <td class="py-2 px-2">{{ reg.field_name }}</td>
+                            <td class="py-2 px-2">{{ reg.field_unit|default:"—" }}</td>
+                            <td class="py-2 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.data_type }}</code></td>
+                            <td class="py-2 px-2">{{ reg.scale }}</td>
+                            <td class="py-2 px-2">{{ reg.offset }}</td>
+                            <td class="py-2 px-2 pr-4 sm:pr-6 whitespace-nowrap text-right">
+                                {% if user.is_editor %}
+                                <div class="inline-flex gap-1">
+                                    <a href="{% url 'library:register-edit' reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit register" aria-label="Edit register"><i class="bi bi-pencil"></i></a>
+                                    <a href="{% url 'library:register-delete' reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete register" aria-label="Delete register"><i class="bi bi-trash"></i></a>
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="px-4 sm:px-6 py-4 text-sm text-gray-500">No registers defined yet.</p>
+            {% endif %}
         </div>
-        {% if user.is_editor %}
-        <a href="{% url 'library:lorawan-config-edit' device.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50">
-            <i class="bi bi-pencil"></i>
-        </a>
         {% endif %}
-    </div>
-    <div class="overflow-hidden rounded-b-lg">
-        <script type="text/plain" id="codec-source">{{ lorawan_config.payload_codec }}</script>
-        <div id="codec-viewer"></div>
-    </div>
-</div>
-{% endif %}
 
-<!-- Register Definitions (Modbus) -->
-{% if device.technology == "modbus" %}
-<div class="bg-white rounded-lg shadow mt-4">
-    <div class="px-6 py-4 border-b flex justify-between items-center">
-        <h5 class="font-semibold">Register Definitions ({{ registers|length }})</h5>
-        {% if user.is_editor %}
-        <a href="{% url 'library:register-create' device.pk %}" class="border border-blue-600 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-50">
-            <i class="bi bi-plus-lg mr-1"></i>Add Register
-        </a>
-        {% endif %}
-    </div>
-    <div class="p-6">
-        {% if registers %}
-        <div class="max-w-full overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="border-b">
-                    <th class="text-left py-2 px-2 font-semibold">Address</th>
-                    <th class="text-left py-2 px-2 font-semibold">Field Name</th>
-                    <th class="text-left py-2 px-2 font-semibold">Unit</th>
-                    <th class="text-left py-2 px-2 font-semibold">Data Type</th>
-                    <th class="text-left py-2 px-2 font-semibold">Scale</th>
-                    <th class="text-left py-2 px-2 font-semibold">Offset</th>
-                    <th class="py-2 px-2"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for reg in registers %}
-                <tr class="border-b">
-                    <td class="py-2 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.address }}</code></td>
-                    <td class="py-2 px-2">{{ reg.field_name }}</td>
-                    <td class="py-2 px-2">{{ reg.field_unit|default:"—" }}</td>
-                    <td class="py-2 px-2"><code class="text-sm bg-gray-100 px-1 rounded">{{ reg.data_type }}</code></td>
-                    <td class="py-2 px-2">{{ reg.scale }}</td>
-                    <td class="py-2 px-2">{{ reg.offset }}</td>
-                    <td class="py-2 px-2 flex gap-1">
-                        {% if user.is_editor %}
-                        <a href="{% url 'library:register-edit' reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50"><i class="bi bi-pencil"></i></a>
-                        <a href="{% url 'library:register-delete' reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50"><i class="bi bi-trash"></i></a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if not has_main_content %}
+        <div class="hidden @5xl:block bg-white rounded-lg shadow border border-dashed border-gray-200 px-6 py-10 text-center">
+            <i class="bi bi-table text-2xl text-gray-300"></i>
+            <p class="mt-2 text-sm font-medium text-gray-700">No mappings yet</p>
+            <p class="mt-1 text-sm text-gray-500">Field mappings and alarm mappings will appear here once configured.</p>
         </div>
-        {% else %}
-        <p class="text-sm text-gray-500">No registers defined yet.</p>
         {% endif %}
     </div>
 </div>
+{% endwith %}
+
+{% if device.description %}
+<script>
+(function() {
+    const desc = document.getElementById('device-description');
+    const toggle = document.getElementById('device-description-toggle');
+    if (!desc || !toggle) return;
+    // Only offer the toggle when the clamped text actually overflows.
+    if (desc.scrollHeight - desc.clientHeight > 1) toggle.classList.remove('hidden');
+    toggle.addEventListener('click', function() {
+        const expanded = desc.classList.toggle('line-clamp-3') === false;
+        toggle.textContent = expanded ? 'Show less' : 'Show more';
+        toggle.setAttribute('aria-expanded', expanded);
+    });
+})();
+</script>
 {% endif %}
 
 <!-- Change History -->

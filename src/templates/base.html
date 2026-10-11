@@ -6,7 +6,7 @@
     <title>{% block title %}{{ COMPANY_NAME }}{% endblock %}</title>
     {% load static %}
     <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=container-queries"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -190,7 +190,10 @@
         <div id="sidebarOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-10 md:hidden"></div>
 
         <!-- Main content -->
-        <main class="flex-1 md:ml-56 px-4 py-4 min-h-screen">
+        {# Opt-in per page: a page that overrides the main_container block with "@container" can   #}
+        {# size its layout by the content area (viewport minus the nav) via @-variants. Not global #}
+        {# yet: a size container stops <main> growing with wide tables on pages not updated for it. #}
+        <main class="{% block main_container %}{% endblock %} flex-1 md:ml-56 px-4 py-4 min-h-screen">
             {% if messages %}
                 {% for message in messages %}
                     <div class="{% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif message.tags == 'error' or message.tags == 'danger' %}bg-red-50 border border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border border-yellow-200 text-yellow-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %} p-4 rounded mb-4 flex justify-between items-start" role="alert">
