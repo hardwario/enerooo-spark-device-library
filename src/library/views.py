@@ -8,7 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Max, OuterRef, Q, Subquery
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
@@ -16,6 +16,7 @@ from auditlog.helpers import log_action
 from auditlog.models import AuditLog
 from core.models import User
 from core.permissions import RoleRequiredMixin
+from core.return_url import ReturnUrlMixin, redirect_back, with_next
 
 from .exporters import export_to_yaml
 from .forms import (
@@ -136,6 +137,32 @@ class VendorCreateView(RoleRequiredMixin, CreateView):
         return reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug})
 
 
+class VendorUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
+    model = Vendor
+    form_class = VendorForm
+    template_name = "library/vendor_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # The form copies submitted values onto self.object even when invalid;
+        # the breadcrumb and Cancel need the saved name and slug.
+        ctx["saved_vendor"] = Vendor.objects.get(pk=self.object.pk)
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "updated", self.object)
+        return response
+
+    def get_success_url(self):
+        # Slug may have changed: a next pointing at the old detail URL would 404.
+        old_detail = reverse("library:vendor-detail", args=[self.kwargs["slug"]])
+        return self.get_return_url(
+            reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug}), exclude_prefix=old_detail
+        )
+
+
 class VendorDeleteView(RoleRequiredMixin, View):
     required_role = User.Role.EDITOR
 
@@ -148,7 +175,7 @@ class VendorDeleteView(RoleRequiredMixin, View):
         log_action(request, "deleted", vendor)
         vendor.delete()
         messages.success(request, f"Vendor \"{name}\" has been deleted.")
-        return redirect("library:vendor-list")
+        return redirect_back(request, "library:vendor-list", exclude_prefix=reverse("library:vendor-detail", args=[slug]))
 
 
 class VendorDetailView(LoginRequiredMixin, DetailView):
@@ -160,7 +187,7 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["models"] = self.object.device_types.select_related("vendor").all()
+        ctx["models"] = model_table_queryset().filter(vendor=self.object).order_by("model_number")
         return ctx
 
 
@@ -281,7 +308,7 @@ def _count_metric_references(metric_key: str) -> int:
     return count
 
 
-class MetricCreateView(RoleRequiredMixin, CreateView):
+class MetricCreateView(ReturnUrlMixin, RoleRequiredMixin, CreateView):
     required_role = User.Role.ADMIN
     model = Metric
     form_class = MetricForm
@@ -295,10 +322,10 @@ class MetricCreateView(RoleRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:metric-list")
+        return self.get_return_url(reverse_lazy("library:metric-list"))
 
 
-class MetricUpdateView(RoleRequiredMixin, UpdateView):
+class MetricUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.ADMIN
     model = Metric
     form_class = MetricForm
@@ -324,7 +351,7 @@ class MetricUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:metric-list")
+        return self.get_return_url(reverse_lazy("library:metric-list"))
 
 
 class MetricDeleteView(RoleRequiredMixin, View):
@@ -343,7 +370,7 @@ class MetricDeleteView(RoleRequiredMixin, View):
                 f"Cannot delete '{metric.key}' — {references} VendorModel field mapping(s) reference it. "
                 "Remove those references first, or tick 'Force delete' on the confirmation form.",
             )
-            return redirect("library:metric-delete", pk=metric.pk)
+            return redirect(with_next(request, reverse("library:metric-delete", args=[metric.pk])))
         key = metric.key
         # Capture pre-delete snapshot for the audit trail before the row
         # vanishes. ``record_metric_history`` writes the entry with FK
@@ -360,7 +387,7 @@ class MetricDeleteView(RoleRequiredMixin, View):
         log_action(request, "deleted", metric)
         metric.delete()
         messages.success(request, f"Metric '{key}' deleted.")
-        return redirect("library:metric-list")
+        return redirect_back(request, "library:metric-list", exclude_prefix=reverse("library:metric-detail", args=[pk]))
 
     def _render_confirm(self, request, metric):
         from django.shortcuts import render
@@ -423,7 +450,7 @@ class AlarmListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class AlarmCreateView(RoleRequiredMixin, CreateView):
+class AlarmCreateView(ReturnUrlMixin, RoleRequiredMixin, CreateView):
     required_role = User.Role.ADMIN
     model = Alarm
     form_class = AlarmForm
@@ -436,10 +463,10 @@ class AlarmCreateView(RoleRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:alarm-list")
+        return self.get_return_url(reverse_lazy("library:alarm-list"))
 
 
-class AlarmUpdateView(RoleRequiredMixin, UpdateView):
+class AlarmUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.ADMIN
     model = Alarm
     form_class = AlarmForm
@@ -452,7 +479,7 @@ class AlarmUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:alarm-list")
+        return self.get_return_url(reverse_lazy("library:alarm-list"))
 
 
 class AlarmDeleteView(RoleRequiredMixin, View):
@@ -471,12 +498,12 @@ class AlarmDeleteView(RoleRequiredMixin, View):
                 f"Cannot delete '{alarm.key}' — {references} alarm mapping(s) reference it. "
                 "Remove those references first, or tick 'Force delete' on the confirmation form.",
             )
-            return redirect("library:alarm-delete", pk=alarm.pk)
+            return redirect(with_next(request, reverse("library:alarm-delete", args=[alarm.pk])))
         key = alarm.key
         log_action(request, "deleted", alarm)
         alarm.delete()
         messages.success(request, f"Alarm '{key}' deleted.")
-        return redirect("library:alarm-list")
+        return redirect_back(request, "library:alarm-list")
 
     def _render_confirm(self, request, alarm):
         from django.shortcuts import render
@@ -511,7 +538,7 @@ class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["vendor_models"] = self.object.vendor_models.select_related("vendor").order_by(
+        ctx["vendor_models"] = model_table_queryset().filter(device_type_fk=self.object).order_by(
             "vendor__name", "model_number",
         )
         ctx["history"] = self.object.history.select_related("user").all()[:20]
@@ -534,7 +561,7 @@ class DeviceTypeCreateView(RoleRequiredMixin, CreateView):
         return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
 
 
-class DeviceTypeUpdateView(RoleRequiredMixin, UpdateView):
+class DeviceTypeUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.ADMIN
     model = DeviceType
     form_class = DeviceTypeForm
@@ -595,7 +622,7 @@ class DeviceTypeUpdateView(RoleRequiredMixin, UpdateView):
             )
 
     def get_success_url(self):
-        return reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk})
+        return self.get_return_url(reverse_lazy("library:devicetype-detail", kwargs={"pk": self.object.pk}))
 
 
 class DeviceTypeDeleteView(RoleRequiredMixin, View):
@@ -622,7 +649,7 @@ class DeviceTypeDeleteView(RoleRequiredMixin, View):
         log_action(request, "deleted", dt)
         dt.delete()
         messages.success(request, f"Device type \"{label}\" deleted.")
-        return redirect("library:devicetype-list")
+        return redirect_back(request, "library:devicetype-list", exclude_prefix=reverse("library:devicetype-detail", args=[pk]))
 
 
 # === Devices ===
@@ -642,6 +669,18 @@ def _changed_item_count(old, new):
     )
 
 
+def model_table_queryset():
+    """Models with what ``partials/model_table.html`` shows, incl. the latest history version."""
+    latest_version = (
+        DeviceHistory.objects.filter(device=OuterRef("pk"))
+        .order_by("-version")
+        .values("version")[:1]
+    )
+    return VendorModel.objects.select_related("vendor", "device_type_fk").annotate(
+        current_version=Subquery(latest_version),
+    )
+
+
 class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
     context_object_name = "models"
@@ -656,14 +695,7 @@ class VendorModelListView(LoginRequiredMixin, ListView):
     }
 
     def get_queryset(self):
-        latest_version = (
-            DeviceHistory.objects.filter(device=OuterRef("pk"))
-            .order_by("-version")
-            .values("version")[:1]
-        )
-        qs = VendorModel.objects.select_related("vendor", "device_type_fk").annotate(
-            current_version=Subquery(latest_version),
-        )
+        qs = model_table_queryset()
         vendor = self.request.GET.get("vendor")
         technology = self.request.GET.get("technology")
         device_type = self.request.GET.get("device_type")
@@ -878,7 +910,7 @@ class VendorModelCreateView(RoleRequiredMixin, CreateView):
         return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
 
 
-class VendorModelUpdateView(RoleRequiredMixin, UpdateView):
+class VendorModelUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = VendorModel
     form_class = VendorModelForm
@@ -896,7 +928,7 @@ class VendorModelUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk}))
 
 
 class VendorModelDeleteView(RoleRequiredMixin, View):
@@ -909,13 +941,13 @@ class VendorModelDeleteView(RoleRequiredMixin, View):
         log_action(request, "deleted", device)
         device.delete()
         messages.success(request, f"Model \"{name}\" has been deleted.")
-        return redirect("library:model-list")
+        return redirect_back(request, "library:model-list", exclude_prefix=reverse("library:model-detail", args=[pk]))
 
 
 # === Modbus Config ===
 
 
-class ModbusConfigUpdateView(RoleRequiredMixin, UpdateView):
+class ModbusConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = ModbusConfig
     form_class = ModbusConfigForm
@@ -942,13 +974,13 @@ class ModbusConfigUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk}))
 
 
 # === Control Config ===
 
 
-class ControlConfigUpdateView(RoleRequiredMixin, UpdateView):
+class ControlConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = ControlConfig
     form_class = ControlConfigForm
@@ -977,13 +1009,13 @@ class ControlConfigUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk}))
 
 
 # === wM-Bus Config ===
 
 
-class WMBusConfigUpdateView(RoleRequiredMixin, UpdateView):
+class WMBusConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = WMBusConfig
     form_class = WMBusConfigForm
@@ -1015,13 +1047,13 @@ class WMBusConfigUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk}))
 
 
 # === Provisioning ===
 
 
-class ProvisioningUpdateView(RoleRequiredMixin, UpdateView):
+class ProvisioningUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     """Edit the per-unit input-data schema (``VendorModel.provisioning``)."""
 
     required_role = User.Role.EDITOR
@@ -1047,7 +1079,7 @@ class ProvisioningUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self.object.pk}))
 
 
 # === Model documentation assets (manuals, images, procedures) ===
@@ -1076,7 +1108,7 @@ class _ModelAssetMutationView(RoleRequiredMixin, View):
         return super().dispatch(request, *args, **kwargs)
 
     def back(self):
-        return redirect("library:model-assets", pk=self.device.pk)
+        return redirect_back(self.request, reverse("library:model-assets", args=[self.device.pk]))
 
     def flash_errors(self, form):
         for field, errors in form.errors.items():
@@ -1195,7 +1227,7 @@ class ModelProcedureDeleteView(_ModelAssetMutationView):
 # === LoRaWAN Config ===
 
 
-class LoRaWANConfigUpdateView(RoleRequiredMixin, UpdateView):
+class LoRaWANConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = LoRaWANConfig
     form_class = LoRaWANConfigForm
@@ -1221,13 +1253,13 @@ class LoRaWANConfigUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk}))
 
 
 # === Processor Config ===
 
 
-class ProcessorConfigUpdateView(RoleRequiredMixin, UpdateView):
+class ProcessorConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = ProcessorConfig
     form_class = ProcessorConfigForm
@@ -1258,13 +1290,13 @@ class ProcessorConfigUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk}))
 
 
 # === Alarm Config ===
 
 
-class AlarmConfigUpdateView(RoleRequiredMixin, UpdateView):
+class AlarmConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = AlarmConfig
     form_class = AlarmConfigForm
@@ -1290,7 +1322,7 @@ class AlarmConfigUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self._device.pk}))
 
 
 # === Registers ===
@@ -1303,7 +1335,7 @@ class RegisterListView(LoginRequiredMixin, ListView):
         return redirect("library:model-detail", pk=device_pk)
 
 
-class RegisterCreateView(RoleRequiredMixin, CreateView):
+class RegisterCreateView(ReturnUrlMixin, RoleRequiredMixin, CreateView):
     required_role = User.Role.EDITOR
     model = RegisterDefinition
     form_class = RegisterDefinitionForm
@@ -1328,10 +1360,10 @@ class RegisterCreateView(RoleRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self.kwargs["device_pk"]})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self.kwargs["device_pk"]}))
 
 
-class RegisterUpdateView(RoleRequiredMixin, UpdateView):
+class RegisterUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = RegisterDefinition
     form_class = RegisterDefinitionForm
@@ -1356,7 +1388,7 @@ class RegisterUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:model-detail", kwargs={"pk": self.object.modbus_config.device_type.pk})
+        return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self.object.modbus_config.device_type.pk}))
 
 
 class RegisterDeleteView(RoleRequiredMixin, DeleteView):
@@ -1372,7 +1404,7 @@ class RegisterDeleteView(RoleRequiredMixin, DeleteView):
         self.object.delete()
         record_history(device, DeviceHistory.Action.UPDATED, request.user, old_snapshot)
         log_action(request, "deleted", self.object, details=f"Register '{reg_name}' removed from {device}")
-        return redirect("library:model-detail", pk=device.pk)
+        return redirect_back(request, reverse("library:model-detail", args=[device.pk]))
 
 
 # === Device History ===
@@ -2064,7 +2096,7 @@ class APIKeyRevokeView(RoleRequiredMixin, View):
         apikey.save(update_fields=["is_active"])
         log_action(request, "revoked", apikey)
         messages.success(request, f"API key '{apikey.name}' has been revoked.")
-        return redirect("library:apikey-detail", pk=apikey.pk)
+        return redirect_back(request, reverse("library:apikey-detail", args=[apikey.pk]))
 
 
 class APIKeyToggleWriteView(RoleRequiredMixin, View):
@@ -2206,7 +2238,7 @@ class GatewayAssignmentListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class GatewayAssignmentCreateView(RoleRequiredMixin, CreateView):
+class GatewayAssignmentCreateView(ReturnUrlMixin, RoleRequiredMixin, CreateView):
     required_role = User.Role.EDITOR
     model = GatewayAssignment
     fields = ["serial_number", "name", "spark_url"]
@@ -2220,10 +2252,10 @@ class GatewayAssignmentCreateView(RoleRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:gateway-list")
+        return self.get_return_url(reverse_lazy("library:gateway-list"))
 
 
-class GatewayAssignmentUpdateView(RoleRequiredMixin, UpdateView):
+class GatewayAssignmentUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = GatewayAssignment
     fields = ["serial_number", "name", "spark_url", "is_registered", "is_assigned"]
@@ -2236,7 +2268,7 @@ class GatewayAssignmentUpdateView(RoleRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy("library:gateway-list")
+        return self.get_return_url(reverse_lazy("library:gateway-list"))
 
 
 class GatewayAssignmentDeleteView(RoleRequiredMixin, View):
@@ -2248,4 +2280,4 @@ class GatewayAssignmentDeleteView(RoleRequiredMixin, View):
         log_action(request, "deleted", assignment)
         assignment.delete()
         messages.success(request, f"Gateway assignment '{serial}' has been deleted.")
-        return redirect("library:gateway-list")
+        return redirect_back(request, "library:gateway-list")

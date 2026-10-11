@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 {% block title %}{{ device_type.label }} - {{ COMPANY_NAME }}{% endblock %}
 {% block content %}
     <div class="mb-6">
@@ -19,7 +20,7 @@
                     <button type="button"
                             class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium"
                             data-confirm-delete="{{ device_type.label }}"
-                            data-delete-url="{% url 'library:devicetype-delete' device_type.pk %}">
+                            data-delete-url="{% url_with_next 'library:devicetype-delete' device_type.pk %}">
                         <i class="bi bi-trash mr-1"></i>Delete
                     </button>
                 {% endif %}
@@ -101,43 +102,17 @@
     </div>
     <div class="bg-white rounded-lg shadow">
         <div class="p-6">
-            <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
-                Vendor Models of this type ({{ vendor_models|length }})
-            </h3>
-            {% if vendor_models %}
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b">
-                            <th class="text-left py-2 px-2 font-semibold">Vendor</th>
-                            <th class="text-left py-2 px-2 font-semibold">Model number</th>
-                            <th class="text-left py-2 px-2 font-semibold">Name</th>
-                            <th class="text-left py-2 px-2 font-semibold">Technology</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for m in vendor_models %}
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="py-2 px-2">
-                                    <a href="{% url 'library:vendor-detail' m.vendor.slug %}"
-                                       class="text-blue-600 hover:text-blue-800">{{ m.vendor.name }}</a>
-                                </td>
-                                <td class="py-2 px-2">
-                                    <code class="text-xs bg-gray-100 px-1 rounded">{{ m.model_number }}</code>
-                                </td>
-                                <td class="py-2 px-2">
-                                    <a href="{% url 'library:model-detail' m.pk %}"
-                                       class="text-blue-600 hover:text-blue-800">{{ m.name }}</a>
-                                </td>
-                                <td class="py-2 px-2">
-                                    <span class="inline-block bg-{{ m.technology }}/10 text-{{ m.technology }} px-2 py-0.5 rounded text-xs font-medium">{{ m.get_technology_display }}</span>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-sm text-gray-500">No VendorModel rows currently assigned to this type.</p>
-            {% endif %}
+            <div class="flex items-center justify-between gap-4 mb-4">
+                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    Vendor Models of this type ({{ vendor_models|length }})
+                </h3>
+                {% if vendor_models %}
+                <a href="{% url 'library:model-list' %}?device_type={{ device_type.code|urlencode }}" class="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap">
+                    Open in Models<i class="bi bi-arrow-right ml-1"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% include "library/partials/model_table.html" with models=vendor_models hide_type=True empty_text="No VendorModel rows currently assigned to this type." %}
         </div>
     </div>
 

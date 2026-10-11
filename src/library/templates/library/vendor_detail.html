@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 
 {% block title %}{{ vendor.name }} - {{ COMPANY_NAME }}{% endblock %}
 
@@ -9,47 +10,42 @@
     <span class="text-gray-800">{{ vendor.name }}</span>
 </nav>
 
-<div class="flex justify-between items-center mb-6">
-    <div>
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+    <div class="min-w-0">
         <h2 class="text-2xl font-bold">{{ vendor.name }}</h2>
-        {% if vendor.key %}<p class="text-xs text-gray-400 font-mono mt-1">{{ vendor.key }}</p>{% endif %}
+        <p class="text-sm text-gray-500 mt-1">
+            <code class="bg-gray-100 px-1 rounded">{{ vendor.slug }}</code>
+            <span class="mx-1">·</span>{{ models|length }} model{{ models|length|pluralize }}
+        </p>
+        {% if vendor.key %}<p class="text-xs text-gray-400 font-mono mt-1 break-all">{{ vendor.key }}</p>{% endif %}
     </div>
     {% if user.is_editor %}
-    <button
-        data-confirm-delete="{{ vendor.name }}"
-        data-delete-url="{% url 'library:vendor-delete' vendor.slug %}"
-        class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
-        <i class="bi bi-trash mr-1"></i>Delete
-    </button>
+    <div class="flex gap-2 shrink-0">
+        <a href="{% url_with_next 'library:vendor-edit' vendor.slug %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+            <i class="bi bi-pencil mr-1"></i>Edit
+        </a>
+        <button
+            type="button"
+            data-confirm-delete="{{ vendor.name }}"
+            data-delete-url="{% url_with_next 'library:vendor-delete' vendor.slug %}"
+            class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
+            <i class="bi bi-trash mr-1"></i>Delete
+        </button>
+    </div>
     {% endif %}
 </div>
 
 <div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b flex items-center justify-between gap-4">
+        <h5 class="font-semibold">Models</h5>
+        {% if models %}
+        <a href="{% url 'library:model-list' %}?vendor={{ vendor.slug|urlencode }}" class="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap">
+            Open in Models<i class="bi bi-arrow-right ml-1"></i>
+        </a>
+        {% endif %}
+    </div>
     <div class="p-6">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="border-b">
-                    <th class="text-left py-3 px-2 font-semibold">Model</th>
-                    <th class="text-left py-3 px-2 font-semibold">Name</th>
-                    <th class="text-left py-3 px-2 font-semibold">Type</th>
-                    <th class="text-left py-3 px-2 font-semibold">Technology</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for model in models %}
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="py-3 px-2"><a href="{% url 'library:model-detail' model.pk %}" class="text-blue-600 hover:text-blue-800">{{ model.model_number }}</a></td>
-                    <td class="py-3 px-2">{{ model.name }}</td>
-                    <td class="py-3 px-2">{{ model.get_device_type_display }}</td>
-                    <td class="py-3 px-2"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if model.technology == 'modbus' %}bg-[#0d6efd]{% elif model.technology == 'lorawan' %}bg-[#198754]{% elif model.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ model.get_technology_display }}</span></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="py-3 px-2 text-gray-500">No models for this vendor.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% include "library/partials/model_table.html" with hide_vendor=True empty_text="No models for this vendor." %}
     </div>
 </div>
 {% endblock %}

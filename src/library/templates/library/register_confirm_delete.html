@@ -10,9 +10,10 @@
         <p class="mb-4">Are you sure you want to delete register <strong>{{ object.field_name }}</strong> (address {{ object.address }})?</p>
         <form method="post">
             {% csrf_token %}
+            {% include "partials/next_field.html" %}
             <div class="flex gap-2">
                 <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">Delete</button>
-                <a href="{% url 'library:model-detail' object.modbus_config.device_type.pk %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
+                <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'library:model-detail' object.modbus_config.device_type.pk %}{% endif %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
             </div>
         </form>
     </div>
