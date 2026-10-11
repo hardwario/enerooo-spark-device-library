@@ -10,7 +10,10 @@ SECRET_KEY = env(
     "DJANGO_SECRET_KEY",
     default="docker-dev-secret-key",
 )
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "web", "host.docker.internal"]
+ALLOWED_HOSTS = env.list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1", "[::1]", "web", "host.docker.internal"],
+)
 
 # EMAIL
 # ------------------------------------------------------------------------------
