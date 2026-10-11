@@ -628,9 +628,22 @@ class DeviceTypeDeleteView(RoleRequiredMixin, View):
 # === Devices ===
 
 
+def _changed_item_count(old, new):
+    """Number of list positions that differ between two versions of a list.
+
+    Matches the diff modal, which compares the lists item by item.
+    """
+    old = old if isinstance(old, list) else []
+    new = new if isinstance(new, list) else []
+    return sum(
+        1
+        for i in range(max(len(old), len(new)))
+        if i >= len(old) or i >= len(new) or old[i] != new[i]
+    )
+
+
 class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
-    partial_template_name = "library/partials/devicetype_results.html"
     context_object_name = "models"
     paginate_by = 50
     ALLOWED_SORT_FIELDS = {
@@ -641,11 +654,6 @@ class VendorModelListView(LoginRequiredMixin, ListView):
         "technology": "technology",
         "product_code": "product_code",
     }
-
-    def get_template_names(self):
-        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return [self.partial_template_name]
-        return [self.template_name]
 
     def get_queryset(self):
         latest_version = (
@@ -801,26 +809,20 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
                     new_val = diff.get("new")
 
                     if isinstance(new_val, list) or isinstance(old_val, list):
-                        old_len = len(old_val) if isinstance(old_val, list) else 0
-                        new_len = len(new_val) if isinstance(new_val, list) else 0
-                        total_item_changes += max(old_len, new_len)
+                        total_item_changes += _changed_item_count(old_val, new_val)
                     elif (
                         isinstance(new_val, dict)
                         and "input_data" in new_val
                         or isinstance(old_val, dict)
                         and "input_data" in old_val
                     ):
-                        old_count = (
-                            len(old_val.get("input_data", []))
-                            if isinstance(old_val, dict)
-                            else 0
+                        old_prov = old_val if isinstance(old_val, dict) else {}
+                        new_prov = new_val if isinstance(new_val, dict) else {}
+                        total_item_changes += _changed_item_count(
+                            old_prov.get("input_data"), new_prov.get("input_data")
                         )
-                        new_count = (
-                            len(new_val.get("input_data", []))
-                            if isinstance(new_val, dict)
-                            else 0
-                        )
-                        total_item_changes += max(old_count, new_count)
+                        if old_prov.get("pairing_key") != new_prov.get("pairing_key"):
+                            total_item_changes += 1
                     else:
                         total_item_changes += 1
 
