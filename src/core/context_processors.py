@@ -4,6 +4,8 @@ from importlib.metadata import version
 
 from django.conf import settings
 
+from .navigation import nav_section_for
+
 
 def app_version(request):
     """Add app version to template context."""
@@ -15,6 +17,12 @@ def app_version(request):
         "APP_VERSION": app_ver,
         "COMPANY_NAME": getattr(settings, "COMPANY_NAME", "Spark Device Library"),
     }
+
+
+def nav_section(request):
+    """Add the sidebar section of the current page (see core.navigation)."""
+    match = getattr(request, "resolver_match", None)
+    return {"nav_section": nav_section_for(match.view_name if match else None)}
 
 
 def auto_logout(request):
