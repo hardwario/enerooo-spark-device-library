@@ -628,6 +628,20 @@ class DeviceTypeDeleteView(RoleRequiredMixin, View):
 # === Devices ===
 
 
+def _changed_item_count(old, new):
+    """Number of list positions that differ between two versions of a list.
+
+    Matches the diff modal, which compares the lists item by item.
+    """
+    old = old if isinstance(old, list) else []
+    new = new if isinstance(new, list) else []
+    return sum(
+        1
+        for i in range(max(len(old), len(new)))
+        if i >= len(old) or i >= len(new) or old[i] != new[i]
+    )
+
+
 class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
     context_object_name = "models"
@@ -747,8 +761,92 @@ class VendorModelDetailView(LoginRequiredMixin, DetailView):
             ctx["registers"] = []
 
         # History
-        ctx["history"] = device.history.select_related("user").all()[:20]
+        history_entries = device.history.select_related("user").all()[:20]
 
+        for entry in history_entries:
+            changes = entry.changes or {}
+            entry.summary = None
+
+            if changes:
+                roots = set()
+                detail_items = []
+                total_item_changes = 0
+
+                for full_key, diff in changes.items():
+                    if not isinstance(diff, dict):
+                        continue
+
+                    if full_key == "registers":
+                        roots.add("registers")
+                        added = diff.get("added", [])
+                        removed = diff.get("removed", [])
+                        modified = diff.get("modified", [])
+                        total_item_changes += (
+                            len(added) + len(removed) + len(modified)
+                        )
+                        detail_items.append(
+                            {
+                                "key": "registers",
+                                "type": "registers",
+                                "added": added,
+                                "removed": removed,
+                                "modified": modified,
+                            }
+                        )
+                        continue
+
+                    root = (
+                        full_key.split(".")[0] if "." in full_key else full_key
+                    )
+                    roots.add(root)
+                    sub_key = (
+                        full_key.split(".", 1)[1]
+                        if "." in full_key
+                        else full_key
+                    )
+
+                    old_val = diff.get("old")
+                    new_val = diff.get("new")
+
+                    if isinstance(new_val, list) or isinstance(old_val, list):
+                        total_item_changes += _changed_item_count(old_val, new_val)
+                    elif (
+                        isinstance(new_val, dict)
+                        and "input_data" in new_val
+                        or isinstance(old_val, dict)
+                        and "input_data" in old_val
+                    ):
+                        old_prov = old_val if isinstance(old_val, dict) else {}
+                        new_prov = new_val if isinstance(new_val, dict) else {}
+                        total_item_changes += _changed_item_count(
+                            old_prov.get("input_data"), new_prov.get("input_data")
+                        )
+                        if old_prov.get("pairing_key") != new_prov.get("pairing_key"):
+                            total_item_changes += 1
+                    else:
+                        total_item_changes += 1
+
+                    detail_items.append(
+                        {
+                            "key": sub_key,
+                            "root": root,
+                            "type": "standard",
+                            "old": old_val,
+                            "new": new_val,
+                        }
+                    )
+
+                root_label = next(iter(roots)) if len(roots) == 1 else "General"
+
+                label_noun = "item" if root_label in ["alarm_config", "provisioning", "registers"] else "field"
+                entry.summary = {
+                    "root": root_label,
+                    "count": total_item_changes,
+                    "label": f"{total_item_changes} {label_noun}{'s' if total_item_changes != 1 else ''} modified",
+                    "details": detail_items,
+                }
+
+        ctx["history"] = history_entries
         return ctx
 
 
