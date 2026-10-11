@@ -137,6 +137,7 @@ TEMPLATES = [
                 "core.context_processors.auto_logout",
                 "core.context_processors.nav_section",
                 "library.context_processors.unpublished_changes",
+                "core.return_url.next_url",
             ],
         },
     },

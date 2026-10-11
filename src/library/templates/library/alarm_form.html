@@ -17,6 +17,7 @@
     <div class="p-6">
         <form method="post">
             {% csrf_token %}
+            {% include "partials/next_field.html" %}
             {% if form.non_field_errors %}
             <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                 {% for error in form.non_field_errors %}
@@ -34,7 +35,7 @@
             {% endfor %}
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">Save</button>
-                <a href="{% url 'library:alarm-list' %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
+                <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'library:alarm-list' %}{% endif %}" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">Cancel</a>
             </div>
         </form>
     </div>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 
 {% block title %}{{ vendor.name }} - {{ COMPANY_NAME }}{% endblock %}
 
@@ -17,7 +18,7 @@
     {% if user.is_editor %}
     <button
         data-confirm-delete="{{ vendor.name }}"
-        data-delete-url="{% url 'library:vendor-delete' vendor.slug %}"
+        data-delete-url="{% url_with_next 'library:vendor-delete' vendor.slug %}"
         class="border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 text-sm font-medium">
         <i class="bi bi-trash mr-1"></i>Delete
     </button>
