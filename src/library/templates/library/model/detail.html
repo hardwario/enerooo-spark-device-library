@@ -522,8 +522,8 @@
                             <td class="py-2 px-2 pr-4 sm:pr-6 whitespace-nowrap text-right">
                                 {% if user.is_editor %}
                                 <div class="inline-flex gap-1">
-                                    <a href="{% url 'library:register-edit' reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit register" aria-label="Edit register"><i class="bi bi-pencil"></i></a>
-                                    <a href="{% url 'library:register-delete' reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete register" aria-label="Delete register"><i class="bi bi-trash"></i></a>
+                                    <a href="{% url_with_next 'library:register-edit' device.pk reg.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit register" aria-label="Edit register"><i class="bi bi-pencil"></i></a>
+                                    <button type="button" data-confirm-delete="register {{ reg.field_name }}" data-delete-url="{% url_with_next 'library:register-delete' device.pk reg.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete register" aria-label="Delete register {{ reg.field_name }}"><i class="bi bi-trash"></i></button>
                                 </div>
                                 {% endif %}
                             </td>

@@ -165,8 +165,7 @@ def admin_pages(model, gateway):
         f"/models/{m}/alarm-config/edit/",
         f"/models/{m}/provisioning/edit/",
         f"/models/{m}/registers/create/",
-        f"/registers/{register.pk}/edit/",
-        f"/registers/{register.pk}/delete/",
+        f"/models/{m}/registers/{register.pk}/edit/",
         f"/models/{m}/procedure/edit/",
     ]
 

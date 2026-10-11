@@ -30,7 +30,6 @@ _MODELS = [
     "image-file",
     "procedure-edit",
     "procedure-delete",
-    "register-list",
     "register-create",
     "register-edit",
     "register-delete",
