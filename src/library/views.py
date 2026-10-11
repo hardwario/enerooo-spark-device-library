@@ -10,7 +10,7 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
 from auditlog.helpers import log_action
 from auditlog.models import AuditLog
@@ -682,7 +682,7 @@ def model_table_queryset():
 
 
 class VendorModelListView(LoginRequiredMixin, ListView):
-    template_name = "library/devicetype_list.html"
+    template_name = "library/model/list.html"
     context_object_name = "models"
     paginate_by = 50
     ALLOWED_SORT_FIELDS = {
@@ -733,7 +733,7 @@ class VendorModelListView(LoginRequiredMixin, ListView):
 
 
 class VendorModelDetailView(LoginRequiredMixin, DetailView):
-    template_name = "library/devicetype_detail.html"
+    template_name = "library/model/detail.html"
     model = VendorModel
     context_object_name = "device"
 
@@ -898,7 +898,7 @@ class VendorModelCreateView(RoleRequiredMixin, CreateView):
     required_role = User.Role.EDITOR
     model = VendorModel
     form_class = VendorModelForm
-    template_name = "library/devicetype_form.html"
+    template_name = "library/model/form.html"
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -914,7 +914,7 @@ class VendorModelUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     required_role = User.Role.EDITOR
     model = VendorModel
     form_class = VendorModelForm
-    template_name = "library/devicetype_form.html"
+    template_name = "library/model/form.html"
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -1328,13 +1328,6 @@ class AlarmConfigUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
 # === Registers ===
 
 
-class RegisterListView(LoginRequiredMixin, ListView):
-    """Redirect to device detail (registers shown inline)."""
-
-    def get(self, request, device_pk):
-        return redirect("library:model-detail", pk=device_pk)
-
-
 class RegisterCreateView(ReturnUrlMixin, RoleRequiredMixin, CreateView):
     required_role = User.Role.EDITOR
     model = RegisterDefinition
@@ -1369,6 +1362,9 @@ class RegisterUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
     form_class = RegisterDefinitionForm
     template_name = "library/register_form.html"
 
+    def get_queryset(self):
+        return RegisterDefinition.objects.filter(modbus_config__device_type_id=self.kwargs["device_pk"])
+
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         device = obj.modbus_config.device_type
@@ -1391,27 +1387,41 @@ class RegisterUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
         return self.get_return_url(reverse_lazy("library:model-detail", kwargs={"pk": self.object.modbus_config.device_type.pk}))
 
 
-class RegisterDeleteView(RoleRequiredMixin, DeleteView):
+class RegisterDeleteView(RoleRequiredMixin, View):
     required_role = User.Role.EDITOR
-    model = RegisterDefinition
-    template_name = "library/register_confirm_delete.html"
 
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        device = self.object.modbus_config.device_type
+    def post(self, request, device_pk, pk):
+        register = get_object_or_404(RegisterDefinition, pk=pk, modbus_config__device_type_id=device_pk)
+        device = register.modbus_config.device_type
         old_snapshot = snapshot_device(device)
-        reg_name = self.object.field_name
-        self.object.delete()
+        reg_name = register.field_name
+        register.delete()
         record_history(device, DeviceHistory.Action.UPDATED, request.user, old_snapshot)
-        log_action(request, "deleted", self.object, details=f"Register '{reg_name}' removed from {device}")
+        log_action(request, "deleted", register, details=f"Register '{reg_name}' removed from {device}")
         return redirect_back(request, reverse("library:model-detail", args=[device.pk]))
+
+
+class LegacyRegisterRedirectView(LoginRequiredMixin, View):
+    """Old ``/registers/<pk>/edit|delete/`` paths, from before registers were nested under the model.
+
+    Kept for bookmarks and open tabs; remove after one release.
+    """
+
+    action = "edit"
+
+    def get(self, request, pk):
+        register = get_object_or_404(RegisterDefinition.objects.select_related("modbus_config"), pk=pk)
+        device_pk = register.modbus_config.device_type_id
+        if self.action == "edit":
+            return redirect(with_next(request, reverse("library:register-edit", args=[device_pk, pk])))
+        return redirect("library:model-detail", pk=device_pk)
 
 
 # === Device History ===
 
 
 class DeviceHistoryDiffView(LoginRequiredMixin, TemplateView):
-    template_name = "library/devicetype_history_diff.html"
+    template_name = "library/model/history_diff.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1545,7 +1555,7 @@ class DeviceTypeHistorySnapshotView(LoginRequiredMixin, TemplateView):
 class DeviceHistorySnapshotView(LoginRequiredMixin, TemplateView):
     """Read-only view of a device at a specific history version."""
 
-    template_name = "library/devicetype_history_snapshot.html"
+    template_name = "library/model/history_snapshot.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

@@ -99,22 +99,24 @@ urlpatterns = [
         name="alarm-config-edit",
     ),
     # Registers (for Modbus models)
-    path("models/<uuid:device_pk>/registers/", views.RegisterListView.as_view(), name="register-list"),
     path(
         "models/<uuid:device_pk>/registers/create/",
         views.RegisterCreateView.as_view(),
         name="register-create",
     ),
     path(
-        "registers/<uuid:pk>/edit/",
+        "models/<uuid:device_pk>/registers/<uuid:pk>/edit/",
         views.RegisterUpdateView.as_view(),
         name="register-edit",
     ),
     path(
-        "registers/<uuid:pk>/delete/",
+        "models/<uuid:device_pk>/registers/<uuid:pk>/delete/",
         views.RegisterDeleteView.as_view(),
         name="register-delete",
     ),
+    # Pre-nesting register paths, redirected for one release (no names: nothing should link to them).
+    path("registers/<uuid:pk>/edit/", views.LegacyRegisterRedirectView.as_view(action="edit")),
+    path("registers/<uuid:pk>/delete/", views.LegacyRegisterRedirectView.as_view(action="delete")),
     # Import/Export
     path("import/", views.ImportView.as_view(), name="import"),
     path("export/", views.ExportView.as_view(), name="export"),
