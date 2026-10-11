@@ -58,7 +58,7 @@ device_types:
 
 ## Web UI Conventions
 
-Pages are being redesigned one at a time; `src/library/templates/library/devicetype_detail.html` is the reference for updated pages.
+Pages are being redesigned one at a time; `src/library/templates/library/model/detail.html` is the reference for updated pages.
 
 - **Tailwind** is v3 from the Play CDN (`src/templates/base.html`), so there is no build step: arbitrary values (`grid-cols-[...]`) and the `container-queries` plugin work directly.
 - **Size layouts by the content area, not the viewport.** From `md` up, the app nav takes 224px, so viewport breakpoints don't match the space a page actually has. An updated page opts in with `{% block main_container %}@container{% endblock %}` and uses `@2xl:` / `@5xl:` for layout changes (columns, card grids, header row vs. stacked). `sm:` is fine for small cosmetic tweaks such as padding.
