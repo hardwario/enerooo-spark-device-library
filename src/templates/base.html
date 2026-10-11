@@ -88,58 +88,58 @@
             <div class="flex flex-col flex-1 pt-3 px-2">
                 <ul class="space-y-0.5">
                     <li>
-                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'library:dashboard' %}">
+                        <a class="nav-link {% if nav_section == 'dashboard' %}active{% endif %}" href="{% url 'library:dashboard' %}">
                             <i data-lucide="gauge" class="w-4 h-4 mr-2 shrink-0"></i>Dashboard
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'metric' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:metric-list' %}">
+                        <a class="nav-link {% if nav_section == 'metrics' %}active{% endif %}" href="{% url 'library:metric-list' %}">
                             <i data-lucide="ruler" class="w-4 h-4 mr-2 shrink-0"></i>Metrics
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'alarm' in request.resolver_match.url_name and 'config' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:alarm-list' %}">
+                        <a class="nav-link {% if nav_section == 'alarms' %}active{% endif %}" href="{% url 'library:alarm-list' %}">
                             <i data-lucide="bell-ring" class="w-4 h-4 mr-2 shrink-0"></i>Alarms
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'devicetype' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:devicetype-list' %}">
+                        <a class="nav-link {% if nav_section == 'device-types' %}active{% endif %}" href="{% url 'library:devicetype-list' %}">
                             <i data-lucide="shapes" class="w-4 h-4 mr-2 shrink-0"></i>Device Types
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'vendor' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:vendor-list' %}">
+                        <a class="nav-link {% if nav_section == 'vendors' %}active{% endif %}" href="{% url 'library:vendor-list' %}">
                             <i data-lucide="building-2" class="w-4 h-4 mr-2 shrink-0"></i>Vendors
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'model' in request.resolver_match.url_name and 'devicetype' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:model-list' %}">
+                        <a class="nav-link {% if nav_section == 'models' %}active{% endif %}" href="{% url 'library:model-list' %}">
                             <i data-lucide="cpu" class="w-4 h-4 mr-2 shrink-0"></i>Models
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'wmbus-mapping' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:wmbus-mappings' %}">
+                        <a class="nav-link {% if nav_section == 'wmbus-mappings' %}active{% endif %}" href="{% url 'library:wmbus-mappings' %}">
                             <i data-lucide="table-2" class="w-4 h-4 mr-2 shrink-0"></i>wM-Bus Mappings
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'version' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:version-list' %}">
+                        <a class="nav-link {% if nav_section == 'versions' %}active{% endif %}" href="{% url 'library:version-list' %}">
                             <i data-lucide="tag" class="w-4 h-4 mr-2 shrink-0"></i>Versions
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'apikey' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:apikey-list' %}">
+                        <a class="nav-link {% if nav_section == 'api-keys' %}active{% endif %}" href="{% url 'library:apikey-list' %}">
                             <i data-lucide="key-round" class="w-4 h-4 mr-2 shrink-0"></i>API Keys
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'gateway' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:gateway-list' %}">
+                        <a class="nav-link {% if nav_section == 'gateways' %}active{% endif %}" href="{% url 'library:gateway-list' %}">
                             <i data-lucide="router" class="w-4 h-4 mr-2 shrink-0"></i>Gateways
                         </a>
                     </li>
                     {% if user.is_admin_role %}
                     <li>
-                        <a class="nav-link {% if 'export' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'library:export' %}">
+                        <a class="nav-link {% if nav_section == 'export' %}active{% endif %}" href="{% url 'library:export' %}">
                             <i data-lucide="download" class="w-4 h-4 mr-2 shrink-0"></i>Export
                         </a>
                     </li>
@@ -149,18 +149,20 @@
                 <div class="border-t border-gray-200 my-2 mx-1"></div>
 
                 <ul class="space-y-0.5">
+                    {% if user.is_admin_role %}
                     <li>
-                        <a class="nav-link {% if request.resolver_match.url_name == 'user-list' or request.resolver_match.url_name == 'user-role' %}active{% endif %}" href="{% url 'core:user-list' %}">
+                        <a class="nav-link {% if nav_section == 'users' %}active{% endif %}" href="{% url 'core:user-list' %}">
                             <i data-lucide="users" class="w-4 h-4 mr-2 shrink-0"></i>Users
                         </a>
                     </li>
                     <li>
-                        <a class="nav-link {% if 'invitation' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'core:invitation-list' %}">
+                        <a class="nav-link {% if nav_section == 'invitations' %}active{% endif %}" href="{% url 'core:invitation-list' %}">
                             <i data-lucide="mail" class="w-4 h-4 mr-2 shrink-0"></i>Invitations
                         </a>
                     </li>
+                    {% endif %}
                     <li>
-                        <a class="nav-link {% if request.resolver_match.url_name == 'log-list' %}active{% endif %}" href="{% url 'auditlog:log-list' %}">
+                        <a class="nav-link {% if nav_section == 'activity' %}active{% endif %}" href="{% url 'auditlog:log-list' %}">
                             <i data-lucide="scroll-text" class="w-4 h-4 mr-2 shrink-0"></i>Activity Log
                         </a>
                     </li>
@@ -169,11 +171,13 @@
                 <div class="border-t border-gray-200 my-2 mx-1"></div>
 
                 <ul class="space-y-0.5">
+                    {% if user.is_staff %}
                     <li>
                         <a class="nav-link" href="{% url 'admin:index' %}">
                             <i data-lucide="settings" class="w-4 h-4 mr-2 shrink-0"></i>Admin
                         </a>
                     </li>
+                    {% endif %}
                     <li>
                         <a class="nav-link" href="{% url 'swagger-ui' %}">
                             <i data-lucide="file-code" class="w-4 h-4 mr-2 shrink-0"></i>API Docs

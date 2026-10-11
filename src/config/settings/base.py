@@ -135,6 +135,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.app_version",
                 "core.context_processors.auto_logout",
+                "core.context_processors.nav_section",
                 "library.context_processors.unpublished_changes",
             ],
         },
