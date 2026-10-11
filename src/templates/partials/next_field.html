@@ -1,0 +1,2 @@
+{# Posts the safe ?next= back so the view can return to where the user came from (core/return_url.py). #}
+{% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 {% load sorting %}
 {% load json_filters %}
 
@@ -14,7 +15,7 @@
         </p>
     </div>
     {% if user.is_admin_role %}
-    <a href="{% url 'library:metric-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+    <a href="{% url_with_next 'library:metric-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
         <i class="bi bi-plus-lg mr-1"></i>Add Metric
     </a>
     {% endif %}
@@ -64,7 +65,7 @@
             <tbody>
                 {% for m in metrics %}
                 <tr class="border-b hover:bg-gray-50">
-                    <td class="py-3 px-2"><a href="{% url 'library:metric-detail' m.pk %}" class="text-sm bg-gray-100 hover:bg-blue-100 hover:text-blue-700 px-1 rounded font-mono">{{ m.key }}</a></td>
+                    <td class="py-3 px-2"><a href="{% url_with_next 'library:metric-detail' m.pk %}" class="text-sm bg-gray-100 hover:bg-blue-100 hover:text-blue-700 px-1 rounded font-mono">{{ m.key }}</a></td>
                     <td class="py-3 px-2">{{ m.label }}</td>
                     <td class="py-3 px-2">
                         {% if m.unit %}
@@ -124,10 +125,10 @@
                     </td>
                     {% if user.is_admin_role %}
                     <td class="py-3 px-2 flex gap-1">
-                        <a href="{% url 'library:metric-edit' m.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit">
+                        <a href="{% url_with_next 'library:metric-edit' m.pk %}" class="border border-gray-300 px-2 py-1 rounded text-sm hover:bg-gray-50" title="Edit">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="{% url 'library:metric-delete' m.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete">
+                        <a href="{% url_with_next 'library:metric-delete' m.pk %}" class="border border-red-300 text-red-600 px-2 py-1 rounded text-sm hover:bg-red-50" title="Delete">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>

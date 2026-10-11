@@ -136,6 +136,7 @@ TEMPLATES = [
                 "core.context_processors.app_version",
                 "core.context_processors.auto_logout",
                 "library.context_processors.unpublished_changes",
+                "core.return_url.next_url",
             ],
         },
     },

@@ -25,6 +25,7 @@
 
 <form method="post">
     {% csrf_token %}
+    {% include "partials/next_field.html" %}
 
     {% if form.errors %}
     <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
@@ -58,7 +59,7 @@
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
             <i class="bi bi-check-lg mr-1"></i> Save procedure
         </button>
-        <a href="{% url 'library:model-assets' device.pk %}" class="border border-gray-300 px-5 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors">Cancel</a>
+        <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'library:model-assets' device.pk %}{% endif %}" class="border border-gray-300 px-5 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors">Cancel</a>
     </div>
 </form>
 {% endblock %}
