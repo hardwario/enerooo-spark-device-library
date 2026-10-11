@@ -291,7 +291,7 @@
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
                   || '{{ csrf_token }}';
         Swal.fire({
-            title: 'Delete ' + name + '?',
+            titleText: 'Delete ' + name + '?',
             text: 'This action cannot be undone.',
             icon: 'warning',
             showCancelButton: true,
@@ -323,7 +323,7 @@
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
                   || '{{ csrf_token }}';
         Swal.fire({
-            title: title,
+            titleText: title,
             text: text,
             icon: 'question',
             showCancelButton: true,
