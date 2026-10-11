@@ -13,6 +13,7 @@ urlpatterns = [
     path("vendors/", views.VendorListView.as_view(), name="vendor-list"),
     path("vendors/create/", views.VendorCreateView.as_view(), name="vendor-create"),
     path("vendors/<slug:slug>/", views.VendorDetailView.as_view(), name="vendor-detail"),
+    path("vendors/<slug:slug>/edit/", views.VendorUpdateView.as_view(), name="vendor-edit"),
     path("vendors/<slug:slug>/delete/", views.VendorDeleteView.as_view(), name="vendor-delete"),
     # Metrics (L1 catalogue)
     path("metrics/", views.MetricListView.as_view(), name="metric-list"),

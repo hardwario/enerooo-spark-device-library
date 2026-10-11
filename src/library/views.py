@@ -137,6 +137,32 @@ class VendorCreateView(RoleRequiredMixin, CreateView):
         return reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug})
 
 
+class VendorUpdateView(ReturnUrlMixin, RoleRequiredMixin, UpdateView):
+    required_role = User.Role.EDITOR
+    model = Vendor
+    form_class = VendorForm
+    template_name = "library/vendor_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # The form copies submitted values onto self.object even when invalid;
+        # the breadcrumb and Cancel need the saved name and slug.
+        ctx["saved_vendor"] = Vendor.objects.get(pk=self.object.pk)
+        return ctx
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request, "updated", self.object)
+        return response
+
+    def get_success_url(self):
+        # Slug may have changed: a next pointing at the old detail URL would 404.
+        old_detail = reverse("library:vendor-detail", args=[self.kwargs["slug"]])
+        return self.get_return_url(
+            reverse_lazy("library:vendor-detail", kwargs={"slug": self.object.slug}), exclude_prefix=old_detail
+        )
+
+
 class VendorDeleteView(RoleRequiredMixin, View):
     required_role = User.Role.EDITOR
 
@@ -161,7 +187,7 @@ class VendorDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["models"] = self.object.device_types.select_related("vendor").all()
+        ctx["models"] = model_table_queryset().filter(vendor=self.object).order_by("model_number")
         return ctx
 
 
@@ -512,7 +538,7 @@ class DeviceTypeDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["vendor_models"] = self.object.vendor_models.select_related("vendor").order_by(
+        ctx["vendor_models"] = model_table_queryset().filter(device_type_fk=self.object).order_by(
             "vendor__name", "model_number",
         )
         ctx["history"] = self.object.history.select_related("user").all()[:20]
@@ -643,6 +669,18 @@ def _changed_item_count(old, new):
     )
 
 
+def model_table_queryset():
+    """Models with what ``partials/model_table.html`` shows, incl. the latest history version."""
+    latest_version = (
+        DeviceHistory.objects.filter(device=OuterRef("pk"))
+        .order_by("-version")
+        .values("version")[:1]
+    )
+    return VendorModel.objects.select_related("vendor", "device_type_fk").annotate(
+        current_version=Subquery(latest_version),
+    )
+
+
 class VendorModelListView(LoginRequiredMixin, ListView):
     template_name = "library/devicetype_list.html"
     context_object_name = "models"
@@ -657,14 +695,7 @@ class VendorModelListView(LoginRequiredMixin, ListView):
     }
 
     def get_queryset(self):
-        latest_version = (
-            DeviceHistory.objects.filter(device=OuterRef("pk"))
-            .order_by("-version")
-            .values("version")[:1]
-        )
-        qs = VendorModel.objects.select_related("vendor", "device_type_fk").annotate(
-            current_version=Subquery(latest_version),
-        )
+        qs = model_table_queryset()
         vendor = self.request.GET.get("vendor")
         technology = self.request.GET.get("technology")
         device_type = self.request.GET.get("device_type")

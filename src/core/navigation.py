@@ -57,7 +57,13 @@ _SECTIONS = {
         "library:devicetype-history-snapshot",
         "library:devicetype-history-diff",
     ],
-    "vendors": ["library:vendor-list", "library:vendor-create", "library:vendor-detail", "library:vendor-delete"],
+    "vendors": [
+        "library:vendor-list",
+        "library:vendor-create",
+        "library:vendor-detail",
+        "library:vendor-edit",
+        "library:vendor-delete",
+    ],
     "models": [f"library:{name}" for name in _MODELS],
     "wmbus-mappings": ["library:wmbus-mappings"],
     "versions": [

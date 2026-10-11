@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load return_to %}
 {% load json_filters device_tags %}
 
 {% block title %}{{ device.name }} - {{ COMPANY_NAME }}{% endblock %}
@@ -79,7 +80,7 @@
         </a>
         <button
             data-confirm-delete="{{ device.vendor.name }} {{ device.model_number }}"
-            data-delete-url="{% url 'library:model-delete' device.pk %}"
+            data-delete-url="{% url_with_next 'library:model-delete' device.pk %}"
             class="border border-red-600 text-red-600 px-3.5 py-2 @2xl:py-1.5 rounded-md hover:bg-red-50 text-sm font-medium transition inline-flex items-center justify-center gap-1.5 shadow-sm">
             <i class="bi bi-trash"></i>
             <span>Delete</span>

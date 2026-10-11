@@ -6,22 +6,22 @@
 <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
 
 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-blue-600 text-white rounded-lg shadow p-6">
+    <a href="{% url 'library:vendor-list' %}" class="block bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow p-6 transition-colors">
         <h5 class="text-sm font-medium opacity-90">Vendors</h5>
         <p class="text-4xl font-bold mt-2">{{ vendor_count }}</p>
-    </div>
-    <div class="bg-green-600 text-white rounded-lg shadow p-6">
+    </a>
+    <a href="{% url 'library:model-list' %}" class="block bg-green-600 hover:bg-green-700 text-white rounded-lg shadow p-6 transition-colors">
         <h5 class="text-sm font-medium opacity-90">Models</h5>
         <p class="text-4xl font-bold mt-2">{{ model_count }}</p>
-    </div>
-    <div class="bg-cyan-500 text-white rounded-lg shadow p-6">
+    </a>
+    <a href="{% url 'library:version-list' %}" class="block bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg shadow p-6 transition-colors">
         <h5 class="text-sm font-medium opacity-90">Current Version</h5>
         <p class="text-4xl font-bold mt-2">{{ current_version|default:"—" }}</p>
-    </div>
-    <div class="bg-yellow-500 text-white rounded-lg shadow p-6">
+    </a>
+    <a href="{% url 'library:apikey-list' %}" class="block bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg shadow p-6 transition-colors">
         <h5 class="text-sm font-medium opacity-90">API Keys</h5>
         <p class="text-4xl font-bold mt-2">{{ apikey_count }}</p>
-    </div>
+    </a>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -35,7 +35,7 @@
                     {% for tech in tech_breakdown %}
                     <tr class="border-b last:border-0">
                         <td class="py-2">
-                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if tech.technology == 'modbus' %}bg-[#0d6efd]{% elif tech.technology == 'lorawan' %}bg-[#198754]{% elif tech.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ tech.technology }}</span>
+                            <a href="{% url 'library:model-list' %}?technology={{ tech.technology|urlencode }}" class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full text-white {% if tech.technology == 'modbus' %}bg-[#0d6efd]{% elif tech.technology == 'lorawan' %}bg-[#198754]{% elif tech.technology == 'wmbus' %}bg-[#6f42c1]{% else %}bg-gray-500{% endif %}">{{ tech.technology }}</a>
                         </td>
                         <td class="py-2 text-right">{{ tech.count }}</td>
                     </tr>
@@ -53,7 +53,7 @@
                 <tbody>
                     {% for dt in type_breakdown %}
                     <tr class="border-b last:border-0">
-                        <td class="py-2">{{ dt.device_type }}</td>
+                        <td class="py-2"><a href="{% url 'library:model-list' %}?device_type={{ dt.device_type|urlencode }}" class="text-blue-600 hover:text-blue-800">{{ dt.device_type }}</a></td>
                         <td class="py-2 text-right">{{ dt.count }}</td>
                     </tr>
                     {% endfor %}
